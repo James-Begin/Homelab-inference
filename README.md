@@ -1,6 +1,8 @@
 # Homelab-inference
 https://open.substack.com/pub/james908142/p/teaching-an-old-xeon-new-tricks-a?r=2i1s82&utm_campaign=post-expanded-share&utm_medium=web
 
+This is meant to be a space for the raw results and any other appendix like material. While thats being added, see a copy of the substack article.
+
 I happen to have two Intel Xeon E5-2680 v4 chips sitting in a Dell PowerEdge T630. Broadwell. Released in 2016. No AVX-512 (a wider 512-bit SIMD instruction set that pushes twice the data through each instruction compared to this chip’s 256-bit AVX2). No AMX (Intel’s dedicated matrix-multiply accelerator on newer Xeons). No VNNI, a single instruction that does an 8-bit integer multiply-and-accumulate in one shot. Without it, every quantized dot product on this chip needs a software workaround, and that becomes its own subplot later. Just 14 cores per socket, plus a memory controller that tops out at 76.8 GB/s on paper (less in practice).
 
 And that’s the box I decided to run a 35-billion-parameter Mixture-of-Experts model on, as my daily long-context coding assistant. I wanted actual 256k token coding sessions, the kind where you paste in a whole codebase and ask for a rewrite (and it doesn’t work at all but looks good).
