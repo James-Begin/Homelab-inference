@@ -1,0 +1,362 @@
+[
+  {
+    "id": "gpqa_110",
+    "expected": "A",
+    "predicted": "A",
+    "passed": true,
+    "gen_speed": 19.22,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 82.7
+  },
+  {
+    "id": "gpqa_42",
+    "expected": "A",
+    "predicted": "A",
+    "passed": true,
+    "gen_speed": 19.51,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 80.9
+  },
+  {
+    "id": "gpqa_2",
+    "expected": "B",
+    "predicted": null,
+    "passed": false,
+    "gen_speed": 19.62,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 80.2
+  },
+  {
+    "id": "gpqa_156",
+    "expected": "A",
+    "predicted": "A",
+    "passed": true,
+    "gen_speed": 18.84,
+    "pp_speed": 0.0,
+    "tokens": 498,
+    "dt": 28.5
+  },
+  {
+    "id": "gpqa_128",
+    "expected": "A",
+    "predicted": "A",
+    "passed": true,
+    "gen_speed": 18.43,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 85.6
+  },
+  {
+    "id": "gpqa_12",
+    "expected": "D",
+    "predicted": "C",
+    "passed": false,
+    "gen_speed": 18.54,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 85.5
+  },
+  {
+    "id": "gpqa_79",
+    "expected": "D",
+    "predicted": "A",
+    "passed": false,
+    "gen_speed": 19.17,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 81.8
+  },
+  {
+    "id": "gpqa_13",
+    "expected": "B",
+    "predicted": "B",
+    "passed": true,
+    "gen_speed": 16.71,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 93.6
+  },
+  {
+    "id": "gpqa_127",
+    "expected": "D",
+    "predicted": "A",
+    "passed": false,
+    "gen_speed": 26.35,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 77.3
+  },
+  {
+    "id": "gpqa_69",
+    "expected": "C",
+    "predicted": "C",
+    "passed": true,
+    "gen_speed": 19.88,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 79.1
+  },
+  {
+    "id": "gpqa_3",
+    "expected": "C",
+    "predicted": "A",
+    "passed": false,
+    "gen_speed": 18.61,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 84.1
+  },
+  {
+    "id": "gpqa_185",
+    "expected": "A",
+    "predicted": "A",
+    "passed": true,
+    "gen_speed": 19.18,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 82.0
+  },
+  {
+    "id": "gpqa_30",
+    "expected": "B",
+    "predicted": "A",
+    "passed": false,
+    "gen_speed": 17.91,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 87.4
+  },
+  {
+    "id": "gpqa_165",
+    "expected": "C",
+    "predicted": "A",
+    "passed": false,
+    "gen_speed": 17.62,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 93.1
+  },
+  {
+    "id": "gpqa_169",
+    "expected": "C",
+    "predicted": "C",
+    "passed": true,
+    "gen_speed": 20.36,
+    "pp_speed": 0.0,
+    "tokens": 1086,
+    "dt": 55.0
+  },
+  {
+    "id": "gpqa_15",
+    "expected": "D",
+    "predicted": "C",
+    "passed": false,
+    "gen_speed": 18.15,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 86.5
+  },
+  {
+    "id": "gpqa_159",
+    "expected": "A",
+    "predicted": "C",
+    "passed": false,
+    "gen_speed": 19.43,
+    "pp_speed": 0.0,
+    "tokens": 1199,
+    "dt": 63.5
+  },
+  {
+    "id": "gpqa_36",
+    "expected": "B",
+    "predicted": "C",
+    "passed": false,
+    "gen_speed": 19.16,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 81.8
+  },
+  {
+    "id": "gpqa_134",
+    "expected": "D",
+    "predicted": "A",
+    "passed": false,
+    "gen_speed": 18.98,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 84.0
+  },
+  {
+    "id": "gpqa_44",
+    "expected": "C",
+    "predicted": "C",
+    "passed": true,
+    "gen_speed": 18.99,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 82.9
+  },
+  {
+    "id": "gpqa_5",
+    "expected": "C",
+    "predicted": "A",
+    "passed": false,
+    "gen_speed": 17.12,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 92.0
+  },
+  {
+    "id": "gpqa_53",
+    "expected": "B",
+    "predicted": "C",
+    "passed": false,
+    "gen_speed": 18.27,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 86.4
+  },
+  {
+    "id": "gpqa_84",
+    "expected": "B",
+    "predicted": "A",
+    "passed": false,
+    "gen_speed": 20.04,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 78.8
+  },
+  {
+    "id": "gpqa_80",
+    "expected": "D",
+    "predicted": "A",
+    "passed": false,
+    "gen_speed": 18.01,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 87.3
+  },
+  {
+    "id": "gpqa_64",
+    "expected": "D",
+    "predicted": "A",
+    "passed": false,
+    "gen_speed": 19.04,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 83.3
+  },
+  {
+    "id": "gpqa_73",
+    "expected": "D",
+    "predicted": null,
+    "passed": false,
+    "gen_speed": 18.99,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 82.5
+  },
+  {
+    "id": "gpqa_37",
+    "expected": "A",
+    "predicted": "A",
+    "passed": true,
+    "gen_speed": 17.59,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 89.9
+  },
+  {
+    "id": "gpqa_126",
+    "expected": "B",
+    "predicted": "C",
+    "passed": false,
+    "gen_speed": 18.76,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 83.4
+  },
+  {
+    "id": "gpqa_122",
+    "expected": "B",
+    "predicted": "A",
+    "passed": false,
+    "gen_speed": 18.2,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 86.5
+  },
+  {
+    "id": "gpqa_78",
+    "expected": "A",
+    "predicted": "A",
+    "passed": true,
+    "gen_speed": 17.72,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 89.8
+  },
+  {
+    "id": "gpqa_160",
+    "expected": "A",
+    "predicted": "C",
+    "passed": false,
+    "gen_speed": 18.87,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 84.0
+  },
+  {
+    "id": "gpqa_66",
+    "expected": "C",
+    "predicted": "C",
+    "passed": true,
+    "gen_speed": 18.65,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 84.8
+  },
+  {
+    "id": "gpqa_45",
+    "expected": "C",
+    "predicted": "C",
+    "passed": true,
+    "gen_speed": 17.93,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 86.9
+  },
+  {
+    "id": "gpqa_184",
+    "expected": "C",
+    "predicted": "B",
+    "passed": false,
+    "gen_speed": 19.94,
+    "pp_speed": 0.0,
+    "tokens": 1021,
+    "dt": 53.0
+  },
+  {
+    "id": "gpqa_32",
+    "expected": "B",
+    "predicted": "A",
+    "passed": false,
+    "gen_speed": 17.7,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 89.2
+  },
+  {
+    "id": "gpqa_52",
+    "expected": "D",
+    "predicted": "A",
+    "passed": false,
+    "gen_speed": 18.27,
+    "pp_speed": 0.0,
+    "tokens": 1536,
+    "dt": 86.3
+  }
+]
