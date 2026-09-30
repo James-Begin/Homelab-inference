@@ -1,7 +1,38 @@
 # Homelab-inference
 https://open.substack.com/pub/james908142/p/teaching-an-old-xeon-new-tricks-a?r=2i1s82&utm_campaign=post-expanded-share&utm_medium=web
 
-This is meant to be a space for the raw results and any other appendix like material. While thats being added, see a copy of the substack article.
+This is meant to be a space for the raw results, benchmark logs, and evaluation reports. 
+
+## Repository Contents
+
+- [`logs/optimization_tracker/optimization_log_50tps.md`](logs/optimization_tracker/optimization_log_50tps.md): **Master Campaign Tracker** containing full historical results from Run 0 through Run 56.
+- [`logs/gpqa_reports/`](logs/gpqa_reports/): Full 50-Question GPQA Diamond reasoning accuracy reports with per-question gold/prediction breakdown.
+- [`logs/extreme_context_reports/`](logs/extreme_context_reports/): Extended Needle Retrieval Ladder certifications across 16K, 32K, 64K, and 128K context depths.
+- [`logs/raw_checkpoints/`](logs/raw_checkpoints/): Raw JSON question checkpoints and pipeline execution queues.
+- [`benchmarks/`](benchmarks/): Autonomous self-healing test harness, watchdog supervisors, and evaluation scripts.
+
+---
+
+## Master Optimization Leaderboard (Recent Campaign Iterations)
+
+| Run # | Architecture / Optimization Strategy | Cores / Threads | 50Q GPQA Score | 20Q GPQA Subset | Avg Gen Speed | Peak Gen Speed | 16K $\rightarrow$ 128K Needle Status | Report Artifact |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **0** | Baseline (Single NUMA Pure Decode) | 10 / 28 | 16 / 50 (32.0%) | 7 / 20 (35.0%) | 11.16 t/s | 11.27 t/s | Baseline (4K Only) | [Report](logs/gpqa_reports/gpqa_exp0_single_numa_baseline_50q_report.md) |
+| **35** | Full 28 Cores Anti-SMT + Native MTP | 28 / 28 | 16 / 50 (32.0%) | 5 / 20 (25.0%) | **`20.81 t/s`** | 23.02 t/s | **100% PASSED** (8.00 t/s @ 128K) | [Report](logs/gpqa_reports/gpqa_exp35_phys_pinning_28threads_mtp_q4kv_50q_report.md) |
+| **46** | Full 28 Cores + Custom Dense Quant (`IQ4_XS` + `Q4_0` MoE) | 28 / 28 | **16 / 50 (32.0%)** | **8 / 20 (40.0%)** | **`22.50 t/s`** 🏆 | 23.88 t/s | **100% PASSED** (8.56 t/s @ 128K) | [Report](logs/gpqa_reports/gpqa_exp46_phys_pinning_28threads_iq4xs_dense_mtp_q4kv_50q_report.md) |
+| **47** | Full 28 Cores + `IQ4_XS` + Suffix ($n=8, m=5$) + MTP | 28 / 28 | **`18 / 50 (36.0%)`** 🏆 | **8 / 20 (40.0%)** | **`21.30 t/s`** | **`38.35 t/s`** 🚀 | **100% PASSED** (8.29 t/s @ 128K) | [Report](logs/gpqa_reports/gpqa_exp47_phys_pinning_28threads_iq4xs_suffix_match5_q4kv_50q_report.md) |
+| **48** | Full 28 Cores + `IQ4_XS` + `-muge` + Suffix ($n=8, m=5$) | 28 / 28 | **`18 / 50 (36.0%)`** 🏆 | **8 / 20 (40.0%)** | **`21.30 t/s`** | **`38.22 t/s`** 🚀 | **100% PASSED** (8.25 t/s @ 128K) | [Report](logs/gpqa_reports/gpqa_exp48_phys_pinning_28threads_iq4xs_muge_suffix_q4kv_50q_report.md) |
+| **49** | Full 28 Cores + `IQ4_NL` + `-muge` + Suffix ($n=8, m=5$) | 28 / 28 | **`17 / 50 (34.0%)`** 🏆 | **7 / 20 (35.0%)** | **20.91 t/s** | **`38.31 t/s`** 🚀 | **100% PASSED** (8.24 t/s @ 128K) | [Report](logs/gpqa_reports/gpqa_exp49_phys_pinning_28threads_iq4nl_muge_suffix_q4kv_50q_report.md) |
+| **50** | Full 28 Cores + Repacked GGUF + `-muge` + Suffix ($n=8, m=5$) | 28 / 28 | **`18 / 50 (36.0%)`** 🏆 | **8 / 20 (40.0%)** | **`21.33 t/s`** | **`38.23 t/s`** 🚀 | **100% PASSED** (8.23 t/s @ 128K) | [Report](logs/gpqa_reports/gpqa_exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv_50q_report.md) |
+| **51** | Repacked GGUF + Suffix ($n=10, m=6$) + MTP | 28 / 28 | 15 / 50 (30.0%) | **7 / 20 (35.0%)** | **21.19 t/s** | **`39.09 t/s`** 🚀 | **100% PASSED** (8.28 t/s @ 128K) | [Report](logs/gpqa_reports/gpqa_exp51_phys_pinning_28threads_repacked_iq4xs_muge_suffix_nmax10_match6_q4kv_50q_report.md) |
+| **52** | Repacked GGUF + Deep Suffix ($n=12, m=7$) + MTP | 28 / 28 | 13 / 50 (26.0%) ❌ | 6 / 20 (30.0%) | **`22.06 t/s`** | **`48.74 t/s`** 🚀🚀 | **100% PASSED** (8.28 t/s @ 128K) | [Report](logs/gpqa_reports/gpqa_exp52_phys_pinning_28threads_repacked_iq4xs_muge_suffix_nmax12_match7_q4kv_50q_report.md) |
+| **55** | Repacked GGUF + Calibrated DFlash ($n=3, p=0.45$) | 28 / 28 | 13 / 50 (26.0%) ❌ | **7 / 20 (35.0%)** | **20.28 t/s** | 26.32 t/s | **100% PASSED** (8.28 t/s @ 128K) | [Report](logs/gpqa_reports/gpqa_exp55_phys_pinning_28threads_repacked_iq4xs_muge_dflash_nmax3_pmin045_q4kv_50q_report.md) |
+| **56** | Repacked + Suffix + Draft 0.8B Fallback | 28 / 28 | **INCOMPATIBLE** | N/A | N/A | N/A | Skipped | [Autopsy](logs/gpqa_reports/gpqa_exp56_cascade_draft08b_postmortem.md) |
+| **57** | Repacked + Suffix ($n=8, m=5$) + Confidence MTP ($p=0.15$) | 28 / 28 | **IN-FLIGHT** | Active | **19.85 t/s** | Active | Queued | [Script](benchmarks/run_exp57_eval.py) |
+
+---
+
+## Substack Context & Architectural Background
 
 I happen to have two Intel Xeon E5-2680 v4 chips sitting in a Dell PowerEdge T630. Broadwell. Released in 2016. No AVX-512 (a wider 512-bit SIMD instruction set that pushes twice the data through each instruction compared to this chip’s 256-bit AVX2). No AMX (Intel’s dedicated matrix-multiply accelerator on newer Xeons). No VNNI, a single instruction that does an 8-bit integer multiply-and-accumulate in one shot. Without it, every quantized dot product on this chip needs a software workaround, and that becomes its own subplot later. Just 14 cores per socket, plus a memory controller that tops out at 76.8 GB/s on paper (less in practice).
 
