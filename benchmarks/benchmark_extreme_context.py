@@ -6,11 +6,13 @@ import subprocess
 import sys
 import time
 
+from paths import ROOT, bin_dir, expand, models_dir
+
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 
-MODEL_PATH = "/home/james/ik_llama.cpp/build/models/Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf"
-PASSKEY_BIN = "/home/james/ik_llama.cpp/build/bin/llama-passkey"
+MODEL_PATH = str(models_dir() / "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf")
+PASSKEY_BIN = str(bin_dir() / "llama-passkey")
 
 CONTEXT_LADDER = [
     {"label": "16K Context", "ctx": 16384, "junk": 1000},
@@ -20,6 +22,9 @@ CONTEXT_LADDER = [
 ]
 
 def run_passkey_step(ctx, junk, extra_flags="", numactl_prefix="numactl --interleave=all", threads=14, threads_batch=28, model_path=MODEL_PATH):
+    extra_flags = expand(extra_flags)
+    model_path = expand(model_path)
+    numactl_prefix = expand(numactl_prefix)
     cmd = (
         f"/usr/bin/time -v {numactl_prefix} {PASSKEY_BIN} "
         f"-m {model_path} -c {ctx} --junk {junk} -t {threads} -tb {threads_batch} -fa 1 "
@@ -130,8 +135,10 @@ def main():
         status = "PASSED" if res["passed"] else "FAILED"
         print(f">>> Result: {status} | Needle: {res['expected_passkey']} | PP Speed: {res['pp_speed']:.2f} t/s ({res['pp_time_sec']:.1f}s) | RAM: {res['max_rss_mb']:.1f} MB", flush=True)
         
-    slug = re.sub(r'[^a-zA-Z0-9_]+', '_', args.name.lower())
-    report_file = f"/home/james/.gemini/antigravity-cli/brain/816c1d65-6e4b-4024-8ad0-2ebd54f80461/extreme_context_{slug}_report.md"
+    slug = re.sub(r'[^a-zA-Z0-9_]+', '_', args.name.lower()).strip("_")
+    report_dir = ROOT / "logs" / "extreme_context_reports"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_file = report_dir / f"extreme_context_{slug}_report.md"
     
     with open(report_file, "w") as f:
         f.write(f"# Extreme Context Needle Retrieval Ladder: {args.name}\n\n")

@@ -6,18 +6,23 @@ import subprocess
 import sys
 import time
 import urllib.request
+from pathlib import Path
+
+from paths import ROOT, expand
 
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 
-SCRATCH_DIR = "/home/james/.gemini/antigravity-cli/brain/816c1d65-6e4b-4024-8ad0-2ebd54f80461/scratch"
-BRAIN_DIR = "/home/james/.gemini/antigravity-cli/brain/816c1d65-6e4b-4024-8ad0-2ebd54f80461"
-OPTIMIZATION_LOG = f"{BRAIN_DIR}/optimization_log_50tps.md"
-BENCHMARK_EXTREME_SCRIPT = f"{SCRATCH_DIR}/benchmark_extreme_context.py"
+OPTIMIZATION_LOG = ROOT / "logs" / "optimization_tracker" / "optimization_log_50tps.md"
+BENCHMARK_EXTREME_SCRIPT = ROOT / "benchmarks" / "benchmark_extreme_context.py"
+GPQA_EVAL = ROOT / "benchmarks" / "gpqa_eval.py"
+QUEUE_FILE = ROOT / "logs" / "raw_checkpoints" / "pipeline_queue.json"
+NEEDLE_DIR = ROOT / "logs" / "extreme_context_reports"
 
-PHYS_CORES = "0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27"
 
-QUEUE_FILE = f"{SCRATCH_DIR}/pipeline_queue.json"
+def repo_path(value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else ROOT / path
 
 def get_pipeline_experiments():
     if os.path.exists(QUEUE_FILE):
@@ -45,9 +50,10 @@ def supervise_experiment_gpqa(exp):
     exp_id = exp["id"]
     exp_name = exp["name"]
     unit_name = exp["unit"]
-    script_path = exp["script"]
-    cp_file = exp["checkpoint"]
+    number = re.search(r"(\d+)", exp_id).group(1)
+    cp_file = repo_path(exp["checkpoint"])
     port = exp.get("port", 8087)
+    launch = f"systemd-run --user --unit={unit_name} /usr/bin/python3 -u {GPQA_EVAL} --exp {number} --port {port}"
     consecutive_stalls = 0
 
     log("=======================================================")
@@ -80,7 +86,7 @@ def supervise_experiment_gpqa(exp):
             run_cmd(f"fuser -k {port}/tcp 2>/dev/null || true")
             time.sleep(2)
             run_cmd(f"systemctl --user reset-failed {unit_name} 2>/dev/null || true")
-            run_cmd(f"systemd-run --user --unit={unit_name} /usr/bin/python3 -u {script_path}")
+            run_cmd(launch)
             consecutive_stalls = 0
             time.sleep(10)
             continue
@@ -92,7 +98,7 @@ def supervise_experiment_gpqa(exp):
                 run_cmd(f"systemctl --user stop {unit_name}")
                 run_cmd(f"fuser -k {port}/tcp 2>/dev/null || true")
                 time.sleep(3)
-                run_cmd(f"systemd-run --user --unit={unit_name} /usr/bin/python3 -u {script_path}")
+                run_cmd(launch)
                 consecutive_stalls = 0
                 time.sleep(10)
                 continue
@@ -103,8 +109,8 @@ def supervise_experiment_gpqa(exp):
         time.sleep(20)
 
 def run_extreme_context_ladder(exp):
-    slug = re.sub(r'[^a-zA-Z0-9_]+', '_', exp["extreme_name"].lower())
-    report_file = f"{BRAIN_DIR}/extreme_context_{slug}_report.md"
+    slug = re.sub(r'[^a-zA-Z0-9_]+', '_', exp["extreme_name"].lower()).strip("_")
+    report_file = NEEDLE_DIR / f"extreme_context_{slug}_report.md"
 
     if os.path.exists(report_file):
         log(f"Extreme context certification already exists at {report_file}! Skipping ladder.")
@@ -114,15 +120,15 @@ def run_extreme_context_ladder(exp):
     log(f"STAGE: LAUNCHING EXTENDED NEEDLE RETRIEVAL LADDER FOR {exp['name']} (16K -> 128K)")
     log("=======================================================")
 
-    model_arg = f"--model \"{exp['model']}\" " if "model" in exp else ""
+    model_arg = f"--model \"{expand(exp['model'])}\" " if "model" in exp else ""
     cmd = (
         f"/usr/bin/python3 -u {BENCHMARK_EXTREME_SCRIPT} "
         f"--name \"{exp['extreme_name']}\" "
         f"--targets 16k,32k,64k,128k "
         f"{model_arg}"
-        f"--numactl \"{exp['extreme_numactl']}\" "
+        f"--numactl \"{expand(exp['extreme_numactl'])}\" "
         f"--threads {exp['threads']} --threads-batch {exp['threads_batch']} "
-        f"--extra-flags \"{exp['extreme_flags']}\""
+        f"--extra-flags \"{expand(exp['extreme_flags'])}\""
     )
     log(f"Executing: {cmd}")
     proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -133,11 +139,12 @@ def run_extreme_context_ladder(exp):
     log(f"{exp['id']} extreme context certification exited with code {proc.returncode}")
     if os.path.exists(report_file):
         try:
-            with open(report_file, "r") as f:
-                rep_content = f.read()
             with open(OPTIMIZATION_LOG, "a") as f:
-                f.write(f"\n\n## Extended Needle Retrieval Certification ({exp['name']})\n\n{rep_content}\n")
-            log(f"Appended extreme context report to {OPTIMIZATION_LOG}")
+                f.write(
+                    f"\n\n## Extended Needle Retrieval Certification ({exp['name']})\n\n"
+                    f"Full ladder report: [{report_file.name}](../extreme_context_reports/{report_file.name})\n"
+                )
+            log(f"Linked extreme context report from {OPTIMIZATION_LOG}")
         except Exception as e:
             log(f"Error appending report: {e}")
 
@@ -151,9 +158,9 @@ def main():
         experiments = get_pipeline_experiments()
         all_completed = True
         for exp in experiments:
-            slug = re.sub(r'[^a-zA-Z0-9_]+', '_', exp["extreme_name"].lower())
-            needle_report = f"{BRAIN_DIR}/extreme_context_{slug}_report.md"
-            gpqa_cp = exp["checkpoint"]
+            slug = re.sub(r'[^a-zA-Z0-9_]+', '_', exp["extreme_name"].lower()).strip("_")
+            needle_report = NEEDLE_DIR / f"extreme_context_{slug}_report.md"
+            gpqa_cp = repo_path(exp["checkpoint"])
 
             is_gpqa_done = False
             if os.path.exists(gpqa_cp):

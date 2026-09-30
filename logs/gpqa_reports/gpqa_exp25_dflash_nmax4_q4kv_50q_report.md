@@ -10,7 +10,7 @@
 ## Question-by-Question Breakdown
 
 | # | ID | Gold | Pred | Result | Tokens | Speed (t/s) | Wall Time (s) |
-| :-: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| :-: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | 1 | `gpqa_110` | A | A | CORRECT | 1536 | 17.86 | 88.27 |
 | 2 | `gpqa_42` | A | A | CORRECT | 1536 | 21.23 | 74.19 |
 | 3 | `gpqa_2` | B | B | CORRECT | 1536 | 24.75 | 63.60 |
