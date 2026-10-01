@@ -2,55 +2,379 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Homelab Inference</title>
+  <title>Teaching an old Xeon new tricks</title>
 </head>
 <!--
-  Substack title:    Homelab Inference
-  Substack subtitle: Qwen 3.6 35B-A3B on a 2016 Dell PowerEdge T630
+  Substack title:    Teaching an old Xeon new tricks
+  Substack subtitle: A 35B mixture-of-experts model on two 2016 Xeons
 
   Open this file in a browser, click in the page, Select All, Copy,
   then paste into the Substack post body. Put the title and subtitle
-  in Substack's fields. If either code sample pastes as plain text,
-  delete it, choose More → Code block, and paste the sample into that block.
+  in Substack's fields.
+
+  If the original essay is already in the editor, paste from the heading
+  "12. Coming back with a score" instead of replacing the whole post.
+
+  If a code sample lands as plain text, delete it, choose More → Code block,
+  and paste the sample into that block. The tables from the essay are lists,
+  because Substack has no table block.
 -->
 <body>
+<p>I happen to have two Intel Xeon E5-2680 v4 chips sitting in a Dell PowerEdge T630. Broadwell. Released in 2016. No AVX-512 (a wider 512-bit SIMD instruction set that pushes twice the data through each instruction compared to this chip’s 256-bit AVX2). No AMX (Intel’s dedicated matrix-multiply accelerator on newer Xeons). No VNNI, a single instruction that does an 8-bit integer multiply-and-accumulate in one shot. Without it, every quantized dot product on this chip needs a software workaround, and that becomes its own subplot later. Just 14 cores per socket, plus a memory controller that tops out at 76.8 GB/s on paper (less in practice).</p>
 
-<p>Qwen 3.6 35B-A3B on a 2016 Dell PowerEdge T630. Two Xeon E5-2680 v4s, AVX2 only, no AMX, and one socket of DDR4-2400. <a href="https://github.com/James-Begin/Homelab-inference">This repo</a> is the lab notebook for getting that box to serve a long-context coding model at more than 20 tokens per second.</p>
+<p>And that’s the box I decided to run a 35-billion-parameter Mixture-of-Experts model on, as my daily long-context coding assistant. I wanted actual 256k token coding sessions, the kind where you paste in a whole codebase and ask for a rewrite (and it doesn’t work at all but looks good).</p>
 
-<p><a href="https://github.com/James-Begin/Homelab-inference/blob/main/docs/writeup.md">Writeup</a> · <a href="https://github.com/James-Begin/Homelab-inference/blob/main/RESULTS.md">Full results</a></p>
+<p>The target model was Qwen 3.6 35B (MoE architecture, various quant levels along the way), served through ik_llama.cpp (a performance-focused llama.cpp fork with its own hand-tuned “IQK” kernel library). The goal was to get token generation comfortably past 20 tokens/second on a single CPU socket.</p>
 
-<h2>Hardware</h2>
+<p>TLDR baseline was 7.96 t/s. The best config I’ve landed on so far sits at 24.53 t/s, a +208% speedup, on hardware that AVX-512 forgot existed, and I’m still actively testing to pin these numbers down further.</p>
 
-<ul>
-  <li><strong>Machine:</strong> Dell PowerEdge T630</li>
-  <li><strong>CPUs:</strong> 2× Intel Xeon E5-2680 v4, 14 cores / 28 threads, 35 MB L3, AVX2 and FMA3</li>
-  <li><strong>Memory:</strong> 4-channel DDR4-2400 per socket, 76.8 GB/s theoretical on one node</li>
-  <li><strong>Engine:</strong> <a href="https://github.com/ikawrakow/ik_llama.cpp">ik_llama.cpp</a></li>
-  <li><strong>Model:</strong> Qwen3.6-35B-A3B, mixture-of-experts, about 3B parameters active per token</li>
-</ul>
+<h2>1. Setup</h2>
 
-<p>A dense 35B model at Q6_K is about 27 GB of weights. One socket can stream that once in roughly a third of a second, which is under 3 tokens per second. The model is runnable here because each token only pulls a few experts through RAM.</p>
-
-<h2>Results</h2>
-
-<p>The standardized runs are GPQA Diamond, 50 questions, 1,536 token ceiling. Earlier sweeps used 20 questions and a 384 token cap, so those scores are a different test. Every figure in this section is taken from the report files, which are tabulated in <a href="https://github.com/James-Begin/Homelab-inference/blob/main/RESULTS.md">RESULTS.md</a>.</p>
+<p>Before touching a single flag, here’s exactly what I was working with:</p>
 
 <ul>
-  <li><strong>Single-NUMA baseline (run 0).</strong> 11.16 t/s average, GPQA 16 / 50.</li>
-  <li><strong>Best accuracy (run 5).</strong> 19.26 t/s, 22 / 50.</li>
-  <li><strong>Fastest average that held the baseline score (run 46).</strong> 22.50 t/s, 16 / 50.</li>
-  <li><strong>Best later score (runs 47, 48, and 50).</strong> 21.30–21.33 t/s, 18 / 50.</li>
+<li><strong>CPU:</strong> 2× Intel Xeon E5-2680 v4 (Broadwell), 14 physical cores / 28 threads each, 35MB L3 cache per socket, AVX2 + FMA3 only.</li>
+<li><strong>Memory:</strong> 4-channel DDR4-2400 per socket → theoretical peak bandwidth of 76.8 GB/s on Socket 0 alone (4 × 8 bytes × 2.4 GHz).</li>
+<li><strong>Model:</strong> Qwen 3.6 35B, a MoE model that only activates a fraction of its parameters per token. That sparsity is the entire reason any of this is possible.</li>
 </ul>
 
-<p>The highest peak in the 50-question set is <strong>66.30 t/s</strong> on run 42, at 14 / 50. Deeper suffix drafts are what produce those bursts, and they give the score back.</p>
+<p>Back of the envelope, a dense 35B model at Q6_K quantization is about 27.3GB. To generate one token, you have to stream the entire weight set through RAM at least once. 76.8 GB/s ÷ 27.3 GB ≈ 2.81 tokens/second. That’s the physical ceiling for a dense model this size on this hardware. Code can’t move it. Only sparsity can.</p>
 
-<p>Every needle ladder that reached 128K context passed. Generation after that prompt sits around 8 t/s on the 28-thread runs. The single-NUMA baseline ladder passed 16K, 32K, and 64K and was not run at 128K. The writeup's separate short bench, with active experts cut from 8 to 4, measured <strong>24.53 t/s</strong>. That pass is not the GPQA protocol above.</p>
+<p>A cheat sheet for the quant names, since they come up constantly: the number after the Q is roughly how many bits each weight averages out to (Q6_K is about 6 bits per weight, Q4_0 about 4, down from 16 or 32 bits unquantized). Formats with a _K suffix (”k-quants”) use extra layers of per-block scale factors for better accuracy per bit, at the cost of a more complex unpacking step. Formats like _0 (q4_0, q8_0) use an older, simpler flat scale, less accurate bit-for-bit, but cheaper to unpack. You’ll also see _M/_S suffixes like Q4_K_M, just “medium”/”small” variants that shade bits toward different tensors.</p>
 
-<h2>Config that held the later score</h2>
+<p>The only reason double-digit token/sec numbers were even on the table is that Qwen 3.6 is sparse. Each token only routes through a handful of “expert” sub-networks, activating roughly 3B parameters (~2.3GB) instead of the full 35B.</p>
 
-<p>Run 50 is the repacked form of the 18 / 50 cluster: IQ4_XS attention, Q4_0 experts, merged up/gate, suffix speculation (<code>n_max=8</code>, match 5), native MTP, Q4_0 KV cache. <strong>18 / 50</strong>, <strong>21.33 t/s</strong> average, <strong>38.23 t/s</strong> peak. Runs 47 and 48 scored the same 18 / 50 without the offline repack.</p>
+<p>Under the hood, every layer has a small “router” that looks at each token’s hidden state and scores all 8 available experts, then picks the top few. Only the weight matrices for those chosen experts get pulled out of RAM for that token. The rest just sit in memory, completely untouched. That’s why MoE models can be huge on disk but still fast on a bandwidth-starved CPU. You’re only paying the RAM-read cost for a slice of the model. It’s also a preview of the biggest win in this whole post (Section 6). Fewer chosen experts per token means fewer weight matrices dragged through the memory bus per token.</p>
 
-<p><code>PHYS</code> is the 28 physical cores, SMT siblings left out.</p>
+<p>The strategy was to lock everything to Socket 0 with numactl --cpunodebind=0 --membind=0. The short version of why that matters is that on a dual-socket system, each CPU has its own local bank of RAM (that’s what NUMA, Non-Uniform Memory Access, means), and the two sockets are connected by a much slower inter-socket link, Intel’s QuickPath Interconnect (QPI). A thread on Socket 0 reading memory that physically lives on Socket 1 has to hop across that link. On this chip, QPI runs at 9.6 GT/s across two links, which works out to roughly 19.2 GB/s in one direction per link, against the 76.8 GB/s each socket has to its own local DRAM. So a cross-socket read stream tops out at around a quarter of local bandwidth before you even count the extra latency of the hop. numactl pins both threads and memory allocations to Socket 0 so every read is forced local.</p>
+
+<h2>2. SIMD</h2>
+
+<p>Almost everything in this post traces back to instructions the CPU does or doesn’t have.</p>
+
+<h3>What SIMD is</h3>
+
+<p>A normal, scalar CPU instruction takes two numbers and produces one. Multiply a by b and get one result. SIMD, Single Instruction Multiple Data, takes two vectors of numbers and applies the same operation to every element at once, one “lane” per element. A single SIMD multiply can do 8 or 16 multiplies in the time a scalar one does a single multiply, because the hardware has wide registers and enough parallel multipliers to fill them.</p>
+
+<p>This matters for inference because inference is almost entirely matrix multiplication, a matrix multiply is just a huge pile of dot products, and a dot product is “multiply these two rows element by element, then add up the results.” That is the most SIMD-friendly shape a workload can have. The same operation, repeated across a long array, with no data-dependent branching in the inner loop. So how wide your vectors are and which multiply-accumulate instructions you have translates almost directly into how fast the compute-bound parts of inference run.</p>
+
+<h3>AVX2: 256 bits at a time</h3>
+
+<p>AVX2 gives you 16 vector registers (named YMM0 through YMM15), each 256 bits wide. What fits in 256 bits depends on the data type. 8 FP32 floats, or 16 FP16/BF16 values, or 8 32-bit integers, or 16 16-bit integers, or 32 8-bit integers. One AVX2 instruction can therefore chew through up to 32 quantized 8-bit weights in a single shot.</p>
+
+<p>The workhorse instruction for float inference is FMA3, the fused multiply-add. _mm256_fmadd_ps computes a * b + c across all 8 FP32 lanes at once, with a single rounding step at the end instead of two. A dot product is nothing more than a running FMA marched down a row, so FMA is vital to float matmul. Broadwell has two FMA-capable execution ports that can each issue a 256-bit FMA every cycle, so at full tilt one core can do 2 × 8 = 16 fused multiply-adds per cycle.</p>
+
+<p>For quantized inference the picture gets a lil muddier. The closest AVX2 has to an integer dot product is _mm256_maddubs_epi16. It takes 32 pairs of 8-bit values, one operand unsigned and one signed, multiplies each pair, and adds adjacent pairs together into 16 signed 16-bit results. There is no AVX2 instruction that multiplies 8-bit values and accumulates straight into a 32-bit total. You have to build that out of maddubs plus a second widening-add step, and you have to make sure the intermediate 16-bit accumulator from overflowing (citing the school of hard knocks on that one). This will be important in section 5.</p>
+
+<h3>AVX-512 / VNNI / AMX</h3>
+
+<p>I listed three things this chip doesn’t have. They are separate features, which can be useful for inference.</p>
+
+<p>AVX-512: the obvious one, twice the width. Registers grow from 256 to 512 bits (now called ZMM), the count doubles from 16 to 32, and you also get 8 dedicated mask registers. Width alone means one instruction handles 16 FP32 or 64 int8 values, so on a comparable core you get up to double the compute per instruction issued. The extra registers let a matmul microkernel keep a bigger block of the running total in registers instead of moving it to memory, which is a big part of what makes a fast GEMM fast. The mask registers add per-lane predication, so you can process “just the last 5 elements” of a ragged row, or apply a routing decision, without a scalar cleanup loop or a branch. Inference produces a lot of ragged, not-a-multiple-of-the-vector-width shapes, so branch-free tails can be useful.</p>
+
+<p>VNNI: AVX-512-VNNI adds VPDPBUSD, and that single instruction does the entire int8 dot product. It takes unsigned 8-bit values and signed 8-bit values, multiplies them pairwise, sums each group of four, and accumulates the result directly into 32-bit lanes. Directly into 32-bit means there is no 16-bit accumulator to overflow and no sign trick to set up. It’s exactly the operation Section 5 has to fix in two or three instructions. Every quantized dot product on Broadwell pays that multiple, and quantized dot products are most of what quantized inference does. (Intel did eventually backport this to 256-bit vectors as “AVX-VNNI” on Alder Lake and later client chips, but Broadwell came before all of that.)</p>
+
+<p>AMX: Rather than wider vectors, AMX adds 2D tile registers and a matrix-multiply instruction that takes two tiles, multiplies them, and accumulates into a third, doing a whole small matrix multiply per instruction instead of one row’s worth of multiply-adds. On Sapphire Rapids and newer it pushes int8 and bf16 matmul throughput far past what even AVX-512 manages lane by lane, and it’s a big boost for prefill-heavy or batched serving. Broadwell, of course, does not feature this.</p>
+
+<h3>This hurts prefill, not decode</h3>
+
+<p>Every instruction above accelerates compute, the raw rate of multiply-accumulates. None of them do anything for memory bandwidth. And which of those two is your bottleneck flips completely between the two phases of inference.</p>
+
+<p>Token generation, decode, streams the active weights out of RAM one token at a time, and it’s bandwidth-bound (the whole argument from Section 1). The math units already sit idle waiting on data most of the time, so a chip that could do the arithmetic twice as fast would simply wait twice as long between numbers. AVX-512 and VNNI would barely move single-stream decode, because decode isn’t waiting on the ALU.</p>
+
+<p>Prompt processing, prefill, is the mirror image. It runs one big matrix multiply across the entire prompt at once, the weights get pulled into cache once and reused across every token in the batch, and the bottleneck slides off the memory bus and onto raw FMA and int8 throughput. That is precisely the regime AVX-512, VNNI, and AMX were designed for.</p>
+
+<p>So the missing instructions cost me a lot of prefill speed I would have loved to have, and they cost decode, the number you actually stare at while waiting for a response, almost nothing. Prefill on this box tops out around 120 t/s and gladly eats every thread I give it (Section 4). Decode lives in the low tens of tokens per second no matter how clever the kernel gets, because the wall there is a 76.8 GB/s memory bus and no instruction set changes that. That asymmetry is the entire reason a decade-old Broadwell is a sane place to run a model at all.</p>
+
+<h2>3. Baseline and basic tests</h2>
+
+<h3>The starting line</h3>
+
+<p>Default settings, 14 threads, Flash Attention on (a memory-efficient way of computing attention in small tiles instead of materializing the full attention matrix, standard enough that it stayed on for the entire project), F16 KV cache:</p>
+
+<ul>
+<li><strong>8k.</strong> Prompt processing: 94.25 t/s. Token generation: 7.64 t/s.</li>
+<li><strong>16k.</strong> Prompt processing: 79.19 t/s. Token generation: 6.90 t/s.</li>
+</ul>
+
+<p>Generation speed barely moved between 8k and 16k context (7.64 → 6.90 t/s), a strong early signal that token generation is memory-bandwidth bound, not compute or attention bound. That single observation quietly predicted almost everything that mattered for the rest of this project. Moving fewer bytes per token would buy more than doing less math per token.</p>
+
+<h3>Thread count</h3>
+
+<p>Conventional wisdom says hyperthreading/SMT hurts memory-bound workloads, since you’re contending for the same cache lines and memory ports with twice the logical threads. Cranking threads from 14 (physical) to 28 (SMT) made things 6% faster instead (78.36 → 83.12 t/s combined pp+tg speed).</p>
+
+<p>The reason that’s not as crazy as it sounds is that a physical core has several execution ports that can each start a math operation per cycle, but a thread stalls those ports whenever it’s waiting on data from memory. A second hardware thread (SMT) can slot its own instructions into those same idle ports during the stall, backfilling wasted cycles. That only helps if there’s compute sitting around waiting to fill the gap, which MoE’s branchy routing apparently provides. It won’t be the whole story though (see Section 4). Decode turns out to have no spare compute to backfill with, just contention for the same bytes off the memory bus.</p>
+
+<h3>KV cache quant</h3>
+
+<p>A bit of background first. Generating each token means computing attention against every prior token in the conversation. Recomputing Key/Value vectors for the whole history at every step would be absurd, so llama.cpp caches them in what’s called the “KV cache,” appending only the newest token’s K/V each step. But that entire cache still has to be read back from RAM every step, so it competes for the same 76.8 GB/s as everything else. At 32k context that’s gigabytes of K/V vectors, and shrinking them via quantization directly shrinks what gets re-read every token.</p>
+
+<p>Sweeping K/V cache precision (f16, q8_0, q4_0) turned up a nice, slightly counter-intuitive result. Quantizing the Key cache to q8_0 gave a solid +3.6% speedup, but quantizing the Value cache did almost nothing on its own. Why K and V responded so differently isn’t fully clear from these logs, plausibly something specific to how ik_llama‘s attention kernel accesses each buffer, but it held consistently across every sweep. Going further to q4_0 for both was actually slower than q8_0. On CPU, unpacking 4-bit nibbles and rescaling them costs enough extra instructions to eat the memory-bandwidth savings. q8_0/q8_0 won as the sweet spot, real bandwidth savings, minimal unpacking tax.</p>
+
+<h3>Batch size, MoE flags</h3>
+
+<p>Micro-batch size (-ub): controls how many tokens get processed together in one pass through the compute graph (mainly matters during prompt ingestion). Bigger batches mean more math gets done per weight-load from RAM, better efficiency, as long as the batch’s working set still fits in cache. 512 → 1024 gave a small +0.7% bump. Pushing to 2048 made things slightly worse. With only 35MB of L3 per socket shared across everything running, a large enough batch’s activations stop fitting comfortably alongside the weight tiles also competing for that space, so you start evicting data you still need and paying for it in RAM round-trips instead of cache hits.</p>
+
+<p>--defer-experts / -ger (MoE scheduling flags): each gave modest, independent ~0.8-0.9% gains by reducing thread contention on the currently-active experts. Combining them was not additive. They stepped on each other slightly. Take the better one, not both.</p>
+
+<p>Transparent Huge Pages (-thp): a dead end, included because “I tried the obvious thing and it did nothing” is still useful. The reason it should have helped is that the CPU translates virtual to physical addresses through the TLB (Translation Lookaside Buffer), where each entry normally covers a 4KB page. A model with tens of gigabytes of weights spans millions of such pages, causing constant TLB misses while walking through them. Huge pages (2MB each) mean one TLB entry covers 512x more memory, in theory cutting that miss rate a lot. In practice, the allocation failed (mmap ... Cannot allocate memory, because fragmentation meant no contiguous 2MB blocks were available), and even when it worked later, a direct A/B comparison showed zero statistically significant difference. In this workload, weights and KV cache get walked sequentially enough that the CPU’s hardware prefetcher (which predicts and pulls in the next cache line before you ask for it) already hides most of that page-walk latency, making huge pages redundant here. Nice theory, no payoff, so I buried it and moved on.</p>
+
+<h3>run-time tensor repacking</h3>
+
+<p>Then, almost as an afterthought in a sweep of assorted advanced engine flags, one flag beat everything else in the sweep by a wide margin:</p>
+
+<ul>
+<li><strong><code>-rcache 1</code> (RoPE cache).</strong> No difference.</li>
+<li><strong><code>-mqkv 1</code> (merged QKV).</strong> Slightly worse.</li>
+<li><strong><code>-muge 1</code> (merged up/gate experts).</strong> +2.6%, memory 27.3 GB → 43.7 GB.</li>
+<li><strong><code>-sas 1</code> (async scheduler).</strong> Slightly worse.</li>
+<li><strong><code>-rtr 1</code> (run-time tensor repack).</strong> +6.75%, no extra memory.</li>
+</ul>
+
+<p>-rtr physically rewrites the model’s tensors in RAM once at load time, into exactly the byte order the AVX2 kernels want to stream through during a dot product. Without it, weights sit in the layout the GGUF file format uses for compact on-disk storage, fine for loading, but not necessarily the order the compute kernel actually walks through them in, which means occasional strided or misaligned reads the CPU’s prefetcher can’t predict well. Repacking removes that mismatch entirely. It was the single best free lunch of the entire early sweep phase, free as in it didn’t cost a single extra byte of RAM, unlike -muge‘s tempting-but-expensive alternative.</p>
+
+<p>Milestone check: stacking everything from this phase (28 threads, q8_0/q8_0 KV cache, -ub 1024, --defer-experts, -rtr 1) took the 16k-context combined speed from 73.24 t/s → 90.36 t/s. A 23.4% speedup, worth about 43 seconds per 16k-token interaction. Not bad for flag-tuning alone. But token generation, which is the number you actually feel while waiting on a response, was still stuck in single digits. Time to bring out speculative decoding.</p>
+
+<h2>4. Speculative decoding</h2>
+
+<p>This is where flag-tuning stopped being enough and the pipeline itself needed some finagling.</p>
+
+<h3>MTP</h3>
+
+<p>ik_llama.cpp supports Multi-Token Prediction (MTP) speculative decoding, where a small auxiliary head predicts a few tokens ahead, and the main model verifies them in a single batched pass instead of generating them one at a time. Since MTP speculation only runs inside llama-server (not the benchmark tool), this meant switching to full server benchmarks for the rest of the project.</p>
+
+<p>Every speculation method below leans on the same trick, so I’ll spell it out once here. Generating tokens one at a time means streaming the entire active weight set out of RAM for every single token, the actual bottleneck, per Section 1. But running a forward pass over a batch of several candidate tokens costs almost the same one RAM read as running it over a single token, because the weights get pulled into cache once and reused across the batch, and only the (much cheaper) compute scales up. So if you can cheaply guess a few likely next tokens and verify them all in one batched pass, you get several tokens for close to the bandwidth price of one. Everything below is really just “how do we guess well, and as cheaply as possible.”</p>
+
+<p>Turning on a single MTP head took generation from 7.96 t/s → 10.61 t/s, a +33% speedup for almost nothing, since verification of an accepted draft token is much cheaper than generating it token-by-token.</p>
+
+<h3>Threading, again</h3>
+
+<p>The SMT result from Section 3 didn’t hold up once I split it by phase instead of measuring combined pp+tg speed:</p>
+
+<p>Prompt processing (compute-bound, matrix-math heavy): 28 threads (SMT) beats 14 physical threads, 124.24 t/s vs 118.13 t/s.</p>
+
+<p>Token generation (bandwidth-bound, one token at a time): 14 physical threads beats 28, 8.26 t/s vs 7.96 t/s. SMT causes L3 cache contention that actively hurts when you’re not compute-bound anymore. During decode, both hyperthreads pull from the same shared L1/L2 cache and issue their own memory requests against the same 76.8 GB/s pipe. There’s no idle compute to backfill, so the second hyperthread just halves the same trickle of bytes off the bus.</p>
+
+<p>The earlier number held up. It just hid a split I hadn’t measured. It had been taken on a combined pp+tg metric that masked the two phases wanting opposite thread counts. The fix is to stop measuring them together. ik_llama.cpp exposes separate knobs for this (-t for generation threads, -tb for batch/prefill threads), so I set each to what its phase wanted. Running generation on physical cores only pushed things to 10.98 t/s, a +37.9% total gain over the SMT-only no-MTP baseline. This asymmetric-threading setup (-t 14 -tb 28) stuck around in every config for the rest of the project.</p>
+
+<h3>Tuning draft depth (n_max)</h3>
+
+<p>MTP can recursively feed its own predicted hidden state back into itself to draft multiple tokens before a single verification pass. Sweeping the draft depth (n_max) found a genuine sweet spot.</p>
+
+<p>The mechanics matter here, because they explain the sweet spot. The main model verifies a draft position by position, and the instant there’s a mismatch, every drafted token after that point gets discarded, even if the draft continued further. Acceptance compounds multiplicatively. If there’s an 85% chance the model agrees with any single drafted token, the odds it agrees with all 5 in a row are only about 0.85⁵, roughly 44%. Draft too deep and you’re increasingly paying for speculative passes on tokens that get thrown away before you ever reach them.</p>
+
+<ul>
+<li><strong>n_max 1.</strong> 10.44 t/s, +31.1% over the no-MTP baseline.</li>
+<li><strong>n_max 2.</strong> 11.85 t/s, +48.9%.</li>
+<li><strong>n_max 3.</strong> 12.76 t/s, +60.3%.</li>
+<li><strong>n_max 4.</strong> 13.77 t/s, +73.0%.</li>
+<li><strong>n_max 5.</strong> 14.21 t/s, +78.5%.</li>
+<li><strong>n_max 6.</strong> 13.10 t/s, +64.6%.</li>
+<li><strong>n_max 7.</strong> 13.28 t/s, +66.8%.</li>
+</ul>
+
+<p>Speed climbs steadily, then falls back off past 5. Drafting further ahead means running more speculative forward passes, but the model’s confidence in tokens that far ahead drops, acceptance rate collapses, and you’re burning compute on guesses that get thrown away. n_max=5 landed as the best trade-off for this model.</p>
+
+<h3>Hadamard transforms</h3>
+
+<p>Layering Hadamard transforms onto the quantized KV cache (-khad -vhad) squeezed out another +4% (14.53 t/s) while improving accuracy relative to plain q8_0. This one is worth unpacking, because it’s a genuinely cool bit of math.</p>
+
+<p>Quantizing a block of numbers means picking one scale factor for the whole block and rounding every value to the nearest step of that scale. The catch is that the scale has to be large enough to represent the biggest value in the block, so a single outlier, one weight 50x larger than its neighbors, forces a coarse scale on everyone else. The common small values then get rounded brutally, and most of your bit budget gets spent describing the empty gap between the outlier and everything else. Transformer activations are full of these outliers, so this is exactly where quantization accuracy tends to die.</p>
+
+<p>A Hadamard transform attacks the outlier directly. A Hadamard matrix is a square matrix whose entries are all +1 or -1, arranged so that every row is orthogonal to every other row. The smallest is the 2×2 [[1, 1], [1, -1]], and larger ones are built by tiling that pattern recursively, so a 4×4 is that 2×2 block repeated with one copy negated, and so on upward in powers of two. Normalize the whole thing by 1/√n and it becomes an orthonormal matrix, which geometrically is just a rotation-and-reflection of the vector. It doesn’t change the vector’s length, only its direction.</p>
+
+<p>The property that matters is what that rotation does to a single big value. Multiplying a vector by a Hadamard matrix makes every output element a sum of every input element, each one flipped to plus or minus by the matrix. So one large spike in the input doesn’t survive as a spike. It gets smeared with equal weight across all the outputs, coming out as many medium-sized values instead of one giant value surrounded by small ones. The block’s dynamic range collapses, a single scale factor now fits everybody well, and the same number of bits buys far less rounding error. This is the same core trick behind recent quantization work like QuaRot and QuIP#, which rotate weights and activations to crush outliers before quantizing.</p>
+
+<p>Two things make it close to free. First, it’s exactly reversible. An orthonormal Hadamard matrix built this way is its own inverse, so applying the same transform a second time undoes the rotation exactly, leaving only the rounding error, which is now far smaller than it would have been without the rotation. Second, you never actually build or multiply by the full matrix. Because of its recursive structure there’s a Fast Walsh-Hadamard Transform that computes the whole thing in n·log(n) steps using only additions and subtractions, no multiplies at all, which is about as cheap as an operation gets on a CPU. You pay a tiny slice of compute to move the outliers out of the way, and you get real bits back in return.</p>
+
+<p>Going further to a plain q4_0 cache (no Hadamard) was even faster (+8.3%, 15.13 t/s), but at a real quality cost from the more aggressive quantization.</p>
+
+<p>This is the point where the project split into two philosophies that persisted to the end:</p>
+
+<ul>
+<li><strong>Quality-first:</strong> q8_0 cache + Hadamard. Near-f16 accuracy, still very fast.</li>
+<li><strong>Speed-first:</strong> q4_0 cache, no Hadamard. Faster, measurably lossier.</li>
+</ul>
+
+<h3>The best trick in the whole project: predicting code with no compute at all</h3>
+
+<p>Then came the discovery that reframed the entire speculation strategy. Instead of (or alongside) a neural MTP head, ik_llama.cpp supports N-gram speculative decoding, a purely statistical lookup against your own recent context, with zero floating-point operations. No forward pass, no neural prediction, just “have I seen this exact sequence of tokens before in this conversation?” Functionally it’s autocomplete. The engine keeps a rolling index of short token sequences it’s already seen in this conversation, and whenever the tokens it just generated match one, it bets that whatever followed last time will follow again. No matrix multiplication involved, just a lookup.</p>
+
+<ul>
+<li><strong>Baseline (MTP n_max=5, p_min=0.1).</strong> 12.91 t/s</li>
+<li><strong>Speculative auto-tuning.</strong> 13.31 t/s</li>
+<li><strong>N-gram speculation.</strong> 15.89 t/s</li>
+</ul>
+
+<p>+100% over the no-speculation baseline, and it works because source code is extremely repetitive. Braces, indentation, variable names, boilerplate loop structures. An N-gram cache built from the conversation’s own recent history predicts these near-perfectly, and because it costs zero compute, it never competes with the main model’s forward pass for AVX2 execution units. It’s the one speculation method here that has basically no downside.</p>
+
+<p>Chaining strategies also helped. Falling back to MTP whenever the N-gram cache came up empty added another +13.5% on top later in the project (Section 6), best of both worlds, N-gram for the repetitive stretches, neural drafting for the genuinely novel ones.</p>
+
+<h2>5. Patching the kernel directly</h2>
+
+<p>At this point, flag-tuning was mostly exhausted. So I opened up iqk_mul_mat.cpp, the hand-written AVX2 kernel library underneath ik_llama.cpp, to see what the CPU was actually doing.</p>
+
+<h3>The 71% idle problem</h3>
+
+<p>Qwen 3.6 35B routes each token through 4 active experts (Nx = 4). During single-token decode, the existing thread-partitioning code divides the row dimension across threads:</p>
+
+<pre><code>auto nrc_x = (Nx/num_rows + nth - 1)/nth;   // Nx=4, nth=14 → nrc_x = 1</code></pre>
+
+<p>With only 4 rows of work and 14 threads wanting a piece of it, threads 0-3 get one expert each, and threads 4 through 13 get nothing and sit idle. That’s a 71.4% thread starvation rate, ten of your fourteen physical cores doing nothing during exactly the phase (MoE decode) that dominates generation latency.</p>
+
+<h3>The fix: split columns instead of rows</h3>
+
+<p>The fix flips the partitioning strategy specifically for this small-batch case. Instead of handing each thread a whole row (expert), group threads and have each group split the inner dot-product dimension (K, ~4096+ features) of a single expert’s row. With 14 threads and 4 rows, that’s roughly 3 threads cooperating per expert, each computing a partial dot product over a slice of the row, then reducing their partial sums together.</p>
+
+<pre><code>if (Nx &lt; nth) {
+    int threads_per_row = nth / Nx;
+    int row_idx = ith / threads_per_row;
+    int group_tid = ith % threads_per_row;
+    // ...partition K across group_tid, then reduce...
+}</code></pre>
+
+<p>This raised CPU utilization during MoE decode from 28% to 100%. While generation speed itself was already saturating the memory bus by this point (so the headline t/s gain was modest), the follow-on 64-byte memory alignment pass is worth a word on why 64 specifically. On this CPU, like nearly all x86 chips, data moves between RAM and cache in fixed 64-byte chunks (cache lines). An AVX2 register loads 32 bytes at a time, so two loads should fit neatly in one cache line. But if a buffer starts at an arbitrary unaligned address, a 32-byte load can straddle the boundary between two 64-byte lines, forcing the CPU to fetch both and stitch them together instead of grabbing everything from one. That “cache-line split” costs a handful of extra cycles per load, and across millions of loads during MoE decode, it adds up. Explicitly requesting 64-byte-aligned memory for thread-local scratch buffers and row strides, instead of the compiler’s default 16/32-byte alignment, guarantees every AVX2 load lands cleanly inside one line. That pass added a clean +1.5% to prompt processing and +2.1% to cached prompt processing on top of everything before it. Small numbers, but earned the hard way, at the instruction level.</p>
+
+<p>(One more rabbit hole for anyone curious why quantized dot products need a “sign trick” at all. AVX2’s _mm256_maddubs_epi16 requires one signed and one unsigned 8-bit operand, but both weights and activations are naturally signed. The standard fix, offsetting everything by +128, requires tracking and subtracting a compensation term, and risks 16-bit accumulator overflow. The accumulate instruction sums adjacent products into a 16-bit integer, and two max-sized products under the offset method (255 × 127 = 32,385 each) already blow past the signed 16-bit limit of 32,767, which is silent corruption. The trick used here, w·x = |w| · (x · sign(w)), keeps every value in the signed range (max 127 × 127 = 16,129 per product), so even two summed (32,258) stay safely under the limit. That one move solves the overflow risk and the compensation-term bookkeeping at once, and it was already load-bearing in the kernels touched during this pass.)</p>
+
+<h2>6. Quantization surgery</h2>
+
+<h3>Finding out where the time actually goes</h3>
+
+<p>Rather than keep guessing, I instrumented ggml‘s (the low-level C tensor-math library underneath both llama.cpp and ik_llama.cpp) own thread-dispatch loop to time each operator directly. First attempt, a data race (ten threads all appending to a shared timing array with no atomics) inflated numbers to nonsense, a 1.1-second kernel reported as 14.7 seconds. Fixed by only measuring from thread 0. Second attempt gave real numbers:</p>
+
+<ul>
+<li><strong><code>MUL_MAT</code> (attention Q/K/V, output projections).</strong> 52% of eval time.</li>
+<li><strong><code>MOE_FUSED_UP_GATE</code> (MoE expert up/gate).</strong> 39% of eval time.</li>
+<li><strong><code>MUL_MAT_ID</code> (MoE expert down-proj).</strong> 21% of eval time.</li>
+</ul>
+
+<p>(percentages overlap slightly by measurement boundary, but the takeaway was unambiguous. Attention and MoE FFN dominate, and both are ultimately paying the same memory-bandwidth tax.)</p>
+
+<h3>Mixed-precision quantization</h3>
+
+<p>Dropping the dense attention layers to Q4_K actually made things slower. Broadwell’s Q4_K bit-unpacking path has more CPU overhead than Q6_K‘s, so you’d be trading memory bandwidth for compute, a bad trade when compute is already the secondary cost. But Q4_0 has a highly optimized AVX2 fallback path, and applying it specifically to the MoE expert weights while leaving attention/dense layers at Q6_K gave the best of both:</p>
+
+<ul>
+<li>Pure Q6_K: 8.33 tokens/sec (no speculation, raw eval)</li>
+<li>Q6_K dense + Q4_0 MoE experts: 10.50 tokens/sec, +26%</li>
+</ul>
+
+<p>The MoE expert tensors are both the largest memory consumers and the least sensitive to precision loss, since each token only exercises a handful of them, so that’s exactly where the quantization budget belongs.</p>
+
+<h3>The biggest win in the entire project</h3>
+
+<p>And then the biggest win of the whole project turned out to be a one-line config change, and it barely felt like one at the time. How many experts does each token get routed to?</p>
+
+<p>Qwen 3.6 35B defaults to 8 active experts per token. You can override that at load time:</p>
+
+<pre><code>--override-kv qwen35moe.expert_used_count=int:4</code></pre>
+
+<p>(with a small gotcha along the way, the override silently failed the first time because the internal architecture string is qwen35moe, not the more common qwen2moe, so the flag needs the exact right namespace)</p>
+
+<p>Result: 12.22 t/s → 24.53 t/s, a +100.7% speedup from changing one config value.</p>
+
+<p>Halving the active experts halves both the memory traffic and the FFN math for the heaviest layers in the model, and llama.cpp automatically renormalizes the routing weights of the surviving top-4 experts (the original scores were fractions of a sum across all 8, so without rescaling them back to sum to 1, the combined output would come out smaller than the rest of the network expects, quietly throwing off scale downstream), so the cut isn’t arbitrary. It falls back on the router’s four most-confident picks and degrades gracefully from there. Going further to 2 experts looked tempting on paper but backfired (11.80 t/s). Too aggressive a cut shifts the output logit distribution enough that N-gram speculation’s acceptance rate collapses, and you lose more from broken speculation than you gain from a smaller compute footprint. Four experts was the number that actually mattered.</p>
+
+<h2>7. A small stumble</h2>
+
+<p>Combining N-gram speculation with the new mixed-precision model (Q6_K dense + Q4_0 experts) caused llama-server to intermittently drop connections. Root cause was N-gram speculation performing rapid internal state rollbacks whenever a drafted token gets rejected, and those rollbacks were hitting misaligned memory strides specific to the mixed-precision tensor layout.</p>
+
+<p>Fix: forcing --run-time-repack (the same -rtr flag from Section 3, now doing double duty) and --defer-experts together ensures the mixed-precision tensors are physically laid out in contiguous memory before speculative rollback ever has a chance to touch a bad stride.</p>
+
+<p>(There were more stumbles, I just need to figure out why!)</p>
+
+<h2>8. Sanity Check</h2>
+
+<p>Every optimization so far has been in service of a number going up. None of it matters if the model got dumber along the way, so I ran the exact same prompts against the old baseline config (Q6_K, 8 experts) and the new optimized config (Q4_0 experts, 4 active) side by side:</p>
+
+<p>Topological sort with cycle handling: baseline produced a correct Kahn’s-algorithm implementation at 8.53 t/s. Optimized produced an equally correct implementation (with visibly more deliberate reasoning about complexity trade-offs in its thinking trace) at 12.46 t/s.</p>
+
+<p>Thread-safe LRU cache: both versions correctly reached for std::mutex + hashmap + doubly-linked-list, at 8.49 vs 12.45 t/s.</p>
+
+<p>Multi-step arithmetic word problem: both landed on the correct answer (72,000 requests/minute) with correct intermediate reasoning, at 8.53 vs 12.49 t/s.</p>
+
+<p>Three prompts are not an eval suite, and a broader pass is still running. Still, all three told a similar story, near-identical reasoning quality at roughly 1.5x the speed.</p>
+
+<h2>9. Testing some ceilings</h2>
+
+<p>With the throughput side of things settled, the last open question was about scale. How far could this setup actually go on truly long context, and where would it break?</p>
+
+<p>Three tests specifically to check whether a model can actually use information buried deep in a long context, the classic needle-in-a-haystack, bury one fact in thousands of tokens of junk and ask for it back), and a hard-logic suite (competition math, graduate-level QA).</p>
+
+<p>The reasoning check held up so far, 100% accuracy on the RULER needle-in-a-haystack test at 4k tokens. The aggressive 4-expert clamping and Q4_0 quantization hadn’t broken the model’s ability to trace a specific fact buried in thousands of tokens of distractor text. Sweeps at deeper context (16k and beyond, which is really the scale that matters for this use case) are still actively running as of this writing.</p>
+
+<p>I’d gone into this expecting RAM to be the limiting factor. 264GB sounds like a lot, but KV cache scales with context length, and I half expected an out-of-memory crash somewhere in the six-figure token range. Instead, thanks to Grouped Query Attention (GQA, several attention “query” heads share one Key/Value head instead of each head getting its own, cutting KV cache size by that sharing factor), the KV cache at the model’s absolute maximum context (262,144 tokens, its own hardcoded architectural limit) is only 5.1GB. Memory was never the bottleneck. The wall turned out to be the context window Qwen was trained on.</p>
+
+<p>Prompt processing speed degrades quadratically with context length as expected, from ~120 t/s near zero context down to a still-very-respectable 19.4 t/s at 192,000 tokens, roughly a novel’s worth of text, on every single request, while staying within shouting distance of the original 20 t/s target. And when I deliberately pushed past the model’s native limit using RoPE scaling (RoPE, Rotary Position Embedding, encodes each token’s position by rotating its Query/Key vectors by an angle that grows with position, and scaling stretches that rotation to represent positions further out than the model ever trained on, essentially asking it to extrapolate a pattern past the range it learned), feeding it roughly 384,000 tokens, well beyond the trained 262K ceiling, I got a llama_decode() failed error and am working on fixing it. Pushing further into more aggressive RoPE-scaled territory is where the server crashed outright. I don’t have a clean read yet on exactly where that edge sits or whether it’s a memory limit or a numerical one, so that sweep is still running before I’d call it a real finding.</p>
+
+<h2>10. The numbers so far</h2>
+
+<p>One thing to explain before the list. Milestone 4’s jump came from tightening NUMA locking further, from numactl --membind=0 to also passing --numa isolate to llama-server directly. The reason the wrapper alone wasn’t enough is NUMA’s default “first-touch” behavior, where a memory page gets physically placed on whichever socket’s CPU first writes to it, not necessarily the one you intended. Even with numactl binding the whole process to Socket 0, some of llama-server‘s internal parallel-reduction buffers were still occasionally getting first-touched in a way that landed on the wrong node, forcing a slow cross-socket hop on every later access. --numa isolate enforces the binding inside the engine itself, guaranteeing every buffer, not just the ones numactl happened to catch, stays local.</p>
+
+<p>The whole arc, milestone by milestone:</p>
+
+<ul>
+<li><strong>Baseline, Q6_K.</strong> Default settings, no speculation. 7.96 t/s.</li>
+<li><strong>Milestone 1, Q6_K.</strong> Kernel thread-scheduling fix + N-gram speculation. 15.86 t/s, +99.2%.</li>
+<li><strong>Milestone 2, Q4_K_M.</strong> Down-quantization (30% less memory traffic). 19.63 t/s, +146.6%.</li>
+<li><strong>Milestone 3, Q4_K_M.</strong> Step-by-step N-gram database updates. 19.66 t/s, +147.0%.</li>
+<li><strong>Milestone 4, Q4_K_M.</strong> Strict NUMA memory isolation + 10 threads. 23.54 t/s, +195.7%.</li>
+</ul>
+
+<p>Current best config (Q6_K, near-full precision, 24.53 t/s):</p>
+
+<pre><code>numactl --cpunodebind=0 --membind=0 ./bin/llama-server \
+  -m Qwen3.6-35B-A3B-UD-Q6_K.gguf \
+  -c 8192 -t 10 -tb 28 \
+  -ctk q8_0 -ctv q8_0 -khad -vhad \
+  -ub 1024 --defer-experts --run-time-repack \
+  --spec-type ngram-mod:n_max=5,ngram_size_n=8 \
+  --override-kv qwen35moe.expert_used_count=int:4 \
+  --numa isolate -fa 1</code></pre>
+
+<h3>What actually mattered</h3>
+
+<p>If I had to boil this down to what’s worth actually using so far, cutting active experts from 8 to 4 outweighed every other change put together. After that, matching the speculation strategy to the workload mattered a lot, N-gram beat neural MTP here specifically because code repeats itself, though that won’t hold for something like creative writing. Splitting thread count by phase (SMT for prefill, physical cores for decode) was a smaller but free win once I noticed the two phases wanted opposite things. Mixed-precision quantization, full precision on attention and aggressive quantization on the MoE experts, beat quantizing everything uniformly. And profiling before guessing paid for itself. The flag-tuning phase got 23%, but once I knew where the time was actually going, going into the C++ got a lot more.</p>
+
+<h2>11. What I’m Testing Next</h2>
+
+<p>None of the numbers above are final, they’re just where things stand right now. What’s still queued up or actively running:</p>
+
+<ul>
+<li>Deeper RULER sweeps, and the fuller suite, not just 4k.</li>
+<li>Mapping the RoPE-scaling breaking point properly instead of the one crash I hit jumping straight to an extreme value.</li>
+<li>A real quality eval (GSM8K, HumanEval) instead of three hand-picked prompts.</li>
+<li>Concurrency and a long soak test. Everything so far is one request at a time on a short run, and this box is old enough to worry about thermal throttling under sustained load.</li>
+</ul>
+
+<p>The next section is what came back. The numbers above are from this pass, and I’m leaving them as they were.</p>
+
+<h2>12. Coming back with a score</h2>
+
+<p>Section 8 was three prompts. I said that wasn’t an eval, and section 11 had a real one queued. What I ran was GPQA Diamond, the same 50 questions every time, answers capped at 1,536 tokens. That is a different test from the short benches above. The 24.53 t/s in the TLDR is the expert cut from section 6, eight active experts down to four, on a short generation. Quoting it next to a GPQA score makes both numbers worse.</p>
+
+<p>On the 50-question protocol the single-NUMA baseline did 11.16 tokens per second and got 16 of 50. Best accuracy was run 5, both sockets interleaved, native MTP on: 19.26 t/s and 22 of 50. I never beat that score. A chained n-gram plus MTP run got 20 of 50, and a calibrated expert-routing run got 19, both slower than the configs I actually ended on. The rest of the campaign was an argument about how much of that 22 I was willing to spend to go faster.</p>
+
+<p>The fastest average that still held the baseline’s 16 of 50 was run 46. Attention in IQ4_XS, experts in Q4_0, native MTP, Q4_0 KV cache, 28 physical cores and SMT left off: 22.50 t/s. The configs I’d actually leave running are a notch slower and a notch more right. Runs 47, 48, and 50 all scored 18 of 50 at about 21.3 t/s. Run 50 is that quant with the GGUF repacked offline for the AVX2 kernels, merged up/gate experts, and a suffix cache (n_max 8, match length 5, depth 48) falling back to a single native MTP head. 21.33 t/s average, 38.23 t/s when a draft run hits. Runs 47 and 48 scored the same 18 of 50 with the repack done at load time instead. The free lunch from section 3 stayed free. It did not become the reason the score moved.</p>
+
+<p>The bursts are the n_max trap again, with a bigger number on them. Draft deeper and a single question looks incredible. Run 42 peaked at 66.30 t/s and scored 14 of 50. Run 40 peaked at 66.25 and scored 12 of 50. Past the sweet spot you are paying for drafts the model throws away. On this protocol the thing you lose is the answer, not just the tokens.</p>
+
+<p>The long-context question from section 9 got a cleaner answer than I expected. Every needle ladder that reached 128K passed. After a prompt that size, generation on the 28-thread runs sits around 8 t/s. The single-NUMA baseline passed 16K, 32K, and 64K and was never run at 128K. Memory still was not the thing that fell over. The model can find the fact. It just gets slow, which is the bandwidth story from section 1 showing up at the other end of the context window.</p>
+
+<p>One thing I tried and will not run again: a separate 0.8B drafter stacked on the suffix cache and the merged experts. Run 56 segfaulted the server. No score. The <a href="https://github.com/James-Begin/Homelab-inference/blob/main/logs/gpqa_reports/gpqa_exp56_cascade_draft08b_postmortem.md">postmortem</a> is with the reports. A second model has to stream its own weights off the same bus the big one is already saturating, and this time the process went down with it.</p>
+
+<h3>What I changed my mind about</h3>
+
+<p>Relative to the bash block in section 10, a few of the bets moved.</p>
+
+<p>I stopped locking the process to one socket. The later runs interleave both, and pin the 28 physical cores with the SMT siblings left out. Section 4’s split, SMT for prefill and physical cores for decode, collapsed to one setting: <code>-t 28 -tb 28</code>, on physical cores only. The box has two memory controllers. Once the working set and the KV cache were both in play, leaving a socket idle stopped paying for itself.</p>
+
+<p>I also stopped treating four active experts as the config. That cut is still the biggest speedup I measured, and it still belongs to the short bench in section 6. The GPQA cluster above does not override <code>expert_used_count</code>. Cutting experts buys tokens per second. It was not how I held a score.</p>
+
+<p>KV cache went to q4_0, the speed-first side of the split in section 4. Speculation moved from the n-gram cache to a suffix cache, with native MTP behind it when the lookup misses. Same division of labor as the n-gram section. The lookup costs nothing when the recent context already contains the sequence, and the neural head covers the stretches that don’t. Pushing that suffix draft from 8 out toward 12–16 is where the 60 t/s peaks showed up, and where GPQA fell off.</p>
+
+<p><code>PHYS</code> is those 28 physical cores.</p>
 
 <pre><code>PHYS=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27
 
@@ -65,47 +389,11 @@ numactl --interleave=all --physcpubind=$PHYS \
   --override-kv qwen35moe.nextn_predict_layers=int:1 \
   --spec-type mtp:n_max=1,p_min=0.0</code></pre>
 
-<p>The repacked GGUF is produced with <code>llama-quantize --repack</code> from <code>Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf</code>. The harness does that when the file is missing.</p>
+<p>The repacked file is <code>llama-quantize --repack</code> applied once to <code>Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf</code>. There is no <code>--run-time-repack</code> on this command, because the bytes are already in the order the kernel wants.</p>
 
-<h2>What moved the number</h2>
+<p>The full table, every 50-question run and the earlier 20-question sweeps, is in the <a href="https://github.com/James-Begin/Homelab-inference">repo</a>, in <a href="https://github.com/James-Begin/Homelab-inference/blob/main/RESULTS.md">RESULTS.md</a>. The 20-question files used a 384-token cap, so those percentages are a third test and I am not mixing them in here. The shape is the part that mattered. Accuracy peaked early. Speed kept climbing. Past a point the speed was borrowed from the score.</p>
 
-<p>From the <a href="https://github.com/James-Begin/Homelab-inference/blob/main/docs/writeup.md">writeup</a>, in the order they mattered on that bench:</p>
-
-<ol>
-  <li><strong>Active experts, 8 to 4.</strong> About a 2× decode jump (12.22 to 24.53 t/s). Two experts was worse, because speculation stopped accepting drafts.</li>
-  <li><strong>Speculation matched to the text.</strong> N-gram and suffix caches are free on code. Native MTP is the reliable fallback. A separate 0.8B drafter lost to memory contention, and run 56 crashed the server. The <a href="https://github.com/James-Begin/Homelab-inference/blob/main/logs/gpqa_reports/gpqa_exp56_cascade_draft08b_postmortem.md">postmortem</a> is in the reports.</li>
-  <li><strong>Threads split by phase.</strong> SMT helps prefill. Physical cores help decode. The later campaign pinned 28 physical cores and left SMT off.</li>
-  <li><strong>Quantize the experts, and repack for AVX2.</strong> Runtime repack was an early free 6.8%. Offline repack (run 50) kept the run 47 score.</li>
-  <li><strong>Deeper drafts are not free.</strong> Suffix <code>n_max</code> of 12 to 16 posted the highest peaks and dropped GPQA as low as 12 / 50.</li>
-</ol>
-
-<h2>Repository</h2>
-
-<ul>
-  <li><a href="https://github.com/James-Begin/Homelab-inference/blob/main/RESULTS.md">RESULTS.md</a> — every scored run, read from the report files</li>
-  <li><a href="https://github.com/James-Begin/Homelab-inference/blob/main/docs/writeup.md">docs/writeup.md</a> — the long writeup</li>
-  <li><a href="https://github.com/James-Begin/Homelab-inference/tree/main/logs/gpqa_reports">logs/gpqa_reports/</a> — per-question GPQA reports</li>
-  <li><a href="https://github.com/James-Begin/Homelab-inference/tree/main/logs/extreme_context_reports">logs/extreme_context_reports/</a> — 16K–128K needle ladders</li>
-  <li><a href="https://github.com/James-Begin/Homelab-inference/blob/main/logs/optimization_tracker/optimization_log_50tps.md">logs/optimization_tracker/optimization_log_50tps.md</a> — lab notebook</li>
-  <li><a href="https://github.com/James-Begin/Homelab-inference/tree/main/logs/raw_checkpoints">logs/raw_checkpoints/</a> — per-question JSON and the 50-question set</li>
-  <li><a href="https://github.com/James-Begin/Homelab-inference/blob/main/benchmarks/experiments.json">benchmarks/experiments.json</a> — one entry per eval: model, flags, and any quantize or repack step</li>
-  <li><a href="https://github.com/James-Begin/Homelab-inference/blob/main/benchmarks/gpqa_eval.py">benchmarks/gpqa_eval.py</a> — the runner</li>
-</ul>
-
-<h2>Run a benchmark</h2>
-
-<p>Point <code>IK_LLAMA_HOME</code> at a local ik_llama.cpp checkout with <code>build/bin</code> and <code>build/models</code>. The GGUF names are the ones in the catalog.</p>
-
-<pre><code>export IK_LLAMA_HOME="$HOME/ik_llama.cpp"
-python benchmarks/gpqa_eval.py --list
-python benchmarks/gpqa_eval.py --exp 50 --dry-run
-python benchmarks/gpqa_eval.py --exp 50</code></pre>
-
-<p>A run resumes from <code>logs/raw_checkpoints/&lt;id&gt;_checkpoint.json</code> and writes its report under <code>logs/gpqa_reports/</code>. Needle ladders:</p>
-
-<pre><code>python benchmarks/benchmark_extreme_context.py --help</code></pre>
-
-<p><code>benchmarks/master_watchdog_pipeline.py</code> walks <code>logs/raw_checkpoints/pipeline_queue.json</code> on the homelab. It restarts a stalled GPQA run through <code>systemd --user</code>, then launches the needle ladder for that config.</p>
+<p>Still open: the RoPE crash past the trained context limit, a soak with more than one request at a time, and the runs I queued and did not finish. Experiment 57 stopped at 8 of 50. Experiments 58 through 60 never started.</p>
 
 </body>
 </html>
