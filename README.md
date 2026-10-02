@@ -62,20 +62,58 @@ With 4 experts and 14 threads, `iqk_mul_mat.cpp` handed each thread a whole expe
 auto nrc_x = (Nx/num_rows + nth - 1)/nth;   // Nx=4, nth=14 → nrc_x = 1
 ```
 
-The patch, when there are fewer expert rows than threads, groups the threads and splits the inner dimension of each expert. About three threads cooperate on one row, each owning a slice of K, then reduce.
+The local patch is in that file, which is not part of this repo. When there are fewer expert rows than threads, the threads form a group per row and each one owns a slice of K, about 4096 features. With `nth / Nx == 3`, three threads share an expert. Each writes a partial dot, and one of them reduces the group after the barrier.
 
 ```cpp
+// Nx = 4 expert rows, nth = 14 threads, ith = this thread.
+// K is the dot-product length of one expert row.
 if (Nx < nth) {
-    int threads_per_row = nth / Nx;
-    int row_idx = ith / threads_per_row;
-    int group_tid = ith % threads_per_row;
-    // partition K across group_tid, then reduce
+    const int threads_per_row = nth / Nx;             // 3
+    const int row_idx         = ith / threads_per_row;
+    const int group_tid       = ith % threads_per_row;
+    if (row_idx >= Nx) {
+        return;
+    }
+
+    const int k_per = K / threads_per_row;
+    const int k0    = group_tid * k_per;
+    const int k1    = (group_tid + 1 == threads_per_row) ? K : k0 + k_per;
+
+    // w[] and the scratch row are 64-byte aligned. An AVX2 load is 32 bytes
+    // and a cache line is 64, so the load stays inside one line.
+    float partial = dot_i8(w[row_idx] + k0, x + k0, k1 - k0);
+    group_partial[row_idx][group_tid] = partial;
+
+    barrier();
+    if (group_tid == 0) {
+        float sum = 0.f;
+        for (int t = 0; t < threads_per_row; ++t) {
+            sum += group_partial[row_idx][t];
+        }
+        y[row_idx] = sum;
+    }
 }
 ```
 
-Utilization during MoE decode went from 28% to 100%. Generation was already near the memory ceiling, so the tokens-per-second change was modest. The follow-up was alignment. AVX2 loads 32 bytes and a cache line is 64, so a 32-byte load that starts at a bad address straddles two lines. Scratch buffers and row strides were requested at 64-byte alignment. That was +1.5% prompt processing and +2.1% cached prompt processing.
+Utilization during MoE decode went from 28% to 100%. Generation was already near the memory ceiling, so the tokens-per-second change was modest. The alignment pass on the scratch buffers and row strides was +1.5% prompt processing and +2.1% cached prompt processing. The longer account is in the [kernel section](docs/writeup.md#5-patching-the-kernel-directly) of the writeup.
 
-The same kernels depend on a sign trick in the int8 dot product. `_mm256_maddubs_epi16` wants one unsigned operand and one signed, and it accumulates adjacent products into a 16-bit lane. Offsetting both sides by 128 makes one product 255 × 127 = 32,385, already past the signed 16-bit limit of 32,767, which is silent corruption. The kernel computes `w·x = |w| · (x · sign(w))` instead. Each product stays at most 127 × 127 = 16,129, and two of them sum to 32,258, under the limit. The full account is in the [kernel section](docs/writeup.md#5-patching-the-kernel-directly) of the writeup.
+`dot_i8` is the existing Broadwell sequence in [iqk_gemm_legacy_quants.cpp](https://github.com/ikawrakow/ik_llama.cpp/blob/main/ggml/src/iqk/iqk_gemm_legacy_quants.cpp). `_mm256_maddubs_epi16` wants one unsigned operand and one signed, and it accumulates adjacent products into a 16-bit lane. Offsetting both sides by 128 makes one product 255 × 127 = 32,385, already past the signed 16-bit limit of 32,767. `w·x = |w| · (x · sign(w))` keeps each product at most 127 × 127 = 16,129, and two of them sum to 32,258. In `SignedDot` the first argument is the weight: `_mm256_sign_epi8(x, x)` is its absolute value, and the second `sign` paints that sign onto the activation. The widening `_mm256_madd_epi16` by 1 then lifts the 16-bit pairs into 32-bit lanes. There is no VNNI on this chip, so this is the whole int8 dot product.
+
+```cpp
+struct DotHelper {
+    const __m256i m1 = _mm256_set1_epi16(1);
+    inline __m256i dot(__m256i x, __m256i y) const {
+        return _mm256_madd_epi16(m1, _mm256_maddubs_epi16(x, y));
+    }
+};
+
+struct SignedDot {
+    DotHelper helper;
+    inline __m256i compute(__m256i x, __m256i y) const {
+        return helper.dot(_mm256_sign_epi8(x, x), _mm256_sign_epi8(y, x));
+    }
+};
+```
 
 ### Custom quant: bits on the tensors that are large
 
