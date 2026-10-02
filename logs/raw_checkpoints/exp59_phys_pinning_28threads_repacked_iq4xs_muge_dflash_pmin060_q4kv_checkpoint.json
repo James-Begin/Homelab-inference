@@ -6,8 +6,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 19.847629900314892,
-    "wall_time": 80.3348925113678
+    "speed_tps": 20.739985675637232,
+    "wall_time": 76.21446561813354
   },
   {
     "idx": 2,
@@ -16,8 +16,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 20.910225662583585,
-    "wall_time": 75.56981873512268
+    "speed_tps": 21.90686822677893,
+    "wall_time": 72.13396883010864
   },
   {
     "idx": 3,
@@ -26,8 +26,8 @@
     "pred": "B",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 22.73661107436971,
-    "wall_time": 69.06703400611877
+    "speed_tps": 26.392406038781818,
+    "wall_time": 59.601470708847046
   },
   {
     "idx": 4,
@@ -36,8 +36,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 19.526404599688686,
-    "wall_time": 80.44595980644226
+    "speed_tps": 18.55984002964548,
+    "wall_time": 84.25908780097961
   },
   {
     "idx": 5,
@@ -46,18 +46,18 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 22.06510253916035,
-    "wall_time": 71.68929076194763
+    "speed_tps": 19.870191248779683,
+    "wall_time": 79.43388867378235
   },
   {
     "idx": 6,
     "id": "gpqa_12",
     "gold": "D",
-    "pred": null,
+    "pred": "C",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 37.98510578283173,
-    "wall_time": 42.897950649261475
+    "speed_tps": 25.56713898238492,
+    "wall_time": 62.378588914871216
   },
   {
     "idx": 7,
@@ -66,28 +66,28 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.8960890547782,
-    "wall_time": 74.82958459854126
+    "speed_tps": 22.73881002211275,
+    "wall_time": 68.91325521469116
   },
   {
     "idx": 8,
     "id": "gpqa_13",
     "gold": "B",
-    "pred": "B",
-    "correct": true,
+    "pred": "A",
+    "correct": false,
     "tokens": 1536,
-    "speed_tps": 17.969693269970822,
-    "wall_time": 87.11398506164551
+    "speed_tps": 16.48592044435738,
+    "wall_time": 94.30696201324463
   },
   {
     "idx": 9,
     "id": "gpqa_127",
     "gold": "D",
-    "pred": "A",
+    "pred": "C",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.876413481834813,
-    "wall_time": 95.97904109954834
+    "speed_tps": 19.52096145208705,
+    "wall_time": 91.95926833152771
   },
   {
     "idx": 10,
@@ -96,8 +96,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.44735076083048,
-    "wall_time": 76.67726516723633
+    "speed_tps": 20.250698105242645,
+    "wall_time": 77.54988980293274
   },
   {
     "idx": 11,
@@ -106,8 +106,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 24.317491448111365,
-    "wall_time": 64.61809253692627
+    "speed_tps": 22.470100722226487,
+    "wall_time": 69.8008189201355
   },
   {
     "idx": 12,
@@ -116,8 +116,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 20.94812809791242,
-    "wall_time": 75.24955558776855
+    "speed_tps": 18.72767059051601,
+    "wall_time": 83.65560054779053
   },
   {
     "idx": 13,
@@ -126,8 +126,8 @@
     "pred": null,
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.81856933978272,
-    "wall_time": 75.03918647766113
+    "speed_tps": 19.64926496973687,
+    "wall_time": 79.55049014091492
   },
   {
     "idx": 14,
@@ -136,8 +136,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 22.057552001755877,
-    "wall_time": 74.91719055175781
+    "speed_tps": 17.381299473475625,
+    "wall_time": 93.02066826820374
   },
   {
     "idx": 15,
@@ -146,8 +146,8 @@
     "pred": null,
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 22.093749561738978,
-    "wall_time": 70.89983415603638
+    "speed_tps": 25.902601530145592,
+    "wall_time": 60.63764452934265
   },
   {
     "idx": 16,
@@ -156,8 +156,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.60257543459966,
-    "wall_time": 76.29218006134033
+    "speed_tps": 18.730612261522175,
+    "wall_time": 83.55655813217163
   },
   {
     "idx": 17,
@@ -166,8 +166,8 @@
     "pred": "B",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.959348420833507,
-    "wall_time": 78.94357633590698
+    "speed_tps": 21.296658712309174,
+    "wall_time": 73.50300788879395
   },
   {
     "idx": 18,
@@ -176,18 +176,18 @@
     "pred": "C",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.339609775846775,
-    "wall_time": 77.07706928253174
+    "speed_tps": 18.24523375933658,
+    "wall_time": 85.63454961776733
   },
   {
     "idx": 19,
     "id": "gpqa_134",
     "gold": "D",
-    "pred": "B",
+    "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.592233990198338,
-    "wall_time": 77.17655992507935
+    "speed_tps": 21.946344416985006,
+    "wall_time": 72.2247040271759
   },
   {
     "idx": 20,
@@ -196,8 +196,8 @@
     "pred": "C",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 20.573139540252214,
-    "wall_time": 76.34455132484436
+    "speed_tps": 23.502600870339872,
+    "wall_time": 66.73786664009094
   },
   {
     "idx": 21,
@@ -206,18 +206,18 @@
     "pred": "C",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 21.737293458740343,
-    "wall_time": 72.57136154174805
+    "speed_tps": 26.42617789569619,
+    "wall_time": 59.790724992752075
   },
   {
     "idx": 22,
     "id": "gpqa_53",
     "gold": "B",
-    "pred": "A",
+    "pred": "C",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.98942642631325,
-    "wall_time": 78.50910067558289
+    "speed_tps": 19.771242604062124,
+    "wall_time": 79.0825924873352
   },
   {
     "idx": 23,
@@ -226,8 +226,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.026346916161792,
-    "wall_time": 75.20245671272278
+    "speed_tps": 20.639980766117926,
+    "wall_time": 76.27894687652588
   },
   {
     "idx": 24,
@@ -236,8 +236,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.284516997980177,
-    "wall_time": 74.05094575881958
+    "speed_tps": 16.752992020569533,
+    "wall_time": 93.43831205368042
   },
   {
     "idx": 25,
@@ -246,38 +246,38 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.598964513120478,
-    "wall_time": 76.59511184692383
+    "speed_tps": 19.750732384416942,
+    "wall_time": 79.88057971000671
   },
   {
     "idx": 26,
     "id": "gpqa_73",
     "gold": "D",
-    "pred": "D",
-    "correct": true,
+    "pred": null,
+    "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.51880782330268,
-    "wall_time": 73.06056880950928
+    "speed_tps": 22.98853808852042,
+    "wall_time": 68.34511756896973
   },
   {
     "idx": 27,
     "id": "gpqa_37",
     "gold": "A",
-    "pred": "A",
-    "correct": true,
+    "pred": "C",
+    "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.892419991994775,
-    "wall_time": 75.65195918083191
+    "speed_tps": 19.695007170790554,
+    "wall_time": 79.88046288490295
   },
   {
     "idx": 28,
     "id": "gpqa_126",
     "gold": "B",
-    "pred": "D",
+    "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.189372925273982,
-    "wall_time": 81.47601413726807
+    "speed_tps": 21.122409644492244,
+    "wall_time": 155.67519879341125
   },
   {
     "idx": 29,
@@ -286,8 +286,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.317706566182547,
-    "wall_time": 73.98365449905396
+    "speed_tps": 23.074683556854307,
+    "wall_time": 68.2419445514679
   },
   {
     "idx": 30,
@@ -296,18 +296,18 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 20.409560890689182,
-    "wall_time": 78.099600315094
+    "speed_tps": 19.599039881825956,
+    "wall_time": 80.88617014884949
   },
   {
     "idx": 31,
     "id": "gpqa_160",
     "gold": "A",
-    "pred": "A",
-    "correct": true,
+    "pred": null,
+    "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.350223369536728,
-    "wall_time": 77.6127097606659
+    "speed_tps": 20.257832352589155,
+    "wall_time": 78.00484299659729
   },
   {
     "idx": 32,
@@ -316,38 +316,38 @@
     "pred": null,
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.162811918801985,
-    "wall_time": 74.52142715454102
+    "speed_tps": 22.759411842862917,
+    "wall_time": 69.30653953552246
   },
   {
     "idx": 33,
     "id": "gpqa_45",
     "gold": "C",
-    "pred": "C",
-    "correct": true,
+    "pred": "A",
+    "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.79823025475837,
-    "wall_time": 78.6411440372467
+    "speed_tps": 21.142571545099404,
+    "wall_time": 73.68399333953857
   },
   {
     "idx": 34,
     "id": "gpqa_184",
     "gold": "C",
-    "pred": "C",
-    "correct": true,
-    "tokens": 1185,
-    "speed_tps": 20.600603018765426,
-    "wall_time": 59.12072253227234
+    "pred": "A",
+    "correct": false,
+    "tokens": 1345,
+    "speed_tps": 23.837294320703485,
+    "wall_time": 57.8822557926178
   },
   {
     "idx": 35,
     "id": "gpqa_32",
     "gold": "B",
-    "pred": null,
+    "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.18034768202606,
-    "wall_time": 74.62880158424377
+    "speed_tps": 20.455936999442986,
+    "wall_time": 77.14887714385986
   },
   {
     "idx": 36,
@@ -356,18 +356,18 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.75504769763665,
-    "wall_time": 79.56415247917175
+    "speed_tps": 21.812963438491035,
+    "wall_time": 72.17673850059509
   },
   {
     "idx": 37,
     "id": "gpqa_192",
     "gold": "C",
-    "pred": "A",
-    "correct": false,
+    "pred": "C",
+    "correct": true,
     "tokens": 1536,
-    "speed_tps": 20.063458000729703,
-    "wall_time": 77.78677868843079
+    "speed_tps": 22.062086647380248,
+    "wall_time": 70.86536240577698
   },
   {
     "idx": 38,
@@ -376,8 +376,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.25457613332109,
-    "wall_time": 81.43127179145813
+    "speed_tps": 18.937825454575314,
+    "wall_time": 82.69640684127808
   },
   {
     "idx": 39,
@@ -386,38 +386,38 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.70342373204953,
-    "wall_time": 73.69598245620728
+    "speed_tps": 16.550517448264493,
+    "wall_time": 95.04319548606873
   },
   {
     "idx": 40,
     "id": "gpqa_60",
     "gold": "D",
-    "pred": "B",
+    "pred": "C",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.936279186823054,
-    "wall_time": 78.83239889144897
+    "speed_tps": 17.72339608054019,
+    "wall_time": 88.26318717002869
   },
   {
     "idx": 41,
     "id": "gpqa_170",
     "gold": "C",
-    "pred": "A",
+    "pred": null,
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.573540717036142,
-    "wall_time": 80.34991717338562
+    "speed_tps": 18.216888927536523,
+    "wall_time": 86.05520343780518
   },
   {
     "idx": 42,
     "id": "gpqa_47",
     "gold": "A",
-    "pred": "A",
-    "correct": true,
+    "pred": "C",
+    "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.674772929295475,
-    "wall_time": 79.72975850105286
+    "speed_tps": 18.098712996512592,
+    "wall_time": 86.22430634498596
   },
   {
     "idx": 43,
@@ -426,18 +426,18 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 20.00791928034224,
-    "wall_time": 79.20276737213135
+    "speed_tps": 20.489430601925047,
+    "wall_time": 77.24627256393433
   },
   {
     "idx": 44,
     "id": "gpqa_103",
     "gold": "B",
-    "pred": null,
+    "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.04711190461646,
-    "wall_time": 74.73138689994812
+    "speed_tps": 21.594510540454927,
+    "wall_time": 72.79087662696838
   },
   {
     "idx": 45,
@@ -445,29 +445,29 @@
     "gold": "D",
     "pred": null,
     "correct": false,
-    "tokens": 1536,
-    "speed_tps": 21.049697142685876,
-    "wall_time": 74.91356706619263
+    "tokens": 2,
+    "speed_tps": 13.162917429018968,
+    "wall_time": 1.9577934741973877
   },
   {
     "idx": 46,
     "id": "gpqa_95",
     "gold": "D",
-    "pred": "A",
-    "correct": false,
+    "pred": "D",
+    "correct": true,
     "tokens": 1536,
-    "speed_tps": 21.025762924804084,
-    "wall_time": 74.60949850082397
+    "speed_tps": 23.98477116935566,
+    "wall_time": 65.34730100631714
   },
   {
     "idx": 47,
     "id": "gpqa_144",
     "gold": "C",
-    "pred": "C",
-    "correct": true,
-    "tokens": 1536,
-    "speed_tps": 18.941723911943477,
-    "wall_time": 82.29322457313538
+    "pred": null,
+    "correct": false,
+    "tokens": 2,
+    "speed_tps": 14.598113923681062,
+    "wall_time": 1.2157692909240723
   },
   {
     "idx": 48,
@@ -476,8 +476,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.285836194369132,
-    "wall_time": 81.43635201454163
+    "speed_tps": 19.552698915296208,
+    "wall_time": 80.21068239212036
   },
   {
     "idx": 49,
@@ -486,17 +486,17 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 26.802987311594936,
-    "wall_time": 60.04131460189819
+    "speed_tps": 18.19503822965879,
+    "wall_time": 86.85487079620361
   },
   {
     "idx": 50,
     "id": "gpqa_61",
     "gold": "B",
-    "pred": "A",
-    "correct": false,
+    "pred": "B",
+    "correct": true,
     "tokens": 1536,
-    "speed_tps": 21.36505836785114,
-    "wall_time": 73.99337935447693
+    "speed_tps": 18.33083891907769,
+    "wall_time": 85.81589603424072
   }
 ]

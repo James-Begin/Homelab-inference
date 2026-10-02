@@ -6,8 +6,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 19.847629900314892,
-    "wall_time": 80.3348925113678
+    "speed_tps": 20.830013097955632,
+    "wall_time": 76.16736078262329
   },
   {
     "idx": 2,
@@ -16,8 +16,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 20.910225662583585,
-    "wall_time": 75.56981873512268
+    "speed_tps": 21.583140195141937,
+    "wall_time": 73.22332644462585
   },
   {
     "idx": 3,
@@ -26,8 +26,8 @@
     "pred": "B",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 22.73661107436971,
-    "wall_time": 69.06703400611877
+    "speed_tps": 22.621477222226925,
+    "wall_time": 69.33957600593567
   },
   {
     "idx": 4,
@@ -36,8 +36,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 19.526404599688686,
-    "wall_time": 80.44595980644226
+    "speed_tps": 19.475687609057825,
+    "wall_time": 80.6967294216156
   },
   {
     "idx": 5,
@@ -46,8 +46,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 22.06510253916035,
-    "wall_time": 71.68929076194763
+    "speed_tps": 21.971984461000616,
+    "wall_time": 71.95207905769348
   },
   {
     "idx": 6,
@@ -56,8 +56,8 @@
     "pred": null,
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 37.98510578283173,
-    "wall_time": 42.897950649261475
+    "speed_tps": 37.67057246247308,
+    "wall_time": 43.00401949882507
   },
   {
     "idx": 7,
@@ -66,8 +66,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.8960890547782,
-    "wall_time": 74.82958459854126
+    "speed_tps": 20.82515472608651,
+    "wall_time": 75.04345917701721
   },
   {
     "idx": 8,
@@ -76,8 +76,8 @@
     "pred": "B",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 17.969693269970822,
-    "wall_time": 87.11398506164551
+    "speed_tps": 18.915723861711527,
+    "wall_time": 82.53090071678162
   },
   {
     "idx": 9,
@@ -86,8 +86,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.876413481834813,
-    "wall_time": 95.97904109954834
+    "speed_tps": 20.9997649010695,
+    "wall_time": 90.73706817626953
   },
   {
     "idx": 10,
@@ -96,8 +96,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.44735076083048,
-    "wall_time": 76.67726516723633
+    "speed_tps": 20.54052553415998,
+    "wall_time": 76.5375874042511
   },
   {
     "idx": 11,
@@ -106,8 +106,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 24.317491448111365,
-    "wall_time": 64.61809253692627
+    "speed_tps": 24.210205487429064,
+    "wall_time": 64.8676586151123
   },
   {
     "idx": 12,
@@ -116,8 +116,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 20.94812809791242,
-    "wall_time": 75.24955558776855
+    "speed_tps": 21.47595815420739,
+    "wall_time": 73.40341806411743
   },
   {
     "idx": 13,
@@ -126,8 +126,8 @@
     "pred": null,
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.81856933978272,
-    "wall_time": 75.03918647766113
+    "speed_tps": 20.814991195163863,
+    "wall_time": 75.14497113227844
   },
   {
     "idx": 14,
@@ -136,8 +136,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 22.057552001755877,
-    "wall_time": 74.91719055175781
+    "speed_tps": 21.95579757629436,
+    "wall_time": 75.25520920753479
   },
   {
     "idx": 15,
@@ -146,8 +146,8 @@
     "pred": null,
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 22.093749561738978,
-    "wall_time": 70.89983415603638
+    "speed_tps": 21.96877401940747,
+    "wall_time": 71.28242063522339
   },
   {
     "idx": 16,
@@ -156,8 +156,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.60257543459966,
-    "wall_time": 76.29218006134033
+    "speed_tps": 20.525183591820806,
+    "wall_time": 76.6029622554779
   },
   {
     "idx": 17,
@@ -166,8 +166,8 @@
     "pred": "B",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.959348420833507,
-    "wall_time": 78.94357633590698
+    "speed_tps": 19.87686669303716,
+    "wall_time": 79.03122234344482
   },
   {
     "idx": 18,
@@ -176,8 +176,8 @@
     "pred": "C",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.339609775846775,
-    "wall_time": 77.07706928253174
+    "speed_tps": 20.241791894084823,
+    "wall_time": 77.29281973838806
   },
   {
     "idx": 19,
@@ -186,8 +186,8 @@
     "pred": "B",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.592233990198338,
-    "wall_time": 77.17655992507935
+    "speed_tps": 20.509764043042782,
+    "wall_time": 77.46921157836914
   },
   {
     "idx": 20,
@@ -196,8 +196,8 @@
     "pred": "C",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 20.573139540252214,
-    "wall_time": 76.34455132484436
+    "speed_tps": 20.468113756979047,
+    "wall_time": 76.80949521064758
   },
   {
     "idx": 21,
@@ -206,8 +206,8 @@
     "pred": "C",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 21.737293458740343,
-    "wall_time": 72.57136154174805
+    "speed_tps": 21.619296877690758,
+    "wall_time": 72.8028302192688
   },
   {
     "idx": 22,
@@ -216,8 +216,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.98942642631325,
-    "wall_time": 78.50910067558289
+    "speed_tps": 19.88650244817605,
+    "wall_time": 78.93697357177734
   },
   {
     "idx": 23,
@@ -226,8 +226,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.026346916161792,
-    "wall_time": 75.20245671272278
+    "speed_tps": 20.934462335065636,
+    "wall_time": 75.4728753566742
   },
   {
     "idx": 24,
@@ -236,8 +236,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.284516997980177,
-    "wall_time": 74.05094575881958
+    "speed_tps": 21.168863319829867,
+    "wall_time": 74.63807272911072
   },
   {
     "idx": 25,
@@ -246,8 +246,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.598964513120478,
-    "wall_time": 76.59511184692383
+    "speed_tps": 20.47994402148634,
+    "wall_time": 77.1689338684082
   },
   {
     "idx": 26,
@@ -256,8 +256,8 @@
     "pred": "D",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 21.51880782330268,
-    "wall_time": 73.06056880950928
+    "speed_tps": 21.43123388864088,
+    "wall_time": 73.19243144989014
   },
   {
     "idx": 27,
@@ -266,8 +266,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 20.892419991994775,
-    "wall_time": 75.65195918083191
+    "speed_tps": 20.78007396542864,
+    "wall_time": 76.05476021766663
   },
   {
     "idx": 28,
@@ -276,8 +276,8 @@
     "pred": "D",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.189372925273982,
-    "wall_time": 81.47601413726807
+    "speed_tps": 19.089879315299225,
+    "wall_time": 81.98541736602783
   },
   {
     "idx": 29,
@@ -286,8 +286,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.317706566182547,
-    "wall_time": 73.98365449905396
+    "speed_tps": 21.215324563733994,
+    "wall_time": 74.24768161773682
   },
   {
     "idx": 30,
@@ -296,8 +296,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 20.409560890689182,
-    "wall_time": 78.099600315094
+    "speed_tps": 20.31998660785883,
+    "wall_time": 78.33084034919739
   },
   {
     "idx": 31,
@@ -306,8 +306,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 20.350223369536728,
-    "wall_time": 77.6127097606659
+    "speed_tps": 20.207152253130364,
+    "wall_time": 78.20470952987671
   },
   {
     "idx": 32,
@@ -316,8 +316,8 @@
     "pred": null,
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.162811918801985,
-    "wall_time": 74.52142715454102
+    "speed_tps": 21.037851162106378,
+    "wall_time": 75.09142541885376
   },
   {
     "idx": 33,
@@ -326,8 +326,8 @@
     "pred": "C",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 19.79823025475837,
-    "wall_time": 78.6411440372467
+    "speed_tps": 19.66721132208577,
+    "wall_time": 79.21880006790161
   },
   {
     "idx": 34,
@@ -336,8 +336,8 @@
     "pred": "C",
     "correct": true,
     "tokens": 1185,
-    "speed_tps": 20.600603018765426,
-    "wall_time": 59.12072253227234
+    "speed_tps": 20.456420547961734,
+    "wall_time": 59.409995317459106
   },
   {
     "idx": 35,
@@ -346,8 +346,8 @@
     "pred": null,
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.18034768202606,
-    "wall_time": 74.62880158424377
+    "speed_tps": 21.060168902554597,
+    "wall_time": 75.118159532547
   },
   {
     "idx": 36,
@@ -356,8 +356,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.75504769763665,
-    "wall_time": 79.56415247917175
+    "speed_tps": 19.636655145856434,
+    "wall_time": 80.05482792854309
   },
   {
     "idx": 37,
@@ -366,8 +366,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 20.063458000729703,
-    "wall_time": 77.78677868843079
+    "speed_tps": 19.929072741504747,
+    "wall_time": 78.31348323822021
   },
   {
     "idx": 38,
@@ -376,8 +376,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.25457613332109,
-    "wall_time": 81.43127179145813
+    "speed_tps": 19.126705984499747,
+    "wall_time": 82.33137726783752
   },
   {
     "idx": 39,
@@ -386,8 +386,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.70342373204953,
-    "wall_time": 73.69598245620728
+    "speed_tps": 21.587470632045157,
+    "wall_time": 73.66763234138489
   },
   {
     "idx": 40,
@@ -396,8 +396,8 @@
     "pred": "B",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.936279186823054,
-    "wall_time": 78.83239889144897
+    "speed_tps": 19.810095216784156,
+    "wall_time": 79.62723326683044
   },
   {
     "idx": 41,
@@ -406,8 +406,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.573540717036142,
-    "wall_time": 80.34991717338562
+    "speed_tps": 19.453562598296852,
+    "wall_time": 80.72824168205261
   },
   {
     "idx": 42,
@@ -416,8 +416,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 19.674772929295475,
-    "wall_time": 79.72975850105286
+    "speed_tps": 19.54994101161679,
+    "wall_time": 80.24383449554443
   },
   {
     "idx": 43,
@@ -426,8 +426,8 @@
     "pred": "A",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 20.00791928034224,
-    "wall_time": 79.20276737213135
+    "speed_tps": 19.912324582921062,
+    "wall_time": 79.39812850952148
   },
   {
     "idx": 44,
@@ -436,8 +436,8 @@
     "pred": null,
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.04711190461646,
-    "wall_time": 74.73138689994812
+    "speed_tps": 20.917422062277783,
+    "wall_time": 75.39598798751831
   },
   {
     "idx": 45,
@@ -446,8 +446,8 @@
     "pred": null,
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.049697142685876,
-    "wall_time": 74.91356706619263
+    "speed_tps": 20.94066703304654,
+    "wall_time": 75.26695966720581
   },
   {
     "idx": 46,
@@ -456,8 +456,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.025762924804084,
-    "wall_time": 74.60949850082397
+    "speed_tps": 20.901915475484284,
+    "wall_time": 74.90111947059631
   },
   {
     "idx": 47,
@@ -466,8 +466,8 @@
     "pred": "C",
     "correct": true,
     "tokens": 1536,
-    "speed_tps": 18.941723911943477,
-    "wall_time": 82.29322457313538
+    "speed_tps": 18.846260866262,
+    "wall_time": 82.70859050750732
   },
   {
     "idx": 48,
@@ -476,8 +476,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 19.285836194369132,
-    "wall_time": 81.43635201454163
+    "speed_tps": 19.19407263044581,
+    "wall_time": 81.79256844520569
   },
   {
     "idx": 49,
@@ -486,8 +486,8 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 26.802987311594936,
-    "wall_time": 60.04131460189819
+    "speed_tps": 26.583708880142574,
+    "wall_time": 60.4765727519989
   },
   {
     "idx": 50,
@@ -496,7 +496,7 @@
     "pred": "A",
     "correct": false,
     "tokens": 1536,
-    "speed_tps": 21.36505836785114,
-    "wall_time": 73.99337935447693
+    "speed_tps": 21.255968692615113,
+    "wall_time": 74.23567652702332
   }
 ]

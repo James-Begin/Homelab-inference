@@ -53,6 +53,10 @@ The 128K column is the needle check at 192,065 tokens. **Passed** means the pass
 | 53 | Repacked GGUF + Merged Experts (-muge) + High-Throughput Precision Suffix (n_max=14, match=8, depth=64) + Native MTP + Q4_0 KV + SER 2,0.5 | 21.42 | 27.45 | 15 / 50 (30.0%) | 8 / 20 (40.0%) | Passed, 8.28 t/s | [report](logs/gpqa_reports/gpqa_exp53_phys_pinning_28threads_repacked_iq4xs_muge_suffix_nmax14_match8_q4kv_50q_report.md) |
 | 54 | Repacked GGUF + Merged Experts (-muge) + Confidence-Gated Burst Suffix (n_max=16, match=8, p_min=0.10, depth=64) + Native MTP + Q4_0 KV + SER 2,0.5 | 21.51 | 28.26 | 14 / 50 (28.0%) | 6 / 20 (30.0%) | Passed, 8.21 t/s | [report](logs/gpqa_reports/gpqa_exp54_phys_pinning_28threads_repacked_iq4xs_muge_suffix_nmax16_match8_pmin010_q4kv_50q_report.md) |
 | 55 | Repacked GGUF + Merged Experts (-muge) + Calibrated Speculative Diffusion (DFlash n_max=3, p_min=0.45, cross_ctx=512) + Q4_0 KV + SER 2,0.5 | 20.28 | 26.32 | 13 / 50 (26.0%) | 7 / 20 (35.0%) | Passed, 8.28 t/s | [report](logs/gpqa_reports/gpqa_exp55_phys_pinning_28threads_repacked_iq4xs_muge_dflash_nmax3_pmin045_q4kv_50q_report.md) |
+| 57 | Repacked + Suffix (n_max=8, match=5) + Confidence-Gated MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5 | 21.10 | 37.99 | 18 / 50 (36.0%) | 8 / 20 (40.0%) | Passed, 37.96 t/s | [report](logs/gpqa_reports/gpqa_exp57_phys_pinning_28threads_repacked_iq4xs_muge_suffix_mtp_pmin015_q4kv_50q_report.md) |
+| 58 | Repacked + Suffix (n_max=8, match=5) + Speculative Autotuning (--spec-autotune) + Native MTP + Q4_0 KV + SER 2,0.5 | 21.09 | 37.67 | 18 / 50 (36.0%) | 8 / 20 (40.0%) | Passed, 38.81 t/s | [report](logs/gpqa_reports/gpqa_exp58_phys_pinning_28threads_repacked_iq4xs_muge_suffix_autotune_q4kv_50q_report.md) |
+| 59 | Repacked + High-Confidence Speculative Diffusion (DFlash n_max=3, p_min=0.60) + Q4_0 KV + SER 2,0.5 | 20.43 | 26.43 | 13 / 50 (26.0%) | 7 / 20 (35.0%) | Passed, 38.81 t/s | [report](logs/gpqa_reports/gpqa_exp59_phys_pinning_28threads_repacked_iq4xs_muge_dflash_pmin060_q4kv_50q_report.md) |
+| 60 | Repacked + Suffix (n_max=8, match=5) + Prefix Cache Sharing (similarity=0.20) + Native MTP + Q4_0 KV + SER 2,0.5 | 20.97 | 37.60 | 18 / 50 (36.0%) | 8 / 20 (40.0%) | Passed, 38.82 t/s | [report](logs/gpqa_reports/gpqa_exp60_phys_pinning_28threads_repacked_iq4xs_muge_suffix_slot_similarity_q4kv_50q_report.md) |
 
 ## 20-question sweeps
 
@@ -90,7 +94,5 @@ Coding, math, facts, logic, and a 4K needle. This is the gate from the start of 
 - [Experiment 13: Asymmetric NUMA Speculation (Decoupled Sockets)](logs/gpqa_reports/gpqa_exp13_asymmetric_numa_spec_report.md)
 - [Experiment 14: Multi-Token Prediction (MTP) Output Vocabulary Requantization](logs/gpqa_reports/gpqa_exp14_mtp_output_requant_report.md)
 - [Experiment 56 Technical Post-Mortem & Diagnostic Autopsy](logs/gpqa_reports/gpqa_exp56_cascade_draft08b_postmortem.md)
-
-Exp 57 has a checkpoint of 8 / 50 questions and no finished report. Exp 58, 59, and 60 are in the [experiment catalog](benchmarks/experiments.json) and were not run.
 
 Per-question JSON for the finished runs is in [`logs/raw_checkpoints/`](logs/raw_checkpoints/). The question set is [`gpqa_subset_50.json`](logs/raw_checkpoints/gpqa_subset_50.json).

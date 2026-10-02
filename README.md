@@ -25,7 +25,7 @@ The standardized runs are GPQA Diamond, 50 questions, 1,536 token ceiling. Earli
 | Single-NUMA baseline | 0 | 11.16 t/s | 16 / 50 |
 | Best accuracy | 5 | 19.26 t/s | 22 / 50 |
 | Fastest average that held the baseline score | 46 | 22.50 t/s | 16 / 50 |
-| Best later score | 47, 48, 50 | 21.30–21.33 t/s | 18 / 50 |
+| Best later score | 47, 48, 50, 57, 58, 60 | 20.97–21.33 t/s | 18 / 50 |
 
 The highest peak in the 50-question set is **66.30 t/s** on run 42, at 14 / 50. Deeper suffix drafts are what produce those bursts, and they give the score back.
 
