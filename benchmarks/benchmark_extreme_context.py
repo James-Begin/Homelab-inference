@@ -44,9 +44,8 @@ def run_passkey_step(ctx, junk, extra_flags="", numactl_prefix="numactl --interl
         pk_val_match = re.search(r"passkey\s*=\s*(\d+)", output)
         expected_passkey = pk_val_match.group(1) if pk_val_match else None
         
-        # Extract prompt eval time and decode time
-        pp_match = re.search(r"prompt eval time = +([\d.]+) ms / +(\d+) tokens \( +([\d.]+) ms per token, +([\d.]+) tokens per second\)", output)
-        tg_match = re.search(r"eval time = +([\d.]+) ms / +(\d+) tokens \( +([\d.]+) ms per token, +([\d.]+) tokens per second\)", output)
+        pp_match = re.search(r"prompt eval time\s*=\s*([\d.]+)\s*ms\s*/\s*(\d+)\s*tokens\s*\(\s*([\d.]+)\s*ms per token,\s*([\d.]+)\s*tokens per second\)", output)
+        tg_match = re.search(r"\n\s*llama_print_timings:\s+eval time\s*=\s*([\d.]+)\s*ms\s*/\s*(\d+)\s*(?:runs|tokens)\s*\(\s*([\d.]+)\s*ms per token,\s*([\d.]+)\s*tokens per second\)", output)
         mem_match = re.search(r"Maximum resident set size \(kbytes\): (\d+)", output)
         
         tokens_evaluated = int(pp_match.group(2)) if pp_match else (junk * 25)

@@ -100,16 +100,34 @@ def chat_prompt(user_text: str) -> str:
 
 
 def extract_answer_letter(completion_text: str):
+    clean_text = completion_text
+    if "</think>" in clean_text:
+        clean_text = clean_text.split("</think>", 1)[1]
+    elif "<think>" in clean_text:
+        # The model hit token ceiling before closing its thinking block; no final answer produced
+        return None
+
+    # Search for explicit final answer declaration first
     match = re.search(
-        r"(?:answer is|answer|choice|option)[:\*\s]*\s*(?:\(?([A-D])\)?)",
-        completion_text,
+        r"(?:final answer is|the answer is|correct answer is|answer is|choice|option)[:\*\s]*\s*(?:\(?([A-D])\)?)",
+        clean_text,
         re.IGNORECASE,
     )
     if match:
         return match.group(1).upper()
-    match = re.search(r"\b([A-D])\b", completion_text)
+
+    # Search for LaTeX \boxed{X}
+    match = re.search(r"\\boxed\{\s*\(?([A-D])\)?\s*\}", clean_text)
     if match:
         return match.group(1).upper()
+
+    # Fallback to isolated letter on the last non-empty line
+    lines = [line.strip() for line in clean_text.splitlines() if line.strip()]
+    if lines:
+        match = re.search(r"\b([A-D])\b", lines[-1])
+        if match:
+            return match.group(1).upper()
+
     return None
 
 
@@ -378,7 +396,6 @@ def run_experiment(exp: dict, port: int, dry_run: bool) -> int:
                 speed = predicted_n / wall
             else:
                 speed = 0.0
-            correct = predicted == gold
             done.append({
                 "idx": len(done) + 1,
                 "id": item["id"],
@@ -388,6 +405,7 @@ def run_experiment(exp: dict, port: int, dry_run: bool) -> int:
                 "tokens": predicted_n,
                 "speed_tps": speed,
                 "wall_time": wall,
+                "content": content,
             })
             checkpoint.write_text(json.dumps(done, indent=2) + "\n")
             status = "CORRECT" if correct else "WRONG"
