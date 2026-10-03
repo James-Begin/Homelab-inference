@@ -699,5 +699,85 @@
     "threads": 28,
     "threads_batch": 28,
     "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Grouped Expert Routing (-ger to maximize L3 cache locality), Precision Suffix Speculation (n_max=8, match=5), Confidence MTP (p_min=0.15), Q4_0 KV Cache, and calibrated SER 2,0.5."
+  },
+  {
+    "number": 66,
+    "id": "exp66_phys_pinning_28threads_repacked_iq4xs_muge_first_touch_numa_q4kv",
+    "name": "Exp 66: Pre-Repacked Offline GGUF + Merged Experts (-muge) + First-Touch Local NUMA Allocation (numactl --localalloc) + Direct NUMA Map Pinning (--numa numactl) + Suffix (n_max=8, match=5) + Confidence MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --localalloc --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Replacing forced cross-QPI memory interleaving (--interleave=all) with first-touch local NUMA allocation (numactl --localalloc) combined with direct physical pinning (--numa numactl) to test whether eliminating cross-socket DRAM traffic boosts decode throughput above 21.57 t/s."
+  },
+  {
+    "number": 67,
+    "id": "exp67_phys_pinning_28threads_repacked_iq4xs_muge_corpus_suffix_spec_q4kv",
+    "name": "Exp 67: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Corpus-Backed Suffix Speculation (suffix_corpus) + Confidence MTP (p_min=0.15) + Direct NUMA Map Pinning (--numa numactl) + Q4_0 KV + SER 2,0.5",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--spec-type \"suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48,suffix_corpus='/home/james/Homelab-inference/benchmarks/code_corpus.json'\" -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Preloading offline code algorithms and reasoning preambles into suffix tree via suffix_corpus to evaluate draft hit rate gains on structured reasoning and code patterns without issuing forward passes."
+  },
+  {
+    "number": 68,
+    "id": "exp68_phys_pinning_28threads_repacked_iq4xs_muge_cost_aware_constrained_draft_q4kv",
+    "name": "Exp 68: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Constrained Draft Depth (n_max=4, depth=32) + Direct NUMA Map Pinning (--numa numactl) + Confidence MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Bounding speculative draft depth to n_max=4 with depth=32 to cap the union of active experts verified per forward pass, preventing memory bus saturation on Broadwell's 76.8 GB/s DRAM bus."
+  },
+  {
+    "number": 69,
+    "id": "exp69_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_numactl_q4kv",
+    "name": "Exp 69: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Pure MTP Speculation (No Suffix) + Direct NUMA Map Pinning (--numa numactl) + Q4_0 KV + SER 2,0.5",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "-muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Isolating pure native MTP speculation without suffix tree maintenance overhead under the new direct NUMA map pinning environment (--numa numactl)."
+  },
+  {
+    "number": 70,
+    "id": "exp70_phys_pinning_28threads_repacked_iq4xs_muge_suffix_autotune_numactl_q4kv",
+    "name": "Exp 70: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Suffix Speculation (n_max=6, match=4) + Spec Autotune + Direct NUMA Map Pinning (--numa numactl) + Confidence MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--spec-type suffix:n_max=6,suffix_min_match_len=4,suffix_max_depth=40 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Dynamic acceptance-rate tracking via speculative autotuning combined with low match threshold (match=4, depth=40) and direct NUMA pinning (--numa numactl)."
   }
 ]

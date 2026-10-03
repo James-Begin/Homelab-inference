@@ -54,15 +54,12 @@ def run_passkey_step(ctx, junk, extra_flags="", numactl_prefix="numactl --interl
         tg_speed = float(tg_match.group(4)) if tg_match else 0.0
         max_rss_mb = float(mem_match.group(1))/1024.0 if mem_match else 0.0
         
-        # Verification
+        # Verification: must exit cleanly (returncode == 0) and passkey must appear in decoded_snippet
         match = False
         after_prompt = output.split("What is the pass key?")
         decoded_snippet = after_prompt[1][:200].strip() if len(after_prompt) > 1 else ""
-        if expected_passkey:
-            if expected_passkey in decoded_snippet:
-                match = True
-            elif expected_passkey in output:
-                match = True
+        if proc.returncode == 0 and expected_passkey and expected_passkey in decoded_snippet:
+            match = True
                 
         return {
             "ctx_config": ctx,
