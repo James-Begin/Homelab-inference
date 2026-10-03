@@ -4,6 +4,8 @@ Qwen 3.6 35B-A3B on a 2016 Dell PowerEdge T630. Two Xeon E5-2680 v4s, AVX2 only,
 
 [What moved the tokens](#what-moved-the-tokens) · [Writeup](docs/writeup.md) · [Substack](https://open.substack.com/pub/james908142/p/teaching-an-old-xeon-new-tricks-a) · [Full results](RESULTS.md)
 
+[Performance research plan](docs/performance-research.md): an October 2 review of runs through 60 and queued runs 61–65, with a reproducible artifact audit and proposed experiments for the existing hardware and model.
+
 ## Hardware
 
 | | |
