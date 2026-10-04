@@ -779,5 +779,85 @@
     "threads": 28,
     "threads_batch": 28,
     "change": "Dynamic acceptance-rate tracking via speculative autotuning combined with low match threshold (match=4, depth=40) and direct NUMA pinning (--numa numactl)."
+  },
+  {
+    "number": 71,
+    "id": "exp71_phys_pinning_28threads_repacked_iq4xs_muge_expanded_ceiling_4096_constrained_draft_q4kv",
+    "name": "Exp 71: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Expanded Token Ceiling (max_tokens=4096) + Constrained Draft Depth (n_max=4, depth=32) + Direct NUMA Pinning (--numa numactl) + Confidence MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Expanding generation ceiling from 1,536 to 4,096 tokens under champion constrained draft depth (n_max=4, depth=32) + direct NUMA pinning (--numa numactl) to permit complete unconstrained Chain-of-Thought reasoning without clipping."
+  },
+  {
+    "number": 72,
+    "id": "exp72_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_expanded_ceiling_4096_q4kv",
+    "name": "Exp 72: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Pure Native MTP (No Suffix) + Expanded Token Ceiling (max_tokens=4096) + Direct NUMA Pinning (--numa numactl) + Q4_0 KV + SER 2,0.5",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "-muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Benchmarking Pure Native MTP (no suffix) under 4,096-token ceiling to test whether zero draft-expansion penalty preserves high reasoning accuracy on completed deep thoughts."
+  },
+  {
+    "number": 73,
+    "id": "exp73_phys_pinning_28threads_repacked_iq4xs_muge_corpus_suffix_expanded_ceiling_4096_q4kv",
+    "name": "Exp 73: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Corpus-Backed Suffix Speculation (suffix_corpus, n_max=4) + Confidence MTP (p_min=0.15) + Direct NUMA Pinning + Expanded Ceiling (max_tokens=4096)",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--spec-type \"suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32,suffix_corpus='/home/james/Homelab-inference/benchmarks/code_corpus.json'\" -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Preloading offline code/reasoning corpus into suffix tree with constrained draft depth (n_max=4, depth=32) under expanded 4,096-token ceiling to accelerate deep scientific reasoning."
+  },
+  {
+    "number": 74,
+    "id": "exp74_phys_pinning_28threads_repacked_iq4xs_muge_suffix_autotune_expanded_ceiling_4096_q4kv",
+    "name": "Exp 74: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Speculative Autotuning (--spec-autotune) + Constrained Suffix (n_max=4) + Confidence MTP (p_min=0.15) + Direct NUMA Pinning + Expanded Ceiling (max_tokens=4096)",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Dynamic acceptance-rate autotuning combined with constrained draft depth (n_max=4, depth=32) under 4,096-token ceiling to maintain optimal speculation depth during long CoT generation."
+  },
+  {
+    "number": 75,
+    "id": "exp75_phys_pinning_28threads_repacked_iq4xs_muge_persistent_slot_cache_expanded_ceiling_4096_q4kv",
+    "name": "Exp 75: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Persistent Slot Cache (--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.20) + Constrained Draft (n_max=4) + Direct NUMA Pinning + MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5 + Expanded Ceiling (max_tokens=4096)",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.20 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Enabling persistent KV and recurrent state saving (--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.20) under 4,096-token ceiling to evaluate session reuse and prefix caching stability."
   }
 ]
