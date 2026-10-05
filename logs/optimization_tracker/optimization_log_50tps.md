@@ -11669,3 +11669,296 @@ llama_print_timings:      sample time =       5.`
 - **Status:** MATCH - ZERO REGRESSION
 
 
+
+### Run exp71_phys_pinning_28threads_repacked_iq4xs_muge_expanded_ceiling_4096_constrained_draft_q4kv: Exp 71: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Expanded Token Ceiling (max_tokens=4096) + Constrained Draft Depth (n_max=4, depth=32) + Direct NUMA Pinning (--numa numactl) + Confidence MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5
+- **Single Change Tested:** Expanding generation ceiling to 4,096 tokens under champion constrained draft depth (n_max=4, depth=32) + direct NUMA pinning (--numa numactl) to permit complete unconstrained Chain-of-Thought reasoning without clipping.
+- **50Q GPQA Diamond Score:** **`9/50 (18.0%)`** (Standard 20Q: **`4/20 (20.0%)`**)
+- **Generation Speed:** Avg **`22.43 t/s`** | Peak **`40.32 t/s`**
+- **Token Ceiling:** 4096 tokens (Unconstrained 4K Chain-of-Thought)
+- **Detailed Report:** [`gpqa_exp71_phys_pinning_28threads_repacked_iq4xs_muge_expanded_ceiling_4096_constrained_draft_q4kv_50q_report.md`](/home/james/.gemini/antigravity-cli/brain/816c1d65-6e4b-4024-8ad0-2ebd54f80461/gpqa_exp71_phys_pinning_28threads_repacked_iq4xs_muge_expanded_ceiling_4096_constrained_draft_q4kv_50q_report.md)
+
+
+## Extended Needle Retrieval Certification (Exp 71: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Expanded Token Ceiling (max_tokens=4096) + Constrained Draft Depth (n_max=4, depth=32) + Direct NUMA Pinning (--numa numactl) + Confidence MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5)
+
+# Extreme Context Needle Retrieval Ladder: Exp71_Phys_Pinning_28threads_Repacked_IQ4XS_MUGE_Expanded_Ceiling_4096_Constrained_Draft_Q4KV
+
+- **Timestamp:** `2026-10-04 21:02:32`
+- **Model:** `/home/james/ik_llama.cpp/build/models/Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf`
+- **Configuration:** `numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27 ... -t 28 -tb 28 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 -ctk q4_0 -ctv q4_0 -ser 2,0.5 --numa numactl`
+
+## Benchmark Results
+
+| Context Depth | Tokens Evaluated | Needle Found? | Prompt Processing Speed | Prompt Time | Decode Speed | Peak RAM (RSS) |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **16K Context** | 24,065 | **PASSED (100%)** | **`138.82 t/s`** | 173.3s | `16.52 t/s` | 21708.6 MB |
+| **32K Context** | 48,065 | **PASSED (100%)** | **`102.18 t/s`** | 470.4s | `14.35 t/s` | 21708.7 MB |
+| **64K Context** | 96,063 | **PASSED (100%)** | **`65.36 t/s`** | 1469.7s | `11.76 t/s` | 21708.8 MB |
+| **128K Context** | 192,065 | **PASSED (100%)** | **`37.95 t/s`** | 5061.7s | `8.47 t/s` | 21709.5 MB |
+
+## Detailed Needle Extractions
+
+### 16K Context (24,065 tokens)
+- **Expected Passkey:** `19736`
+- **Decoded Snippet:** `The pass key is 19736.
+
+<think>
+
+</think>
+
+The pass key is
+
+main: decoded 16 tokens in 1.00 s, speed: 16.08 t/s
+
+llama_print_timings:        load time =  196220.69 ms
+llama_print_timings:      sample`
+- **Status:** MATCH - ZERO REGRESSION
+
+### 32K Context (48,065 tokens)
+- **Expected Passkey:** `19552`
+- **Decoded Snippet:** `The pass key is 19552.`
+- **Status:** MATCH - ZERO REGRESSION
+
+### 64K Context (96,063 tokens)
+- **Expected Passkey:** `1460`
+- **Decoded Snippet:** `The pass key is 1460.`
+- **Status:** MATCH - ZERO REGRESSION
+
+### 128K Context (192,065 tokens)
+- **Expected Passkey:** `35001`
+- **Decoded Snippet:** `The pass key is 35001.
+
+
+
+main: decoded 8 tokens in 0.96 s, speed: 8.35 t/s
+
+llama_print_timings:        load time = 5085427.81 ms
+llama_print_timings:      sample time =       2.81 ms /     9 runs`
+- **Status:** MATCH - ZERO REGRESSION
+
+
+
+### Run exp72_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_expanded_ceiling_4096_q4kv: Exp 72: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Pure Native MTP (No Suffix) + Expanded Token Ceiling (max_tokens=4096) + Direct NUMA Pinning (--numa numactl) + Q4_0 KV + SER 2,0.5
+- **Single Change Tested:** Benchmarking Pure Native MTP (no suffix) under 4,096-token ceiling to test whether zero draft-expansion penalty preserves high reasoning accuracy on completed deep thoughts.
+- **50Q GPQA Diamond Score:** **`11/46 (23.9%)`** (Standard 20Q: **`5/20 (25.0%)`**)
+- **Generation Speed:** Avg **`21.20 t/s`** | Peak **`23.14 t/s`**
+- **Token Ceiling:** 4096 tokens (Unconstrained 4K Chain-of-Thought)
+- **Detailed Report:** [`gpqa_exp72_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_expanded_ceiling_4096_q4kv_50q_report.md`](/home/james/.gemini/antigravity-cli/brain/816c1d65-6e4b-4024-8ad0-2ebd54f80461/gpqa_exp72_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_expanded_ceiling_4096_q4kv_50q_report.md)
+
+### Run exp72_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_expanded_ceiling_4096_q4kv: Exp 72: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Pure Native MTP (No Suffix) + Expanded Token Ceiling (max_tokens=4096) + Direct NUMA Pinning (--numa numactl) + Q4_0 KV + SER 2,0.5
+- **Single Change Tested:** Benchmarking Pure Native MTP (no suffix) under 4,096-token ceiling to test whether zero draft-expansion penalty preserves high reasoning accuracy on completed deep thoughts.
+- **50Q GPQA Diamond Score:** **`11/49 (22.4%)`** (Standard 20Q: **`5/20 (25.0%)`**)
+- **Generation Speed:** Avg **`21.18 t/s`** | Peak **`23.14 t/s`**
+- **Token Ceiling:** 4096 tokens (Unconstrained 4K Chain-of-Thought)
+- **Detailed Report:** [`gpqa_exp72_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_expanded_ceiling_4096_q4kv_50q_report.md`](/home/james/.gemini/antigravity-cli/brain/816c1d65-6e4b-4024-8ad0-2ebd54f80461/gpqa_exp72_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_expanded_ceiling_4096_q4kv_50q_report.md)
+
+### Run exp72_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_expanded_ceiling_4096_q4kv: Exp 72: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Pure Native MTP (No Suffix) + Expanded Token Ceiling (max_tokens=4096) + Direct NUMA Pinning (--numa numactl) + Q4_0 KV + SER 2,0.5
+- **Single Change Tested:** Benchmarking Pure Native MTP (no suffix) under 4,096-token ceiling to test whether zero draft-expansion penalty preserves high reasoning accuracy on completed deep thoughts.
+- **50Q GPQA Diamond Score:** **`11/50 (22.0%)`** (Standard 20Q: **`5/20 (25.0%)`**)
+- **Generation Speed:** Avg **`21.17 t/s`** | Peak **`23.14 t/s`**
+- **Token Ceiling:** 4096 tokens (Unconstrained 4K Chain-of-Thought)
+- **Detailed Report:** [`gpqa_exp72_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_expanded_ceiling_4096_q4kv_50q_report.md`](/home/james/.gemini/antigravity-cli/brain/816c1d65-6e4b-4024-8ad0-2ebd54f80461/gpqa_exp72_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_expanded_ceiling_4096_q4kv_50q_report.md)
+
+
+## Extended Needle Retrieval Certification (Exp 72: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Pure Native MTP (No Suffix) + Expanded Token Ceiling (max_tokens=4096) + Direct NUMA Pinning (--numa numactl) + Q4_0 KV + SER 2,0.5)
+
+# Extreme Context Needle Retrieval Ladder: Exp72_Phys_Pinning_28threads_Repacked_IQ4XS_MUGE_Pure_MTP_Expanded_Ceiling_4096_Q4KV
+
+- **Timestamp:** `2026-10-05 02:25:25`
+- **Model:** `/home/james/ik_llama.cpp/build/models/Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf`
+- **Configuration:** `numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27 ... -t 28 -tb 28 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 -ctk q4_0 -ctv q4_0 -ser 2,0.5 --numa numactl`
+
+## Benchmark Results
+
+| Context Depth | Tokens Evaluated | Needle Found? | Prompt Processing Speed | Prompt Time | Decode Speed | Peak RAM (RSS) |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **16K Context** | 24,065 | **PASSED (100%)** | **`137.93 t/s`** | 174.5s | `16.80 t/s` | 21708.6 MB |
+| **32K Context** | 48,065 | **PASSED (100%)** | **`102.08 t/s`** | 470.8s | `14.81 t/s` | 21708.5 MB |
+| **64K Context** | 96,065 | **PASSED (100%)** | **`65.40 t/s`** | 1468.8s | `11.90 t/s` | 21708.8 MB |
+| **128K Context** | 192,065 | **PASSED (100%)** | **`37.91 t/s`** | 5066.0s | `8.53 t/s` | 21709.5 MB |
+
+## Detailed Needle Extractions
+
+### 16K Context (24,065 tokens)
+- **Expected Passkey:** `19019`
+- **Decoded Snippet:** `The pass key is 19019.
+
+main: decoded 7 tokens in 0.43 s, speed: 16.31 t/s
+
+llama_print_timings:        load time =  197928.31 ms
+llama_print_timings:      sample time =       2.66 ms /     8 runs`
+- **Status:** MATCH - ZERO REGRESSION
+
+### 32K Context (48,065 tokens)
+- **Expected Passkey:** `33798`
+- **Decoded Snippet:** `The pass key is 33798.`
+- **Status:** MATCH - ZERO REGRESSION
+
+### 64K Context (96,065 tokens)
+- **Expected Passkey:** `37600`
+- **Decoded Snippet:** `The pass key is 37600.
+
+
+
+main: decoded 8 tokens in 0.69 s, speed: 11.67 t/s
+
+llama_print_timings:        load time = 1492524.03 ms
+llama_print_timings:      sample time =       3.01 ms /     9 runs`
+- **Status:** MATCH - ZERO REGRESSION
+
+### 128K Context (192,065 tokens)
+- **Expected Passkey:** `44617`
+- **Decoded Snippet:** `The pass key is 44617.
+
+
+
+main: decoded 8 tokens in 0.95 s, speed: 8.41 t/s
+
+llama_print_timings:        load time = 5089094.77 ms
+llama_print_timings:      sample time =       3.06 ms /     9 runs`
+- **Status:** MATCH - ZERO REGRESSION
+
+
+
+### Run exp73_phys_pinning_28threads_repacked_iq4xs_muge_corpus_suffix_expanded_ceiling_4096_q4kv: Exp 73: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Corpus-Backed Suffix Speculation (suffix_corpus, n_max=4) + Confidence MTP (p_min=0.15) + Direct NUMA Pinning + Expanded Ceiling (max_tokens=4096)
+- **Single Change Tested:** Preloading offline code/reasoning corpus into suffix tree with constrained draft depth (n_max=4, depth=32) under expanded 4,096-token ceiling to accelerate deep scientific reasoning.
+- **50Q GPQA Diamond Score:** **`6/50 (12.0%)`** (Standard 20Q: **`3/20 (15.0%)`**)
+- **Generation Speed:** Avg **`20.87 t/s`** | Peak **`34.14 t/s`**
+- **Token Ceiling:** 4096 tokens (Unconstrained 4K Chain-of-Thought)
+- **Detailed Report:** [`gpqa_exp73_phys_pinning_28threads_repacked_iq4xs_muge_corpus_suffix_expanded_ceiling_4096_q4kv_50q_report.md`](/home/james/.gemini/antigravity-cli/brain/816c1d65-6e4b-4024-8ad0-2ebd54f80461/gpqa_exp73_phys_pinning_28threads_repacked_iq4xs_muge_corpus_suffix_expanded_ceiling_4096_q4kv_50q_report.md)
+
+
+## Extended Needle Retrieval Certification (Exp 73: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Corpus-Backed Suffix Speculation (suffix_corpus, n_max=4) + Confidence MTP (p_min=0.15) + Direct NUMA Pinning + Expanded Ceiling (max_tokens=4096))
+
+# Extreme Context Needle Retrieval Ladder: Exp73_Phys_Pinning_28threads_Repacked_IQ4XS_MUGE_Corpus_Suffix_Expanded_Ceiling_4096_Q4KV
+
+- **Timestamp:** `2026-10-05 07:10:12`
+- **Model:** `/home/james/ik_llama.cpp/build/models/Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf`
+- **Configuration:** `numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27 ... -t 28 -tb 28 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32,suffix_corpus=/home/james/Homelab-inference/benchmarks/code_corpus.json -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 -ctk q4_0 -ctv q4_0 -ser 2,0.5 --numa numactl`
+
+## Benchmark Results
+
+| Context Depth | Tokens Evaluated | Needle Found? | Prompt Processing Speed | Prompt Time | Decode Speed | Peak RAM (RSS) |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **16K Context** | 24,065 | **PASSED (100%)** | **`137.98 t/s`** | 174.4s | `16.81 t/s` | 21708.6 MB |
+| **32K Context** | 48,065 | **PASSED (100%)** | **`102.09 t/s`** | 470.8s | `14.76 t/s` | 21708.7 MB |
+| **64K Context** | 96,065 | **PASSED (100%)** | **`65.49 t/s`** | 1466.9s | `12.15 t/s` | 21708.7 MB |
+| **128K Context** | 192,063 | **PASSED (100%)** | **`37.91 t/s`** | 5066.6s | `8.59 t/s` | 21709.5 MB |
+
+## Detailed Needle Extractions
+
+### 16K Context (24,065 tokens)
+- **Expected Passkey:** `47032`
+- **Decoded Snippet:** `The pass key is 47032.
+
+Please answer on this question's page.
+
+main: decoded 16 tokens in 0.98 s, speed: 16.36 t/s
+
+llama_print_timings:        load time =  198007.74 ms
+llama_print_timings:      sa`
+- **Status:** MATCH - ZERO REGRESSION
+
+### 32K Context (48,065 tokens)
+- **Expected Passkey:** `34155`
+- **Decoded Snippet:** `The pass key is 34155.
+
+<think>
+
+</think>
+
+The pass key is
+
+main: decoded 16 tokens in 1.11 s, speed: 14.42 t/s
+
+llama_print_timings:        load time =  494324.94 ms
+llama_print_timings:      sample`
+- **Status:** MATCH - ZERO REGRESSION
+
+### 64K Context (96,065 tokens)
+- **Expected Passkey:** `38402`
+- **Decoded Snippet:** `The pass key is 38402.
+
+
+
+ The pass key is 38
+
+main: decoded 16 tokens in 1.34 s, speed: 11.91 t/s
+
+llama_print_timings:        load time = 1490489.43 ms
+llama_print_timings:      sample time =`
+- **Status:** MATCH - ZERO REGRESSION
+
+### 128K Context (192,063 tokens)
+- **Expected Passkey:** `1901`
+- **Decoded Snippet:** `The pass key is 1901.`
+- **Status:** MATCH - ZERO REGRESSION
+
+
+
+### Run exp74_phys_pinning_28threads_repacked_iq4xs_muge_suffix_autotune_expanded_ceiling_4096_q4kv: Exp 74: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Speculative Autotuning (--spec-autotune) + Constrained Suffix (n_max=4) + Confidence MTP (p_min=0.15) + Direct NUMA Pinning + Expanded Ceiling (max_tokens=4096)
+- **Single Change Tested:** Dynamic acceptance-rate autotuning combined with constrained draft depth (n_max=4, depth=32) under 4,096-token ceiling to maintain optimal speculation depth during long CoT generation.
+- **50Q GPQA Diamond Score:** **`9/50 (18.0%)`** (Standard 20Q: **`4/20 (20.0%)`**)
+- **Generation Speed:** Avg **`22.67 t/s`** | Peak **`41.05 t/s`**
+- **Token Ceiling:** 4096 tokens (Unconstrained 4K Chain-of-Thought)
+- **Detailed Report:** [`gpqa_exp74_phys_pinning_28threads_repacked_iq4xs_muge_suffix_autotune_expanded_ceiling_4096_q4kv_50q_report.md`](/home/james/.gemini/antigravity-cli/brain/816c1d65-6e4b-4024-8ad0-2ebd54f80461/gpqa_exp74_phys_pinning_28threads_repacked_iq4xs_muge_suffix_autotune_expanded_ceiling_4096_q4kv_50q_report.md)
+
+
+## Extended Needle Retrieval Certification (Exp 74: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Speculative Autotuning (--spec-autotune) + Constrained Suffix (n_max=4) + Confidence MTP (p_min=0.15) + Direct NUMA Pinning + Expanded Ceiling (max_tokens=4096))
+
+# Extreme Context Needle Retrieval Ladder: Exp74_Phys_Pinning_28threads_Repacked_IQ4XS_MUGE_Suffix_Autotune_Expanded_Ceiling_4096_Q4KV
+
+- **Timestamp:** `2026-10-05 11:48:34`
+- **Model:** `/home/james/ik_llama.cpp/build/models/Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf`
+- **Configuration:** `numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27 ... -t 28 -tb 28 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 -ctk q4_0 -ctv q4_0 -ser 2,0.5 --numa numactl`
+
+## Benchmark Results
+
+| Context Depth | Tokens Evaluated | Needle Found? | Prompt Processing Speed | Prompt Time | Decode Speed | Peak RAM (RSS) |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **16K Context** | 24,065 | **PASSED (100%)** | **`138.30 t/s`** | 174.0s | `16.56 t/s` | 21708.6 MB |
+| **32K Context** | 48,063 | **PASSED (100%)** | **`101.95 t/s`** | 471.5s | `14.35 t/s` | 21708.5 MB |
+| **64K Context** | 96,063 | **PASSED (100%)** | **`65.38 t/s`** | 1469.3s | `11.83 t/s` | 21708.8 MB |
+| **128K Context** | 192,059 | **PASSED (100%)** | **`37.90 t/s`** | 5067.9s | `8.31 t/s` | 21709.5 MB |
+
+## Detailed Needle Extractions
+
+### 16K Context (24,065 tokens)
+- **Expected Passkey:** `20168`
+- **Decoded Snippet:** `The pass key is 20168.
+
+main: decoded 7 tokens in 0.44 s, speed: 16.09 t/s
+
+llama_print_timings:        load time =  196691.77 ms
+llama_print_timings:      sample time =       2.77 ms /     8 runs`
+- **Status:** MATCH - ZERO REGRESSION
+
+### 32K Context (48,063 tokens)
+- **Expected Passkey:** `7480`
+- **Decoded Snippet:** `The pass key is 7480.`
+- **Status:** MATCH - ZERO REGRESSION
+
+### 64K Context (96,063 tokens)
+- **Expected Passkey:** `6818`
+- **Decoded Snippet:** `The pass key is 6818.
+
+
+
+main: decoded 7 tokens in 0.60 s, speed: 11.59 t/s
+
+llama_print_timings:        load time = 1492874.24 ms
+llama_print_timings:      sample time =       2.59 ms /     8 runs`
+- **Status:** MATCH - ZERO REGRESSION
+
+### 128K Context (192,059 tokens)
+- **Expected Passkey:** `19`
+- **Decoded Snippet:** `The pass key is 19.
+
+The pass key is 19.
+
+main: decoded 13 tokens in 1.59 s, speed: 8.19 t/s
+
+llama_print_timings:        load time = 5091265.65 ms
+llama_print_timings:      sample time =       4.51`
+- **Status:** MATCH - ZERO REGRESSION
+
+
