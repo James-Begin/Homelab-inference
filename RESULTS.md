@@ -71,8 +71,9 @@ The 128K column is the needle check at 192,065 tokens. **Passed** means the pass
 | 72 | Repacked + Merged Experts + Pure Native MTP (No Suffix) + Expanded 4K Ceiling + Direct NUMA Pinning | 21.17 | 23.14 | 11 / 50 (22.0%)* | 5 / 20 (25.0%) | Passed, 8.53 t/s | [report](logs/gpqa_reports/gpqa_exp72_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_expanded_ceiling_4096_q4kv_50q_report.md) |
 | 73 | Repacked + Merged Experts + Corpus-Backed Constrained Suffix (suffix_corpus, n_max=4) + MTP + 4K Ceiling | 20.87 | 34.14 | 6 / 50 (12.0%)* | 3 / 20 (15.0%) | Passed, 8.59 t/s | [report](logs/gpqa_reports/gpqa_exp73_phys_pinning_28threads_repacked_iq4xs_muge_corpus_suffix_expanded_ceiling_4096_q4kv_50q_report.md) |
 | 74 | Repacked + Merged Experts + Speculative Autotuning (--spec-autotune) + Constrained Suffix (n_max=4) + MTP + 4K Ceiling | 22.67 🚀 | 41.05 | 9 / 50 (18.0%)* | 4 / 20 (20.0%) | Passed, 8.31 t/s | [report](logs/gpqa_reports/gpqa_exp74_phys_pinning_28threads_repacked_iq4xs_muge_suffix_autotune_expanded_ceiling_4096_q4kv_50q_report.md) |
+| 75 | Repacked + Merged Experts + Persistent Slot Cache (--slot-save-path /tmp/slots/) + Constrained Draft (n_max=4) + MTP + 4K Ceiling | 22.49 | 40.20 | 9 / 50 (18.0%)* | 4 / 20 (20.0%) | Passed, 8.50 t/s | [report](logs/gpqa_reports/gpqa_exp75_phys_pinning_28threads_repacked_iq4xs_muge_persistent_slot_cache_expanded_ceiling_4096_q4kv_50q_report.md) |
 
-*\*Runs 66–74 utilize the audited extraction harness which strictly enforces the reasoning completion requirement: tokens hitting the ceiling mid-thought without emitting a final answer outside `<think>` evaluate strictly to `None` rather than matching internal monologue tokens. Runs 71–74 evaluate under an expanded 4,096-token ceiling.*
+*\*Runs 66–75 utilize the audited extraction harness which strictly enforces the reasoning completion requirement: tokens hitting the ceiling mid-thought without emitting a final answer outside `<think>` evaluate strictly to `None` rather than matching internal monologue tokens. Runs 71–75 evaluate under an expanded 4,096-token ceiling.*
 
 ## 20-question sweeps
 
