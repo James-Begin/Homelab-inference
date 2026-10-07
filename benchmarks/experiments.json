@@ -859,5 +859,85 @@
     "threads": 28,
     "threads_batch": 28,
     "change": "Enabling persistent KV and recurrent state saving (--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.20) under 4,096-token ceiling to evaluate session reuse and prefix caching stability."
+  },
+  {
+    "number": 76,
+    "id": "exp76_phys_pinning_28threads_repacked_iq4xs_muge_concise_steering_autotune_expanded_ceiling_4096_q4kv",
+    "name": "Exp 76: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Concise Reasoning Steering (600 Words) + Spec Autotune + Constrained Suffix (n_max=4) + MTP (p=0.15) + 4K Ceiling",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Testing concise reasoning steering prompt ('Provide concise, rigorous reasoning within 600 words, then state your final answer choice clearly.') to prevent unclosed CoT truncations and reduce wall time."
+  },
+  {
+    "number": 77,
+    "id": "exp77_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_pmin005_expanded_ceiling_4096_q4kv",
+    "name": "Exp 77: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Pure Native MTP (p_min=0.05, No Suffix) + Expanded Ceiling (max_tokens=4096) + Direct NUMA Pinning",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "-muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.05 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Calibrated MTP confidence floor p_min=0.05 (reduced from 0.15) to increase draft acceptance throughput on high-accuracy pure MTP execution."
+  },
+  {
+    "number": 78,
+    "id": "exp78_phys_pinning_26threads_repacked_iq4xs_muge_os_jitter_isolation_expanded_ceiling_4096_q4kv",
+    "name": "Exp 78: Pre-Repacked Offline GGUF + Merged Experts (-muge) + OS Jitter Isolation (26 Physical Compute Threads, 2 Cores Reserved for IO/OS) + Spec Autotune + MTP + 4K Ceiling",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=2,4,6,8,10,12,14,16,18,20,22,24,26,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 26 -tb 26 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 26,
+    "threads_batch": 26,
+    "change": "Reserving 1 physical core per socket (CPU 0 on Node 0, CPU 1 on Node 1) for OS interrupts and memory streaming, binding 26 compute threads (-t 26 -tb 26) to eliminate OpenMP barrier synchronization jitter."
+  },
+  {
+    "number": 79,
+    "id": "exp79_phys_pinning_28threads_repacked_iq4xs_muge_slot_similarity_050_expanded_ceiling_4096_q4kv",
+    "name": "Exp 79: Pre-Repacked Offline GGUF + Merged Experts (-muge) + High-Threshold Persistent Slot Cache (--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50) + Constrained Draft + MTP + 4K Ceiling",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Increasing slot prompt similarity threshold to 0.50 with persistent slot disk persistence to evaluate KV reuse stability on high-structure overlaps without thrashing recurrent states."
+  },
+  {
+    "number": 80,
+    "id": "exp80_phys_pinning_28threads_repacked_iq4xs_muge_expanded_horizon_autotune_ceiling_4096_q4kv",
+    "name": "Exp 80: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Horizon-Expanded Autotuned Speculation (n_max=5, match=4, depth=36) + Calibrated MTP (p=0.10) + 4K Ceiling",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--spec-type suffix:n_max=5,suffix_min_match_len=4,suffix_max_depth=36 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.10 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Expanding draft horizon to n_max=5 with match_len=4 and calibrated MTP floor p_min=0.10 under autotuning to capture longer syntactic bursts while bounding expert activation union."
   }
 ]
