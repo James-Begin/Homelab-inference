@@ -939,5 +939,85 @@
     "threads": 28,
     "threads_batch": 28,
     "change": "Expanding draft horizon to n_max=5 with match_len=4 and calibrated MTP floor p_min=0.10 under autotuning to capture longer syntactic bursts while bounding expert activation union."
+  },
+  {
+    "number": 81,
+    "id": "exp81_phys_pinning_28threads_repacked_iq4xs_muge_unified_champion_steering_slot050_ceiling4096_q4kv",
+    "name": "Exp 81: Unified Champion (Persistent Slot Cache similarity=0.50 + Concise Reasoning Steering 600 Words + Autotune + Constrained Suffix n_max=4 + MTP + 4K Ceiling)",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Unifying speed champion (Run 79 persistent slot cache similarity=0.50 at 22.76 t/s) with reasoning accuracy champion (Run 76 concise steering prompt at 22.0% score) to evaluate co-optimization."
+  },
+  {
+    "number": 82,
+    "id": "exp82_phys_pinning_28decode_26batch_threads_repacked_iq4xs_muge_heterogeneous_threads_ceiling4096_q4kv",
+    "name": "Exp 82: Dynamic Thread Heterogeneity (28 Decode Threads -t 28, 26 Batch Prefill Threads -tb 26 + Persistent Slot 0.50 + Autotune + MTP + 4K Ceiling)",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 26 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 26,
+    "change": "Allocating 28 physical threads for memory-bound token decoding (-t 28) and 26 threads for compute-bound prefill batching (-tb 26) to combine 22.76 t/s decode with 41.66 t/s extreme context prefill."
+  },
+  {
+    "number": 83,
+    "id": "exp83_phys_pinning_28threads_repacked_iq4xs_muge_calibrated_temperature_slot050_ceiling4096_q4kv",
+    "name": "Exp 83: Calibrated Sampling Dynamics (T=0.3, top_p=0.95 + Persistent Slot Cache similarity=0.50 + Autotune + Suffix n_max=4 + MTP + 4K Ceiling)",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Introducing calibrated temperature sampling (T=0.3, top_p=0.95) to prevent greedy monologue loops in deep scientific CoT while maintaining speculative verification fidelity."
+  },
+  {
+    "number": 84,
+    "id": "exp84_phys_pinning_28threads_repacked_iq4xs_muge_conservative_horizon_nmax3_ceiling4096_q4kv",
+    "name": "Exp 84: Conservative Draft Horizon (n_max=3, match=5, depth=24 + Spec Autotune + Persistent Slot 0.50 + MTP + 4K Ceiling)",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type suffix:n_max=3,suffix_min_match_len=5,suffix_max_depth=24 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Testing conservative draft horizon (n_max=3) to bound expert memory union strictly to <=12 experts per layer, minimizing Broadwell DRAM bandwidth contention."
+  },
+  {
+    "number": 85,
+    "id": "exp85_phys_pinning_28threads_repacked_iq4xs_muge_corpus_suffix_slot050_ceiling4096_q4kv",
+    "name": "Exp 85: Corpus-Backed Constrained Suffix with High-Threshold Slot Cache (suffix_corpus + slot_similarity=0.50 + Autotune + MTP + 4K Ceiling)",
+    "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type \"suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32,suffix_corpus='/home/james/Homelab-inference/benchmarks/code_corpus.json'\" --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
+    "prompt": "stored",
+    "prep": {
+      "kind": "repack",
+      "source": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Combining offline reasoning corpus preloading into suffix tree with high-threshold persistent slot cache (similarity=0.50) under 4K ceiling."
   }
 ]
