@@ -1038,6 +1038,21 @@
   },
   {
     "number": 87,
+    "id": "exp87_flint_baseline_40b_a2_5b_q4_0_numa_phys_pinning",
+    "name": "Exp 87: Recursive Flint 40B MoE (A2.5B Active) Q4_0 Baseline (Pure Dual-Socket NUMA Interleave, 28 Physical Cores, Flash Attention, 4K Ceiling)",
+    "model": "RecursiveSI_flint-Q4_0.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --numa numactl -fa auto",
+    "prompt": "stored",
+    "prep": {
+      "kind": "none"
+    },
+    "threads": 28,
+    "threads_batch": 28,
+    "change": "Standardized baseline evaluation of Recursive Flint (40B MoE, 2.5B active parameters per token, 256 routed experts selecting 6 + 1 shared expert) in pure unspeculated Q4_0 with full dual-socket NUMA interleave."
+  },
+  {
+    "number": 88,
     "id": "exp87_phys_pinning_28threads_repacked_iq4xs_muge_suffix_match4_autotune_ceiling4096_q4kv",
     "name": "Exp 87: High-Frequency Suffix Speculation (match_len=4, n_max=4, depth=32 + Spec Autotune + Persistent Slot 0.50 + MTP + 4K Ceiling)",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
@@ -1053,7 +1068,7 @@
     "change": "Lowering suffix minimum match length from 5 to 4 to increase draft trigger frequency on short repeated scientific idioms while capping draft depth at n_max=4."
   },
   {
-    "number": 88,
+    "number": 89,
     "id": "exp88_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_pmin000_ceiling4096_q4kv",
     "name": "Exp 88: Unconstrained Pure Native MTP (p_min=0.0, Zero Threshold, No Suffix) + Direct NUMA Pinning + 4K Ceiling",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
@@ -1069,7 +1084,7 @@
     "change": "Testing zero-threshold pure Native MTP (p_min=0.0) where 100% of MTP candidate tokens are verified, testing maximum MTP throughput limit under unconstrained 4K ceiling."
   },
   {
-    "number": 89,
+    "number": 90,
     "id": "exp89_phys_pinning_28threads_repacked_iq4xs_muge_slot_similarity_070_ceiling4096_q4kv",
     "name": "Exp 89: Ultra-Selective Persistent Slot Cache (similarity=0.70, /tmp/slots/) + Constrained Draft + Autotune + MTP + 4K Ceiling",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
@@ -1085,7 +1100,7 @@
     "change": "Raising slot prompt similarity threshold to 0.70 to strictly restrict slot reuse to near-identical prefix contexts, eliminating any residual KV perturbation."
   },
   {
-    "number": 90,
+    "number": 91,
     "id": "exp90_phys_pinning_28threads_repacked_iq4xs_muge_ngram_mod_mtp_pmin005_ceiling4096_q4kv",
     "name": "Exp 90: Zero-Tree Overhead N-Gram Mod Hash Speculation (n_max=4, N=4, M=8, hits=2) + Native MTP (p_min=0.05) + 4K Ceiling",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
