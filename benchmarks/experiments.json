@@ -1113,5 +1113,35 @@
     "threads": 28,
     "threads_batch": 26,
     "change": "Applying composite optimization suite to Recursive Flint 40B MoE: zero-overhead modulo-hash n-gram speculation (n_max=4, match=4) to amortize 49-layer CPU barrier overhead across Flint's lightweight 1.50 GB/token stream, persistent slot cache (similarity=0.50, /tmp/slots/) to eliminate prompt prefill latency, and decoupled prefill threading (-t 28 -tb 26) to prevent NUMA interconnect saturation."
+  },
+  {
+    "number": 92,
+    "id": "exp92_flint_expanded_horizon_ngram_nmax8_match5_slot050_decoupled26_ceiling4096_q4kv",
+    "name": "Exp 92: Recursive Flint 40B MoE Expanded Horizon (N-Gram Mod Speculation n_max=8, match=5 + Persistent Slot Cache 0.50 + Decoupled Prefill -tb 26 + 4K Ceiling)",
+    "model": "RecursiveSI_flint-Q4_0.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--port {port} -c 8192 -t 28 -tb 26 --spec-type ngram-mod --spec-ngram-mod-n-max 8 --spec-ngram-mod-n-match 5 --slot-save-path /tmp/slots/ -sps 0.50 -ctk q4_0 -ctv q4_0 --numa numactl -fa auto",
+    "prompt": "stored",
+    "prep": {
+      "kind": "none"
+    },
+    "threads": 28,
+    "threads_batch": 26,
+    "change": "Expanding speculative drafting horizon on Recursive Flint 40B MoE from n_max=4, match=4 to n_max=8, match=5 to capture longer boilerplate and mathematical derivation bursts across Flint's low 1.50 GB/token stream, paired with persistent slot cache (0.50) and decoupled prefill (-tb 26)."
+  },
+  {
+    "number": 93,
+    "id": "exp93_flint_dense_drafter_qwen08b_slot050_decoupled26_ceiling4096_q4kv",
+    "name": "Exp 93: Recursive Flint 40B MoE + Dense Auxiliary Drafter (Qwen 3.5 0.8B Drafter + Persistent Slot Cache 0.50 + Decoupled Prefill -tb 26 + 4K Ceiling)",
+    "model": "RecursiveSI_flint-Q4_0.gguf",
+    "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+    "server_flags": "--port {port} -c 8192 -t 28 -tb 26 --model-draft /home/james/ik_llama.cpp/build/models/Qwen3.5-0.8B-Q4_K_M.gguf --spec-draft-n-max 4 --slot-save-path /tmp/slots/ -sps 0.50 -ctk q4_0 -ctv q4_0 --numa numactl -fa auto",
+    "prompt": "stored",
+    "prep": {
+      "kind": "none"
+    },
+    "threads": 28,
+    "threads_batch": 26,
+    "change": "Pairing Recursive Flint 40B MoE with dedicated dense auxiliary neural drafter (Qwen 3.5 0.8B Q4_K_M) generating dense speculative token proposals (spec-draft-n-max=4), paired with persistent slot cache (0.50) and decoupled prefill threading (-tb 26)."
   }
 ]
