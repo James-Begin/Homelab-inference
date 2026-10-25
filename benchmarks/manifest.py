@@ -98,10 +98,15 @@ def create_manifest(
     engine_dir: Path,
     model_path: Path,
     prompt_file: Optional[Path] = None,
+    request_params: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Creates a comprehensive manifest dictionary for an experiment run."""
     engine_info = get_git_info(engine_dir)
     sys_topo = get_system_topology()
+
+    req = dict(exp_entry.get("request", {}))
+    if request_params:
+        req.update(request_params)
 
     manifest = {
         "experiment_id": exp_entry.get("id"),
@@ -118,7 +123,7 @@ def create_manifest(
             "diff_hash": engine_info["diff_hash"],
             "dirty": engine_info["dirty"]
         },
-        "request": exp_entry.get("request", {}),
+        "request": req,
         "numactl": exp_entry.get("numactl", ""),
         "server_flags": exp_entry.get("server_flags", ""),
         "system": sys_topo,

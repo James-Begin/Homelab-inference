@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
-"""Run one GPQA Diamond eval from benchmarks/experiments.json.
+"""Run one GPQA Diamond eval from benchmarks/experiments.json under Protocol C-gpqa-v2.
 
-The per-experiment scripts that used to live next to this file differed only
-in the model, the server flags, and an optional quantize or repack step.
-Those settings are the catalog. This runner launches llama-server, resumes
-from logs/raw_checkpoints/<id>_checkpoint.json, and writes a report under
-logs/gpqa_reports/.
-
-    export IK_LLAMA_HOME=~/ik_llama.cpp
-    python benchmarks/gpqa_eval.py --list
-    python benchmarks/gpqa_eval.py --exp 47 --dry-run
-    python benchmarks/gpqa_eval.py --exp 47
+Implements Phase 1 (Harness Repair) and Phase 3 (Protocol C-gpqa-v2) of improvement-plan.md:
+- Supports /v1/chat/completions and raw endpoint
+- Configurable --max-tokens (default: 8192, allowing thoughts to unfold to full context)
+- Strict regex extraction outside reasoning blocks via benchmarks/grading.py
+- Manifest collection and resume guard via benchmarks/manifest.py
+- Structured output under logs/runs/<id>/
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -26,57 +23,25 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from paths import ROOT, bin_dir, expand, models_dir
+from grading import grade_response, RowStatus
+from catalog import load_catalog, get_experiment
+from manifest import create_manifest, verify_resume
 
 CATALOG_PATH = Path(__file__).resolve().parent / "experiments.json"
 GPQA_FILE = ROOT / "logs" / "raw_checkpoints" / "gpqa_subset_50.json"
+RUNS_DIR = ROOT / "logs" / "runs"
 REPORT_DIR = ROOT / "logs" / "gpqa_reports"
 CHECKPOINT_DIR = ROOT / "logs" / "raw_checkpoints"
-OPTIMIZATION_LOG = ROOT / "logs" / "optimization_tracker" / "optimization_log_50tps.md"
 
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 
 
-def load_catalog() -> list[dict]:
-    return json.loads(CATALOG_PATH.read_text())
-
-
-def find_experiment(catalog: list[dict], key: str) -> dict:
-    hits = [
-        exp for exp in catalog
-        if str(exp["number"]) == key or exp["id"] == key
-    ]
-    if len(hits) == 1:
-        return hits[0]
-    prefix = [exp for exp in catalog if exp["id"].startswith(key)]
-    if len(prefix) == 1:
-        return prefix[0]
-    known = ", ".join(str(exp["number"]) for exp in catalog)
-    raise SystemExit(f"No single experiment matches {key!r}. Numbers in the catalog: {known}")
-
-
-def checkpoint_path(exp: dict) -> Path:
-    return CHECKPOINT_DIR / f"{exp['id']}_checkpoint.json"
-
-
-def short_name(exp: dict) -> str:
-    return re.sub(r"^Exp\s+\d+:\s*", "", exp["name"])
-
-
-def print_catalog(catalog: list[dict]) -> None:
-    for exp in catalog:
-        prep = exp.get("prep") or {}
-        kind = prep.get("kind", "")
-        suffix = f"  [{kind}]" if kind else ""
-        print(f"{exp['number']:>3}  {exp['model']}")
-        print(f"     {short_name(exp)}{suffix}")
-
-
-def build_user_text(item: dict, style: str) -> str:
-    if style == "stored" and item.get("prompt"):
-        return item["prompt"]
+def build_user_text(item: dict) -> str:
+    """Builds the standardized user prompt requesting free reasoning ending in Final answer: X."""
     options = item["options"]
     return (
         f"{item['question']}\n\n"
@@ -85,120 +50,15 @@ def build_user_text(item: dict, style: str) -> str:
         f"B) {options['B']}\n"
         f"C) {options['C']}\n"
         f"D) {options['D']}\n\n"
-        "Please state your final answer choice first (e.g. 'Answer: A'), then provide your brief reasoning."
+        "Think step by step and reason carefully. When you are finished, end your response on its own line with exactly:\n"
+        "Final answer: X\n"
+        "where X is the single letter (A, B, C, or D) of the correct option."
     )
 
 
-def chat_prompt(user_text: str) -> str:
-    return (
-        "<|im_start|>system\n"
-        "You are an expert scientific researcher. Always provide your final answer choice first."
-        "<|im_end|>\n"
-        f"<|im_start|>user\n{user_text}<|im_end|>\n"
-        "<|im_start|>assistant\n"
-    )
-
-
-def extract_answer_letter(completion_text: str):
-    clean_text = completion_text
-    if "</think>" in clean_text:
-        clean_text = clean_text.split("</think>", 1)[1]
-    elif "<think>" in clean_text:
-        # The model hit token ceiling before closing its thinking block; no final answer produced
-        return None
-
-    # Search for explicit final answer declaration first
-    match = re.search(
-        r"(?:final answer is|the answer is|correct answer is|answer is|choice|option)[:\*\s]*\s*(?:\(?([A-D])\)?)",
-        clean_text,
-        re.IGNORECASE,
-    )
-    if match:
-        return match.group(1).upper()
-
-    # Search for LaTeX \boxed{X}
-    match = re.search(r"\\boxed\{\s*\(?([A-D])\)?\s*\}", clean_text)
-    if match:
-        return match.group(1).upper()
-
-    # Fallback to isolated letter on the last non-empty line
-    lines = [line.strip() for line in clean_text.splitlines() if line.strip()]
-    if lines:
-        match = re.search(r"\b([A-D])\b", lines[-1])
-        if match:
-            return match.group(1).upper()
-
-    return None
-
-
-def question_id(row: dict):
-    return row.get("id")
-
-
-def row_correct(row: dict) -> bool:
-    if "correct" in row:
-        return bool(row["correct"])
-    if "passed" in row:
-        return bool(row["passed"])
-    return False
-
-
-def row_speed(row: dict) -> float:
-    for key in ("speed_tps", "gen_speed"):
-        value = row.get(key)
-        if isinstance(value, (int, float)) and value > 0:
-            return float(value)
-    return 0.0
-
-
-def server_argv(exp: dict, port: int) -> list[str]:
-    # Keep the models directory out of the shell split so a path with spaces survives.
-    token = "@@MODELS@@"
-    flags = exp["server_flags"].replace("{models}", token).replace("{port}", str(port))
-    parts = shlex.split(expand(exp["numactl"]))
-    parts += [str(bin_dir() / "llama-server"), "-m", str(models_dir() / exp["model"])]
-    parts += [part.replace(token, str(models_dir())) for part in shlex.split(flags)]
-    return parts
-
-
-def prepare_model(exp: dict, dry_run: bool) -> None:
-    prep = exp.get("prep")
-    if not prep:
-        return
-    dest = models_dir() / exp["model"]
-    source = models_dir() / prep["source"]
-    quantize = bin_dir() / "llama-quantize"
-    if prep["kind"] == "repack":
-        cmd = [str(quantize), "--repack", str(source), str(dest), "COPY", "28"]
-    elif prep["kind"] == "quantize":
-        cmd = [
-            str(quantize),
-            "--allow-requantize",
-            "--custom-q",
-            prep["custom_q"],
-            str(source),
-            str(dest),
-            prep.get("out_type", "Q6_K"),
-            "28",
-        ]
-    else:
-        raise SystemExit(f"Unknown prep kind {prep['kind']!r} on exp {exp['number']}")
-    if dest.exists():
-        print(f"Model already present: {dest}")
-        return
-    print("Preparing model:", " ".join(cmd))
-    if dry_run:
-        return
-    if not source.exists():
-        raise SystemExit(f"Source model not found: {source}")
-    result = subprocess.run(cmd)
-    if result.returncode != 0:
-        raise SystemExit(f"Model prep failed with exit code {result.returncode}")
-
-
-def wait_for_server(url: str, timeout: int = 180) -> bool:
-    start = time.time()
-    while time.time() - start < timeout:
+def wait_for_server(url: str, timeout: int = 120) -> bool:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
         try:
             with urllib.request.urlopen(url, timeout=2) as resp:
                 if resp.status == 200:
@@ -209,212 +69,369 @@ def wait_for_server(url: str, timeout: int = 180) -> bool:
     return False
 
 
-def query_completion(url: str, prompt_text: str, max_tokens: int = 1536):
-    payload = {
-        "prompt": chat_prompt(prompt_text),
-        "n_predict": max_tokens,
-        "temperature": 0.0,
-        "top_p": 1.0,
-        "stop": ["<|im_end|>"],
-    }
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-    for attempt in range(3):
-        try:
-            with urllib.request.urlopen(req, timeout=300) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except Exception as exc:
-            print(f"Query error (attempt {attempt + 1}/3): {exc}")
-            time.sleep(2)
-    return None
-
-
-def load_checkpoint(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
+def free_port(port: int) -> None:
     try:
-        data = json.loads(path.read_text())
-    except json.JSONDecodeError as exc:
-        print(f"Checkpoint {path} is not valid JSON ({exc}). Starting over.")
-        return []
-    if not isinstance(data, list):
-        print(f"Checkpoint {path} is not a list. Starting over.")
-        return []
-    return data
+        out = subprocess.check_output(["lsof", "-ti", f":{port}"], text=True)
+        for pid in out.strip().split():
+            os.kill(int(pid), signal.SIGTERM)
+        time.sleep(1)
+    except Exception:
+        pass
 
 
-def append_optimization_log(exp: dict, report_name: str, n_correct: int, total_q: int, n_20: int, total_20: int, avg_speed: float, peak_speed: float) -> None:
-    pct = (n_correct / total_q * 100.0) if total_q else 0.0
-    pct_20 = (n_20 / total_20 * 100.0) if total_20 else 0.0
-    change = exp.get("change") or short_name(exp)
-    entry = f"""
-### Run {exp['id']}: {exp['name']}
-- **Single Change Tested:** {change}
-- **50Q GPQA Diamond Score:** **`{n_correct}/{total_q} ({pct:.1f}%)`** (Standard 20Q: **`{n_20}/{total_20} ({pct_20:.1f}%)`**)
-- **Generation Speed:** Avg **`{avg_speed:.2f} t/s`** | Peak **`{peak_speed:.2f} t/s`**
-- **Detailed Report:** [`{report_name}`](../gpqa_reports/{report_name})
-"""
-    existing = OPTIMIZATION_LOG.read_text() if OPTIMIZATION_LOG.exists() else ""
-    if entry.strip() in existing:
-        print(f"Optimization log already contains this result for {exp['id']}.")
-        return
-    with OPTIMIZATION_LOG.open("a") as handle:
-        handle.write(entry)
-    print(f"Appended results to {OPTIMIZATION_LOG}")
-
-
-def write_report(exp: dict, results: list[dict], questions: list[dict], command: str) -> Path:
-    by_id = {question_id(row): row for row in results if question_id(row)}
-    ordered = [by_id[item["id"]] for item in questions if item["id"] in by_id]
-    first_ids = [item["id"] for item in questions[:20]]
-    n_correct = sum(1 for row in ordered if row_correct(row))
-    total_q = len(ordered)
-    n_20 = sum(1 for qid in first_ids if qid in by_id and row_correct(by_id[qid]))
-    total_20 = sum(1 for qid in first_ids if qid in by_id)
-    speeds = [row_speed(row) for row in ordered if row_speed(row) > 0]
-    avg_speed = sum(speeds) / len(speeds) if speeds else 0.0
-    peak_speed = max(speeds) if speeds else 0.0
-    score_pct = (n_correct / total_q * 100.0) if total_q else 0.0
-    score_20_pct = (n_20 / total_20 * 100.0) if total_20 else 0.0
-
-    lines = [
-        f"# 50-Question GPQA Diamond Report: {exp['name']}",
-        "",
-        f"- **Experiment ID:** `{exp['id']}`",
-        f"- **Model:** `{exp['model']}`",
-        f"- **Command:** `{command}`",
-        f"- **Total Score (50Q):** **{n_correct} / {total_q} ({score_pct:.1f}%)**",
-        f"- **Standard 20Q Subset:** **{n_20} / {total_20} ({score_20_pct:.1f}%)**",
-        f"- **Average Generation Speed:** **`{avg_speed:.2f} tokens/second`**",
-        f"- **Peak Generation Speed:** **`{peak_speed:.2f} tokens/second`**",
-        "- **Token Ceiling:** 1,536 tokens (unconstrained Chain-of-Thought)",
-        "",
-        "## Question-by-Question Breakdown",
-        "",
-        "| # | ID | Gold | Pred | Result | Tokens | Speed (t/s) | Wall Time (s) |",
-        "| :-: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |",
-    ]
-    for index, row in enumerate(ordered, 1):
-        gold = row.get("gold", row.get("expected", row.get("gold_choice")))
-        pred = row.get("pred", row.get("predicted", row.get("pred_choice")))
-        tokens = row.get("tokens", row.get("pred_n", ""))
-        wall = row.get("wall_time", row.get("dt", 0.0)) or 0.0
-        result = "CORRECT" if row_correct(row) else "WRONG"
-        lines.append(
-            f"| {index} | `{question_id(row)}` | {gold} | {pred} | {result} | {tokens} | {row_speed(row):.2f} | {float(wall):.2f} |"
-        )
-    lines.append("")
-    REPORT_DIR.mkdir(parents=True, exist_ok=True)
-    report_path = REPORT_DIR / f"gpqa_{exp['id']}_50q_report.md"
-    report_path.write_text("\n".join(lines))
-    print(f"Wrote {report_path}")
-    append_optimization_log(exp, report_path.name, n_correct, total_q, n_20, total_20, avg_speed, peak_speed)
-    return report_path
-
-
-def stop_process_group(proc: subprocess.Popen | None) -> None:
-    if proc is None or proc.poll() is not None:
-        return
+def stop_process_group(proc: subprocess.Popen) -> None:
     try:
-        os.killpg(proc.pid, signal.SIGTERM)
-        proc.wait(timeout=10)
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        proc.wait(timeout=5)
     except Exception:
         try:
-            os.killpg(proc.pid, signal.SIGKILL)
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
         except Exception:
             pass
 
 
-def free_port(port: int) -> None:
-    subprocess.run(
-        ["fuser", "-k", f"{port}/tcp"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+def query_chat_completion(
+    url: str,
+    user_text: str,
+    max_tokens: int = 8192,
+    temperature: float = 0.0,
+    top_p: float = 1.0,
+    system_prompt: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """Queries the server's OpenAI-compatible /v1/chat/completions endpoint."""
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": user_text})
+
+    payload = {
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "top_p": top_p,
+        "stream": False,
+    }
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        f"{url}/v1/chat/completions",
+        data=data,
+        headers={"Content-Type": "application/json"}
+    )
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=600) as resp:
+                res = json.loads(resp.read().decode("utf-8"))
+                choice = res.get("choices", [{}])[0]
+                msg = choice.get("message", {})
+                usage = res.get("usage", {})
+                timings = res.get("timings", {})
+
+                # If server doesn't provide timings in chat format, approximate from usage
+                completion_tokens = usage.get("completion_tokens", 0)
+                prompt_tokens = usage.get("prompt_tokens", 0)
+
+                return {
+                    "content": msg.get("content", ""),
+                    "reasoning_content": msg.get("reasoning_content", ""),
+                    "finish_reason": choice.get("finish_reason", "unknown"),
+                    "tokens_predicted": completion_tokens,
+                    "tokens_evaluated": prompt_tokens,
+                    "timings": timings,
+                    "raw_response": res
+                }
+        except Exception as exc:
+            print(f"Chat completion query error (attempt {attempt + 1}/3): {exc}")
+            time.sleep(2)
+    return None
+
+
+def query_raw_completion(
+    url: str,
+    prompt_text: str,
+    max_tokens: int = 8192,
+    temperature: float = 0.0,
+    top_p: float = 1.0,
+    stop: Optional[List[str]] = None
+) -> Optional[Dict[str, Any]]:
+    """Fallback to /completion endpoint."""
+    payload = {
+        "prompt": prompt_text,
+        "n_predict": max_tokens,
+        "temperature": temperature,
+        "top_p": top_p,
+        "stop": stop or ["<|im_end|>", "<|end_of_text|>"],
+    }
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        f"{url}/completion",
+        data=data,
+        headers={"Content-Type": "application/json"}
+    )
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=600) as resp:
+                res = json.loads(resp.read().decode("utf-8"))
+                timings = res.get("timings", {})
+                return {
+                    "content": res.get("content", ""),
+                    "reasoning_content": "",
+                    "finish_reason": "stop" if not res.get("truncated") else "length",
+                    "tokens_predicted": timings.get("predicted_n", 0),
+                    "tokens_evaluated": timings.get("prompt_n", 0),
+                    "timings": timings,
+                    "raw_response": res
+                }
+        except Exception as exc:
+            print(f"Raw completion query error (attempt {attempt + 1}/3): {exc}")
+            time.sleep(2)
+    return None
+
+
+def run_eval(
+    exp_key: str,
+    port: int = 8087,
+    max_tokens: int = 8192,
+    dry_run: bool = False,
+    endpoint: str = "chat",
+    gpqa_path: Optional[Path] = None,
+    force_new_run: bool = False
+) -> int:
+    catalog = load_catalog()
+    exp = get_experiment(catalog, exp_key)
+
+    if gpqa_path is None:
+        gpqa_path = GPQA_FILE
+    questions = json.loads(gpqa_path.read_text())
+
+    # Build server command line
+    model_raw = exp["model"]
+    model_expanded = expand(model_raw)
+    model_path = Path(model_expanded)
+    if not model_path.is_absolute() or not model_path.exists():
+        cand = models_dir() / model_raw
+        if cand.exists():
+            model_path = cand
+    if not model_path.exists():
+        raise SystemExit(f"Model path does not exist: {model_path}")
+
+    engine_home = Path(os.environ.get("IK_LLAMA_HOME", "/home/james/ik_llama.cpp")).resolve()
+    server_bin = engine_home / "build" / "bin" / "llama-server"
+    if not server_bin.exists():
+        server_bin = engine_home / "build" / "bin" / "Release" / "llama-server"
+    if not server_bin.exists():
+        raise SystemExit(f"llama-server not found in {engine_home}")
+
+    server_flags = exp["server_flags"].format(port=port)
+    # Ensure -c 8192 or larger is set
+    if "-c " not in server_flags:
+        server_flags += f" -c {max_tokens}"
+
+    numactl_cmd = exp.get("numactl", "")
+    full_cmd = f"{numactl_cmd} {server_bin} -m {model_path} {server_flags}".strip()
+    argv = shlex.split(full_cmd)
+
+    # Manifest and Run Directory Setup
+    run_id = f"run_{exp['id']}"
+    run_dir = RUNS_DIR / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    manifest_file = run_dir / "manifest.json"
+    rows_file = run_dir / "rows.jsonl"
+    server_log_file = run_dir / "server.log"
+    summary_file = run_dir / "summary.json"
+    report_file = run_dir / "report.md"
+
+    current_manifest = create_manifest(
+        exp_entry=exp,
+        engine_dir=engine_home,
+        model_path=model_path,
+        prompt_file=None,
+        request_params={"max_tokens": max_tokens, "endpoint": endpoint}
     )
 
-
-def run_experiment(exp: dict, port: int, dry_run: bool) -> int:
-    argv = server_argv(exp, port)
-    command = " ".join(shlex.quote(part) for part in argv)
-    print(exp["name"])
-    print(f"Command: {command}")
-    checkpoint = checkpoint_path(exp)
-    done = load_checkpoint(checkpoint)
-    print(f"Checkpoint: {checkpoint} ({len(done)} questions on disk)")
-    prepare_model(exp, dry_run)
     if dry_run:
-        server = bin_dir() / "llama-server"
-        if not server.exists():
-            print(f"llama-server not found at {server}. Set IK_LLAMA_HOME.")
+        print("=== DRY RUN MANIFEST & RESOLVED COMMAND ===")
+        print(f"Command:\n  {full_cmd}\n")
+        print("Manifest:")
+        print(json.dumps(current_manifest, indent=2))
+        print("===========================================")
         return 0
 
-    questions = json.loads(GPQA_FILE.read_text())
-    completed = {question_id(row) for row in done if question_id(row)}
-    pending = [item for item in questions if item["id"] not in completed]
-    if not pending and len(completed) >= len(questions):
-        print("Checkpoint already covers the question set. Rewriting the report.")
-        write_report(exp, done, questions, command)
-        return 0
+    # Resume guard: verify manifest if previous run exists
+    if manifest_file.exists() and not force_new_run:
+        prior_manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+        ok, reason = verify_resume(prior_manifest, current_manifest)
+        if not ok:
+            print("ERROR: Resume guard rejected continuation due to manifest mismatch:")
+            print(f"  - {reason}")
+            print("Use --force-new-run to start fresh.")
+            return 1
+    else:
+        manifest_file.write_text(json.dumps(current_manifest, indent=2), encoding="utf-8")
 
-    url_health = f"http://127.0.0.1:{port}/health"
-    url_completion = f"http://127.0.0.1:{port}/completion"
+    # Load existing rows to resume
+    existing_rows: Dict[str, Dict[str, Any]] = {}
+    if rows_file.exists():
+        for line in rows_file.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                r = json.loads(line)
+                existing_rows[r["id"]] = r
+        print(f"Resuming run: loaded {len(existing_rows)} completed questions.")
+
+    # Launch server
     free_port(port)
     time.sleep(1)
-    log_path = Path(f"/tmp/{exp['id']}_server.log")
-    log_handle = log_path.open("w")
+    log_handle = server_log_file.open("a", encoding="utf-8")
     proc = subprocess.Popen(
         argv,
         stdout=log_handle,
         stderr=subprocess.STDOUT,
         start_new_session=True,
     )
+
+    url_base = f"http://127.0.0.1:{port}"
+    url_health = f"{url_base}/health"
+
     try:
-        print(f"Waiting for {url_health} (server log {log_path})")
-        if not wait_for_server(url_health):
-            print("Server did not become healthy. See the server log.")
+        print(f"Launching server on port {port} (log: {server_log_file})...")
+        if not wait_for_server(url_health, timeout=120):
+            print("Server failed to respond to /health. Check server.log.")
             return 1
-        for item in pending:
+        print("Server is ready. Beginning evaluation...")
+
+        completed_count = len(existing_rows)
+        correct_strict_count = sum(1 for r in existing_rows.values() if r.get("regraded_strict_correct"))
+
+        for idx, item in enumerate(questions):
+            qid = item["id"]
+            if qid in existing_rows:
+                continue
+
             gold = item.get("correct_letter") or item.get("gold")
-            user_text = build_user_text(item, exp.get("prompt", "stored"))
-            started = time.time()
-            response = query_completion(url_completion, user_text)
-            wall = time.time() - started
-            if response is None:
-                print(f"{item['id']}: no response after retries. Checkpoint kept; rerun to resume.")
-                return 1
-            content = response.get("content", "")
-            non_think = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-            predicted = extract_answer_letter(non_think or content)
-            timings = response.get("timings", {})
-            predicted_n = int(timings.get("predicted_n", 0) or 0)
-            predicted_ms = float(timings.get("predicted_ms", 0.0) or 0.0)
-            if timings.get("predicted_per_second"):
-                speed = float(timings["predicted_per_second"])
-            elif predicted_ms > 0:
-                speed = predicted_n / (predicted_ms / 1000.0)
-            elif wall > 0:
-                speed = predicted_n / wall
+            user_text = build_user_text(item)
+
+            t0 = time.time()
+            if endpoint == "chat":
+                res = query_chat_completion(
+                    url=url_base,
+                    user_text=user_text,
+                    max_tokens=max_tokens,
+                    temperature=0.0,
+                    top_p=1.0,
+                    system_prompt="You are an expert scientific researcher. Reason step by step, then conclude with Final answer: X."
+                )
             else:
-                speed = 0.0
-            done.append({
-                "idx": len(done) + 1,
-                "id": item["id"],
+                prompt_text = f"<|user|>\n{user_text}\n<|assistant|>\n"
+                res = query_raw_completion(
+                    url=url_base,
+                    prompt_text=prompt_text,
+                    max_tokens=max_tokens,
+                    temperature=0.0,
+                    top_p=1.0
+                )
+            wall_sec = time.time() - t0
+
+            if res is None:
+                print(f"Error querying question {qid}. Halting pipeline for resume.")
+                return 1
+
+            content = res.get("content", "")
+            finish_reason = res.get("finish_reason", "unknown")
+            tokens_pred = res.get("tokens_predicted", 0)
+
+            # Grade response strictly using grading.py
+            is_length_truncated = (finish_reason == "length")
+            row_grade = grade_response(content, gold, is_length_truncated=is_length_truncated)
+
+            status_str = "CORRECT" if row_grade.is_strict_correct else f"WRONG (pred={row_grade.strict_answer})"
+            if row_grade.status == RowStatus.NO_ANSWER_TRUNCATED:
+                status_str = "TRUNCATED (hit token ceiling mid-thought)"
+
+            timings = res.get("timings", {})
+            pred_ms = timings.get("predicted_ms", 0.0)
+            speed_tps = (tokens_pred / (pred_ms / 1000.0)) if pred_ms > 0 else (tokens_pred / wall_sec if wall_sec > 0 else 0.0)
+
+            row_entry = {
+                "idx": completed_count + 1,
+                "id": qid,
                 "gold": gold,
-                "pred": predicted,
-                "correct": correct,
-                "tokens": predicted_n,
-                "speed_tps": speed,
-                "wall_time": wall,
+                "pred": row_grade.strict_answer,
+                "lenient_pred": row_grade.lenient_answer,
+                "regraded_strict_correct": row_grade.is_strict_correct,
+                "regraded_lenient_correct": row_grade.is_lenient_correct,
+                "status": row_grade.status.value,
+                "tokens": tokens_pred,
+                "speed_tps": round(speed_tps, 2),
+                "wall_time": round(wall_sec, 2),
+                "finish_reason": finish_reason,
                 "content": content,
-            })
-            checkpoint.write_text(json.dumps(done, indent=2) + "\n")
-            status = "CORRECT" if correct else "WRONG"
+            }
+
+            # Append row to rows.jsonl
+            with open(rows_file, "a", encoding="utf-8") as rf:
+                rf.write(json.dumps(row_entry) + "\n")
+
+            existing_rows[qid] = row_entry
+            completed_count += 1
+            if row_grade.is_strict_correct:
+                correct_strict_count += 1
+
             print(
-                f"[{len(done):02d}/{len(questions)}] {item['id']}: "
-                f"gold {gold} pred {predicted} {status} | {speed:.2f} t/s | {predicted_n} tok | {wall:.1f}s"
+                f"[{completed_count:02d}/{len(questions)}] ID: {qid} | "
+                f"Gold: {gold} | Strict: {status_str} | "
+                f"{speed_tps:5.2f} t/s | {tokens_pred} tok | {wall_sec:5.1f}s"
             )
-        write_report(exp, done, questions, command)
+
+        # Build summary and report
+        all_rows = list(existing_rows.values())
+        strict_corr = sum(1 for r in all_rows if r.get("regraded_strict_correct"))
+        lenient_corr = sum(1 for r in all_rows if r.get("regraded_lenient_correct"))
+        trunc_count = sum(1 for r in all_rows if r.get("status") == RowStatus.NO_ANSWER_TRUNCATED.value)
+        avg_speed = sum(r.get("speed_tps", 0.0) for r in all_rows) / len(all_rows) if all_rows else 0.0
+
+        summary_data = {
+            "run_id": run_id,
+            "experiment_id": exp["id"],
+            "model": exp["model"],
+            "total_questions": len(all_rows),
+            "max_tokens_ceiling": max_tokens,
+            "strict_score": f"{strict_corr}/{len(all_rows)}",
+            "strict_pct": round((strict_corr / len(all_rows)) * 100.0, 2) if all_rows else 0.0,
+            "lenient_score": f"{lenient_corr}/{len(all_rows)}",
+            "lenient_pct": round((lenient_corr / len(all_rows)) * 100.0, 2) if all_rows else 0.0,
+            "truncated_count": trunc_count,
+            "average_decode_tps": round(avg_speed, 2),
+        }
+        summary_file.write_text(json.dumps(summary_data, indent=2), encoding="utf-8")
+
+        # Generate markdown report
+        report_md = f"""# Benchmark Report: {exp['name']}
+- **Run ID:** `{run_id}`
+- **Protocol:** Protocol C-gpqa-v2
+- **Model:** `{exp['model']}`
+- **Token Ceiling (max_tokens):** {max_tokens} tokens
+- **Strict Score:** **{strict_corr}/{len(all_rows)}** ({summary_data['strict_pct']}%)
+- **Lenient Score:** {lenient_corr}/{len(all_rows)} ({summary_data['lenient_pct']}%)
+- **Mid-Thought Truncations:** {trunc_count} ({round(trunc_count/len(all_rows)*100, 1)}%)
+- **Average Decode Speed:** {summary_data['average_decode_tps']} tokens/sec
+
+## Detailed Question Rows
+| ID | Gold | Pred | Strict Status | Tokens | Decode Speed | Wall Time |
+| :--- | :---: | :---: | :--- | :---: | :---: | :---: |
+"""
+        for r in all_rows:
+            report_md += f"| `{r['id']}` | {r['gold']} | {r['pred'] or '-'} | `{r['status']}` | {r['tokens']} | {r.get('speed_tps', 0.0)} t/s | {r.get('wall_time', 0.0)}s |\n"
+
+        report_file.write_text(report_md, encoding="utf-8")
+        print(f"\n=======================================================")
+        print(f"EVALUATION COMPLETE: {exp['id']}")
+        print(f"Strict Score: {strict_corr}/{len(all_rows)} ({summary_data['strict_pct']}%)")
+        print(f"Lenient Score: {lenient_corr}/{len(all_rows)} ({summary_data['lenient_pct']}%)")
+        print(f"Truncated Mid-Thought: {trunc_count}/{len(all_rows)}")
+        print(f"Average Decode Speed: {summary_data['average_decode_tps']} t/s")
+        print(f"Saved run artifacts to {run_dir}/")
+        print(f"=======================================================\n")
         return 0
+
     finally:
         stop_process_group(proc)
         log_handle.close()
@@ -422,27 +439,35 @@ def run_experiment(exp: dict, port: int, dry_run: bool) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run a catalogued GPQA Diamond eval.")
-    parser.add_argument("--exp", help="Experiment number or id, for example 47")
-    parser.add_argument("--list", action="store_true", help="Print the experiment catalog")
-    parser.add_argument("--dry-run", action="store_true", help="Print the command and prep step, then exit")
+    parser = argparse.ArgumentParser(description="Run a catalogued GPQA Diamond eval under Protocol C-gpqa-v2.")
+    parser.add_argument("--exp", required=False, help="Experiment number or id (e.g. 50, 94)")
+    parser.add_argument("--list", action="store_true", help="Print experiment catalog")
+    parser.add_argument("--dry-run", action="store_true", help="Print resolved command and manifest, then exit")
     parser.add_argument("--port", type=int, default=8087)
+    parser.add_argument("--max-tokens", type=int, default=8192, help="Token ceiling for thinking (default: 8192)")
+    parser.add_argument("--endpoint", choices=["chat", "raw"], default="chat", help="API endpoint")
+    parser.add_argument("--force-new-run", action="store_true", help="Overwrite existing manifest and start fresh")
     args = parser.parse_args()
-    catalog = load_catalog()
-    if args.list or not args.exp:
-        print_catalog(catalog)
-        if not args.exp:
-            return
-    exp = find_experiment(catalog, args.exp)
-    raise SystemExit(run_experiment(exp, args.port, args.dry_run))
+
+    if args.list:
+        catalog = load_catalog()
+        for e in catalog:
+            print(f"{e.get('number', 0):>3}  {e.get('id')}")
+        return
+
+    if not args.exp:
+        parser.print_help()
+        sys.exit(1)
+
+    sys.exit(run_eval(
+        exp_key=args.exp,
+        port=args.port,
+        max_tokens=args.max_tokens,
+        dry_run=args.dry_run,
+        endpoint=args.endpoint,
+        force_new_run=args.force_new_run
+    ))
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except BrokenPipeError:
-        try:
-            sys.stdout.close()
-        except Exception:
-            pass
-        raise SystemExit(0)
+    main()

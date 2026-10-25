@@ -123,6 +123,21 @@ def load_catalog(catalog_path: Optional[str] = None) -> List[Dict[str, Any]]:
     return normalized_list
 
 
+def get_experiment(catalog: List[Dict[str, Any]], key: str) -> Dict[str, Any]:
+    """Finds an experiment by number or ID string."""
+    hits = [
+        exp for exp in catalog
+        if str(exp.get("number")) == str(key) or exp.get("id") == str(key)
+    ]
+    if len(hits) == 1:
+        return hits[0]
+    prefix = [exp for exp in catalog if str(exp.get("id", "")).startswith(str(key))]
+    if len(prefix) == 1:
+        return prefix[0]
+    known = ", ".join(str(exp.get("number")) for exp in catalog)
+    raise KeyError(f"No single experiment matches {key!r}. Numbers in catalog: {known}")
+
+
 if __name__ == "__main__":
     cat = load_catalog()
     print(f"Catalog successfully loaded and validated: {len(cat)} experiments.")
