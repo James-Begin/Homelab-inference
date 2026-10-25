@@ -222,9 +222,16 @@ def run_eval(
         raise SystemExit(f"llama-server not found in {engine_home}")
 
     server_flags = exp["server_flags"].format(port=port)
-    # Ensure -c 8192 or larger is set
-    if "-c " not in server_flags:
-        server_flags += f" -c {max_tokens}"
+    # Ensure server context -c has sufficient headroom for max_tokens generation + prompt
+    needed_ctx = max(16384, max_tokens + 4096)
+    if "-c " in server_flags:
+        server_flags = re.sub(
+            r"-c\s+(\d+)",
+            lambda m: f"-c {max(needed_ctx, int(m.group(1)))}" if int(m.group(1)) < needed_ctx else m.group(0),
+            server_flags
+        )
+    else:
+        server_flags += f" -c {needed_ctx}"
 
     numactl_cmd = exp.get("numactl", "")
     full_cmd = f"{numactl_cmd} {server_bin} -m {model_path} {server_flags}".strip()
@@ -319,6 +326,19 @@ def run_eval(
                     top_p=1.0,
                     system_prompt="You are an expert scientific researcher. Reason step by step, then conclude with Final answer: X."
                 )
+                if res is None:
+                    print("Notice: Chat endpoint failed, falling back to /completion...")
+                    if "flint" in exp["model"].lower():
+                        prompt_text = f"<|system|>\nYou are an expert scientific researcher. Reason step by step, then conclude with Final answer: X.<|end_of_text|>\n<|user|>\n{user_text}<|end_of_text|>\n<|assistant|>\n"
+                    else:
+                        prompt_text = f"<|im_start|>system\nYou are an expert scientific researcher. Reason step by step, then conclude with Final answer: X.<|im_end|>\n<|im_start|>user\n{user_text}<|im_end|>\n<|im_start|>assistant\n"
+                    res = query_raw_completion(
+                        url=url_base,
+                        prompt_text=prompt_text,
+                        max_tokens=max_tokens,
+                        temperature=0.0,
+                        top_p=1.0
+                    )
             else:
                 prompt_text = f"<|user|>\n{user_text}\n<|assistant|>\n"
                 res = query_raw_completion(
