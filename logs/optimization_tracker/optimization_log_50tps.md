@@ -13345,3 +13345,10 @@ llama_print_timings:`
 - **Status:** MATCH - ZERO REGRESSION
 
 
+
+### Run exp95_flint_unsloth_ud_q3kxl_repacked_muge_ngram_mod_slot050_decoupled26_ceiling4096_q4kv: Exp 95: Recursive Flint 40B MoE Unsloth UD Q3_K_XL on ik_llama.cpp (Merged Up/Gate -muge + Repacked AVX2 Q3_K_R4/Q4_0_R8 + N-Gram Mod Speculation n_max=4, match=4 + Slot Cache 0.50 + Decoupled Prefill -tb 26 + 4K Ceiling)
+- **Single Change Tested:** Evaluating Unsloth flint-UD-Q3_K_XL repacked to AVX2 row-aligned formats (Q3_K_R4 / IQ4_XS_R8 / Q8_0_R8, 17.22 GB) with Merged Up/Gate (-muge) + N-Gram Mod Speculation (n_max=4, match=4) + Slot Cache 0.50 + Decoupled Prefill (-tb 26) targeting 35-45+ tokens/sec throughput.
+- **50Q GPQA Diamond Score:** **`17/50 (34.0%)`** (Standard 20Q: **`7/20 (35.0%)`**)
+- **Generation Speed:** Avg **`17.31 t/s`** | Peak **`22.07 t/s`**
+- **Token Ceiling:** 4096 tokens (Unconstrained 4K Chain-of-Thought)
+- **Detailed Report:** [`gpqa_exp95_flint_unsloth_ud_q3kxl_repacked_muge_ngram_mod_slot050_decoupled26_ceiling4096_q4kv_50q_report.md`](/home/james/.gemini/antigravity-cli/brain/816c1d65-6e4b-4024-8ad0-2ebd54f80461/gpqa_exp95_flint_unsloth_ud_q3kxl_repacked_muge_ngram_mod_slot050_decoupled26_ceiling4096_q4kv_50q_report.md)
