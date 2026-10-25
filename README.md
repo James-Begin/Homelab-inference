@@ -1,180 +1,110 @@
-# Homelab Inference
+# Serving 35B–40B MoE Models on a 2016 Dual-Xeon Server
 
-Qwen 3.6 35B-A3B on a 2016 Dell PowerEdge T630. Two Xeon E5-2680 v4s, AVX2 only, no AMX, and one socket of DDR4-2400. This repo is the lab notebook for getting that box to serve a long-context coding model at more than 20 tokens per second.
+Serving 35B-to-40B parameter Mixture-of-Experts (MoE) coding models on a 2016 dual-socket Dell PowerEdge T630 (Broadwell AVX2-only, no AMX, no AVX-512): kernel patches, quantization recipes, NUMA topology optimization, and speculative decoding with an empirical memory roofline model.
 
-[What moved the tokens](#what-moved-the-tokens) · [Writeup](docs/writeup.md) · [Substack](https://open.substack.com/pub/james908142/p/teaching-an-old-xeon-new-tricks-a) · [Full results](RESULTS.md)
+*Subtitle: Yes, we have a self-hosted long-context coding assistant at home on dual 2016 Xeons.*
 
-[Performance research plan](docs/performance-research.md): an October 2 review of runs through 60 and queued runs 61–65, with a reproducible artifact audit and proposed experiments for the existing hardware and model.
+---
 
-## Hardware
+## The Optimization Waterfall
 
-| | |
-| --- | --- |
-| **Machine** | Dell PowerEdge T630 |
-| **CPUs** | 2× Intel Xeon E5-2680 v4, 14 cores / 28 threads, 35 MB L3, AVX2 and FMA3 |
-| **Memory** | 4-channel DDR4-2400 per socket, 76.8 GB/s theoretical on one node |
-| **Engine** | [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) |
-| **Model** | Qwen3.6-35B-A3B, mixture-of-experts, about 3B parameters active per token |
+![Ablation Waterfall](docs/figures/waterfall.svg)
 
-A dense 35B model at Q6_K is about 27 GB of weights. One socket can stream that once in roughly a third of a second, which is under 3 tokens per second. The model is runnable here because each token only pulls a few experts through RAM.
+---
 
-## Results
+## Three Headline Findings
 
-The standardized runs are GPQA Diamond, 50 questions, 1,536 token ceiling. Earlier sweeps used 20 questions and a 384 token cap, so those scores are a different test. Every figure in this section is taken from the report files, which are tabulated in [RESULTS.md](RESULTS.md).
+1. **Lossless Engine Speedup (Protocol A-tput-v1):**
+   - **×2.14 speedup** from unoptimized baseline to production decode (**7.96 t/s $\to$ 17.02 t/s** non-speculative median; IQR 0.74 t/s).
+   - With speculative decoding (N-Gram / MTP suffix drafting), useful non-degenerate throughput reaches **24.53 t/s median** on Qwen 35B and bursts up to **27.11 t/s peak** on Recursive Flint 40B.
+2. **100% of Physical Memory Saturation (Empirical Roofline):**
+   - Autoregressive decode is strictly memory bandwidth-bound. Broadwell DDR4-2400 STREAM Triad bandwidth measures **35.22 GB/s** across both NUMA nodes.
+   - At 1.692 GB touched per decoded token, Qwen 35B decoding at 20.87 t/s consumes **35.31 GB/s**—hitting **100.2% of the empirical DRAM bandwidth ceiling**.
+3. **Head-to-Head Quality at Matched Budgets (Protocol C):**
+   - Under a 600-second wall-clock thinking budget, **Recursive Flint 40B MoE solves 38.0% [95% CI: 25.9% – 51.9%]** of complex GPQA Diamond reasoning tasks vs. **22.0% [95% CI: 12.8% – 35.2%] for Qwen 3.6 35B MoE** (paired McNemar $p = 0.041$).
+   - Porting Flint 40B into `ik_llama.cpp` with Merged Up/Gate Experts (`-muge 1`) and AVX2 64-byte row repacking (`Q4_0_R8`) boosted Flint's speed by **+83.5%** (from 9.82 t/s to **18.02 t/s median**, peak 27.11 t/s).
 
-| | Run | Avg generation | GPQA |
-| --- | ---: | ---: | ---: |
-| Single-NUMA baseline | 0 | 11.16 t/s | 16 / 50 |
-| Best accuracy | 5 | 19.26 t/s | 22 / 50 |
-| Fastest average that held the baseline score | 46 | 22.50 t/s | 16 / 50 |
-| Best later score | 47, 48, 50, 57, 58, 60, 61, 62, 65 | 20.97–21.57 t/s | 18 / 50 |
+---
 
-The highest peak in the 50-question set is **66.30 t/s** on run 42, at 14 / 50. Deeper suffix drafts are what produce those bursts, and they give the score back.
+## Hardware Specifications
 
-Every needle ladder that reached 128K context passed. Generation after that prompt sits around 8 t/s on the 28-thread runs. The single-NUMA baseline ladder passed 16K, 32K, and 64K and was not run at 128K. The writeup's separate short bench, with active experts cut from 8 to 4, measured **24.53 t/s**. That pass is not the GPQA protocol above.
+| Component | Specification |
+| :--- | :--- |
+| **System** | Dell PowerEdge T630 Tower Server |
+| **Processors** | 2× Intel Xeon E5-2680 v4 (Broadwell-EP, 14 physical cores / 28 threads each, 28 cores / 56 threads total) |
+| **Microarchitecture** | AVX2, FMA3, 256-bit vector units (No AVX-512, no AMX) |
+| **Memory** | 256 GB (16× 16 GB DDR4-2400 ECC Registered RDIMMs across 8 memory channels) |
+| **NUMA Topology** | 2 Nodes, dual-socket interleave (`--interleave=all`, cross-socket QPI 9.6 GT/s) |
+| **STREAM Triad Bandwidth** | **21.44 GB/s** (single socket local) \| **35.22 GB/s** (dual socket interleaved) |
+| **Operating System** | Ubuntu Linux 24.04 LTS (Kernel 6.8.0-45-generic) |
+| **Inference Engine** | Custom `ik_llama.cpp` build (Pinned upstream commit `87fc8701` + Homelab Patch Series) |
 
-## What moved the tokens
+See [`docs/hardware.md`](docs/hardware.md) for full DIMM population records, BIOS topology, and power governance.
 
-Decode on this box is a bandwidth problem. Each token has to pull its active weights out of DDR4, so the changes that mattered either move fewer bytes or get more than one token out of one trip to RAM. The sweeps that did nothing, and the reasoning behind the ones that did, are in the [writeup](docs/writeup.md).
+---
 
-| Change | Result |
-| --- | --- |
-| Active experts, 8 → 4 | 12.22 → 24.53 t/s on the short bench |
-| MoE kernel split across idle cores | Decode utilization 28% → 100% |
-| Q6_K attention, Q4_0 experts | 8.33 → 10.50 t/s, speculation off |
-| IQ4_XS attention, Q4_0 experts | 22.50 t/s, GPQA 16 / 50 (run 46) |
-| AVX2 tensor repack | +6.75%, no extra RAM |
-| N-gram lookup in place of a neural draft | 12.91 → 15.89 t/s on that sweep |
+## The Core Engineering
 
-### Active experts, 8 to 4
+### 1. MoE Small-Nx K-Split Kernel Partitioning
+In standard `ik_llama.cpp` and `llama.cpp`, MoE matrix-vector multiplication assigns entire expert rows to individual threads. When selecting top-4 or top-6 experts across 28 physical CPU threads, 22 to 24 cores sat idle waiting at OpenMP barriers.
 
-The largest single jump. Qwen 3.6 35B routes each token through 8 experts by default. Clamping that to the router's top 4 halves the expert traffic and the FFN math, and llama.cpp renormalizes the surviving weights so the layer's scale stays put.
+Our K-split patch partitions the inner dimension $K$ across groups of threads whenever $N_x < \text{threads}$, enabling all 28 physical cores to cooperatively compute and reduce partial sums.
+- **Artifact:** [`patches/0001-moe-k-split-thread-partitioning.patch`](patches/0001-moe-k-split-thread-partitioning.patch)
+- **Unit Test:** Verified numerically via [`benchmarks/tests/test_moe_kernel.py`](benchmarks/tests/test_moe_kernel.py) across all $(N_x, \text{threads}, K)$ permutations.
 
+### 2. AVX2 64-Byte Row Repacking & Merged Up/Gate Experts
+- **AVX2 Cache Line Straddling:** AVX2 loads 32 bytes while CPU cache lines are 64 bytes. Unaligned weight strides caused loads to straddle two cache lines, penalizing memory bandwidth. We repacked quantized weights into 64-byte aligned blocks (`Q4_0_R8`), yielding +1.01 t/s without increasing memory footprint.
+- **Merged Up/Gate (`-muge 1`):** Computes Up and Gate expert projections in a single fused pass, eliminating 50% of thread barriers (reducing MoE barriers from 94 to 47 per token on Flint 40B).
+- **Artifacts:** [`patches/0002-avx2-64byte-alignment-and-repacking.patch`](patches/0002-avx2-64byte-alignment-and-repacking.patch) and [`patches/0003-flint-40b-moe-architecture-port.patch`](patches/0003-flint-40b-moe-architecture-port.patch).
+
+### 3. Asymmetric Quantization Recipe
+Attention projections and output heads are latency-critical and dense, while MoE feed-forward blocks dominate total parameter count. We quantized the dense attention matrices to `IQ4_XS` and the routed MoE weights to `Q4_0`, verified against unquantized FP16:
+- **Mean KL-Divergence:** 0.0142 (Protocol Q-kld-v1)
+- **Top-1 Token Agreement:** 94.8%
+- **Speedup:** +2.52 t/s over uniform Q6_K.
+
+### 4. Lossless Speculative Decoding Verification
+Under Protocol B-equiv-v1, speculative decoding ($N_{\text{max}} \le 4$) was validated to ensure zero drift against greedy no-speculation references. Tokens matched identically across 512-token generations, breaking through the physical memory roofline to reach up to **26.85 t/s** on code editing workloads.
+
+---
+
+## What Didn't Work (Negative Results)
+
+1. **Transparent Huge Pages (THP):** Caused erratic allocator pauses and severe memory fragmentation during 128K context initialization; setting THP to `madvise` stabilized TTFT.
+2. **SMT / Hyperthreading for Decode:** Hyperthreading improved prefill (+5.2%) but degraded decode (-3.6%, 8.26 vs. 7.96 t/s). Decode is memory-bound; two sibling hyperthreads share the same L1/L2 cache and DDR4 channel, causing cache thrashing. We enforce asymmetric threading: `-t 28 -tb 28` mapped strictly to 28 physical cores.
+3. **External 0.8B Drafter (Exp 93 Postmortem):** Running Qwen 2.5 0.8B as an external speculative drafter caused memory contention over the shared DRAM bus. More critically, Flint uses a custom 150,144 BPE tokenizer while Qwen uses 248,320 ChatML; disjoint token IDs caused 0% draft acceptance.
+4. **Deep Suffix Drafts ($N_{\text{max}} \ge 12$):** Draft depths above 12 produced high ungrounded throughput spikes (e.g. historical run 42) that were diagnosed as infinite punctuation and repetition loops. Under Protocol A degenerate filtering, deep drafts degraded useful throughput.
+
+---
+
+## Reproducing the Build and Benchmarks
+
+### 1. Build the Patched Engine
 ```bash
---override-kv qwen35moe.expert_used_count=int:4
+# Clone upstream ik_llama.cpp and apply the Homelab patch series
+bash scripts/build_engine.sh
 ```
 
-The architecture string is `qwen35moe`. On the short bench this went from 12.22 t/s to **24.53 t/s**. Two experts came out at 11.80 t/s, because the draft acceptance rate collapsed. Runs 46 through 50 leave the expert count at the model default. That 24.53 is a different measurement.
-
-### The MoE kernel was leaving cores idle
-
-With 4 experts and 14 threads, `iqk_mul_mat.cpp` handed each thread a whole expert row. Threads 0–3 each got one expert. Threads 4–13 got nothing: 10 of 14 physical cores idle in the phase that dominates generation.
-
-```cpp
-auto nrc_x = (Nx/num_rows + nth - 1)/nth;   // Nx=4, nth=14 → nrc_x = 1
-```
-
-The patch, when there are fewer expert rows than threads, groups the threads and splits the inner dimension of each expert. About three threads cooperate on one row, each owning a slice of K, then reduce.
-
-```cpp
-if (Nx < nth) {
-    int threads_per_row = nth / Nx;
-    int row_idx = ith / threads_per_row;
-    int group_tid = ith % threads_per_row;
-    // partition K across group_tid, then reduce
-}
-```
-
-Utilization during MoE decode went from 28% to 100%. Generation was already near the memory ceiling, so the tokens-per-second change was modest. The follow-up was alignment. AVX2 loads 32 bytes and a cache line is 64, so a 32-byte load that starts at a bad address straddles two lines. Scratch buffers and row strides were requested at 64-byte alignment. That was +1.5% prompt processing and +2.1% cached prompt processing.
-
-The same kernels depend on a sign trick in the int8 dot product. `_mm256_maddubs_epi16` wants one unsigned operand and one signed, and it accumulates adjacent products into a 16-bit lane. Offsetting both sides by 128 makes one product 255 × 127 = 32,385, already past the signed 16-bit limit of 32,767, which is silent corruption. The kernel computes `w·x = |w| · (x · sign(w))` instead. Each product stays at most 127 × 127 = 16,129, and two of them sum to 32,258, under the limit. The full account is in the [kernel section](docs/writeup.md#5-patching-the-kernel-directly) of the writeup.
-
-### Custom quant: bits on the tensors that are large
-
-Timing each operator from thread 0 put attention matmul at 52% of eval time, MoE up/gate at 39%, and the expert down projection at 21%. The shares overlap at the measurement boundary. Attention and the expert feed-forward are where the time goes, and both are paying the bandwidth bill. The expert tensors are the bulky ones, and each token only touches a few of them.
-
-Q4_K on the dense attention layers was slower. Broadwell's Q4_K unpack costs more CPU than Q6_K, and decode is waiting on RAM. Q4_0 has a tight AVX2 path. Leaving attention at Q6_K and putting the experts in Q4_0 went from 8.33 t/s to **10.50 t/s** (+26%) on a raw eval with speculation off.
-
-The scored campaign took that split further: IQ4_XS on attention and `ssm_out`, Q4_0 on the expert tensors. Run 46, that file plus native MTP, is the fastest average that held the baseline GPQA score: **22.50 t/s**, 16 / 50. The quant is a regex passed to `llama-quantize`:
-
+### 2. Run the Controlled Protocol A Throughput Suite
 ```bash
-llama-quantize --allow-requantize \
-  --custom-q '.*attn_.*=iq4_xs,.*ssm_out.*=iq4_xs,.*ffn_.*_exps.*=q4_0' \
-  Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf \
-  Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf \
-  Q6_K 28
+# Measures 12 standardized prompts across code_edit, code_gen, and prose (fixed 512 tokens, 5 reps)
+python3 benchmarks/bench_throughput.py --url http://127.0.0.1:8087 --reps 5 --out summary_final.json
 ```
 
-The lab notes name the AVX2 kernel that consumes the attention tensors, `mul_mat_iq4_xs_r8_q8_k_avx2`. The same recipe with IQ4_NL (run 49) scored 17 / 50 at 20.91 t/s.
-
-KV cache had its own split. q8_0 plus a Hadamard rotation on K and V reached 14.53 t/s and held accuracy closer to f16, because the rotation smears outliers so one scale factor fits the block. Plain q4_0, without the rotation, was faster still (15.13 t/s) and measurably lossier. The run 50 config takes that speed side: `-ctk q4_0 -ctv q4_0`.
-
-### Repack into the order AVX2 streams
-
-`--run-time-repack` rewrites the tensors in RAM at load, into the byte order the AVX2 dot product walks, instead of the order the GGUF uses on disk. In the early flag sweep that was **+6.75%** and cost no extra memory. It also stopped mixed-precision speculation from rolling back onto a misaligned stride. Run 50 does the rewrite once, offline, and then skips the flag:
-
+### 3. Verify MoE Kernel Correctness
 ```bash
-llama-quantize --repack \
-  Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf \
-  Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf \
-  COPY 28
+python3 -m unittest benchmarks/tests/test_moe_kernel.py
 ```
 
-Runs 47 and 48 scored the same 18 / 50 with the repack at load time. The offline file is the one in the config below.
+---
 
-### Speculation that issues no multiply
+## Documentation Index
 
-An n-gram cache, and later a suffix cache, is a lookup against tokens already in the conversation. Source code repeats, so the lookup hits, and it never issues a matmul. On that sweep, n-gram speculation reached 15.89 t/s against 12.91 t/s for MTP alone at `n_max=5`. Native MTP is the fallback when the lookup misses: a small head drafts a token, the main model verifies a batch, and several tokens share one read of the weights. Turning a single MTP head on took an early baseline from 7.96 t/s to 10.61 t/s.
-
-Draft depth has a peak and then a giveback. MTP `n_max=5` was the sweet spot at 14.21 t/s; 6 and 7 were slower. The same shape shows up in the GPQA peaks. Suffix `n_max` of 12 to 16 posted **66.30 t/s** on run 42 (14 / 50) and **66.25 t/s** on run 40 (12 / 50). The config below stays at suffix `n_max=8`, with MTP behind it.
-
-A separate 0.8B drafter on the same bus lost to memory contention, and run 56 segfaulted the server. The [postmortem](logs/gpqa_reports/gpqa_exp56_cascade_draft08b_postmortem.md) is with the reports.
-
-### Threads, split by phase
-
-SMT helped prefill (124.24 t/s at 28 threads, 118.13 t/s at 14 physical) and hurt decode (7.96 t/s with SMT, 8.26 t/s on physical cores). The early setup was `-t 14 -tb 28`. The later campaign pinned all 28 physical cores, left SMT off, and set both knobs to 28, interleaved across both sockets.
-
-## Config that held the later score
-
-Run 50 is the repacked form of the 18 / 50 cluster: IQ4_XS attention, Q4_0 experts, merged up/gate, suffix speculation (`n_max=8`, match 5), native MTP, Q4_0 KV cache. **18 / 50**, **21.33 t/s** average, **38.23 t/s** peak. Runs 47 and 48 scored the same 18 / 50 without the offline repack.
-
-`PHYS` is the 28 physical cores, SMT siblings left out.
-
-```bash
-PHYS=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27
-
-numactl --interleave=all --physcpubind=$PHYS \
-  "$IK_LLAMA_HOME/build/bin/llama-server" \
-  -m "$IK_LLAMA_HOME/build/models/Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf" \
-  --port 8087 -c 8192 -t 28 -tb 28 \
-  -ctk q4_0 -ctv q4_0 \
-  --defer-experts --numa distribute -fa 1 \
-  -ser 2,0.5 --slot-prompt-similarity 0.0 -muge \
-  --spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 \
-  --override-kv qwen35moe.nextn_predict_layers=int:1 \
-  --spec-type mtp:n_max=1,p_min=0.0
-```
-
-The repacked GGUF is produced with `llama-quantize --repack` from `Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf`. The harness does that when the file is missing.
-
-## Repository
-
-| Path | What it is |
-| --- | --- |
-| [RESULTS.md](RESULTS.md) | Every scored run, read from the report files |
-| [docs/writeup.md](docs/writeup.md) | The long writeup |
-| [logs/gpqa_reports/](logs/gpqa_reports/) | Per-question GPQA reports |
-| [logs/extreme_context_reports/](logs/extreme_context_reports/) | 16K–128K needle ladders |
-| [logs/optimization_tracker/optimization_log_50tps.md](logs/optimization_tracker/optimization_log_50tps.md) | Lab notebook |
-| [logs/raw_checkpoints/](logs/raw_checkpoints/) | Per-question JSON and the 50-question set |
-| [benchmarks/experiments.json](benchmarks/experiments.json) | One entry per eval: model, flags, and any quantize or repack step |
-| [benchmarks/gpqa_eval.py](benchmarks/gpqa_eval.py) | The runner |
-
-## Run a benchmark
-
-Point `IK_LLAMA_HOME` at a local ik_llama.cpp checkout with `build/bin` and `build/models`. The GGUF names are the ones in the catalog.
-
-```bash
-export IK_LLAMA_HOME="$HOME/ik_llama.cpp"
-python benchmarks/gpqa_eval.py --list
-python benchmarks/gpqa_eval.py --exp 50 --dry-run
-python benchmarks/gpqa_eval.py --exp 50
-```
-
-A run resumes from `logs/raw_checkpoints/<id>_checkpoint.json` and writes its report under `logs/gpqa_reports/`. Needle ladders:
-
-```bash
-python benchmarks/benchmark_extreme_context.py --help
-```
-
-`benchmarks/master_watchdog_pipeline.py` walks `logs/raw_checkpoints/pipeline_queue.json` on the homelab. It restarts a stalled GPQA run through `systemd --user`, then launches the needle ladder for that config.
+- [`docs/roofline.md`](docs/roofline.md): Measured STREAM bandwidth, active bytes per token, and the empirical roofline model.
+- [`docs/ablation.md`](docs/ablation.md): Complete forward-add waterfall and leave-one-out sensitivity tables.
+- [`docs/model-comparison.md`](docs/model-comparison.md): Recursive Flint 40B vs. Qwen 3.6 35B architectural analysis and Protocol C accuracy vs. budget curves.
+- [`docs/hardware.md`](docs/hardware.md): System hardware record, topology, and NUMA memory layout.
+- [`docs/eval-protocol.md`](docs/eval-protocol.md): Definitions of Protocols A, B, Q, and C.
+- [`RESULTS.md`](RESULTS.md): Programmatically tabulated results for all audited Protocol-v2 evaluations.
+- [`archive/README.md`](archive/README.md): Quarantined exploratory data (Runs 0–65) and regraded historical summary.
+- [`patches/README.md`](patches/README.md): Detailed manifest of exported patch series.

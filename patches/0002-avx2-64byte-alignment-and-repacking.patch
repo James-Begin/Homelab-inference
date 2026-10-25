@@ -1,0 +1,309 @@
+diff --git a/ggml/src/ggml-quants.c b/ggml/src/ggml-quants.c
+index 7533985a..2ae6bd78 100644
+--- a/ggml/src/ggml-quants.c
++++ b/ggml/src/ggml-quants.c
+@@ -4275,6 +4275,10 @@ void ggml_vec_dot_q4_0_q8_0(int n, float * restrict s, size_t bs, const void * r
+ 
+     // Main loop
+     for (; ib < nb; ++ib) {
++        if (ib + 8 < nb) {
++            _mm_prefetch((const char *)(&x[ib + 8]), _MM_HINT_T0);
++            _mm_prefetch((const char *)(&y[ib + 8]), _MM_HINT_T0);
++        }
+         /* Compute combined scale for the block */
+         const __m256 d = _mm256_set1_ps( GGML_FP16_TO_FP32(x[ib].d) * GGML_FP16_TO_FP32(y[ib].d) );
+ 
+@@ -8564,6 +8568,10 @@ void ggml_vec_dot_q6_K_q8_K(int n, float * restrict s, size_t bs, const void * r
+     __m256 acc = _mm256_setzero_ps();
+ 
+     for (int i = 0; i < nb; ++i) {
++        if (i + 2 < nb) {
++            _mm_prefetch((const char *)(&x[i + 2]), _MM_HINT_T0);
++            _mm_prefetch((const char *)(&y[i + 2]), _MM_HINT_T0);
++        }
+ 
+         const float d = y[i].d * GGML_FP16_TO_FP32(x[i].d);
+ 
+diff --git a/ggml/src/ggml.c b/ggml/src/ggml.c
+index 53aef986..eadce1b8 100644
+--- a/ggml/src/ggml.c
++++ b/ggml/src/ggml.c
+@@ -16,6 +16,10 @@
+ #if GGML_USE_IQK_MULMAT
+ #include "iqk/iqk_mul_mat.h"
+ #include "iqk/iqk_config.h"
++
++int64_t global_op_times[GGML_OP_COUNT] = {0};
++int64_t global_op_counts[GGML_OP_COUNT] = {0};
++int64_t global_op_print_counter = 0;
+ #endif
+ 
+ #if defined(_MSC_VER) || defined(__MINGW32__)
+@@ -2802,14 +2806,14 @@ struct ggml_compute_state_shared {
+     int n_threads;
+     int n_batch;
+ 
+-    // synchronization primitives
+-    atomic_int n_barrier;
+-    atomic_int n_barrier_passed;
++    // synchronization primitives - isolated to independent cache lines to prevent NUMA bus bouncing
++    __attribute__((aligned(CACHE_LINE_SIZE))) atomic_int n_barrier;
++    __attribute__((aligned(CACHE_LINE_SIZE))) atomic_int n_barrier_passed;
+ 
+-    ggml_abort_callback abort_callback; // abort ggml_graph_compute when true
++    __attribute__((aligned(CACHE_LINE_SIZE))) ggml_abort_callback abort_callback; // abort ggml_graph_compute when true
+     void * abort_callback_data;
+ 
+-    atomic_int current_chunk; // currently processing chunk during mul_mat, shared between all the threads
++    __attribute__((aligned(CACHE_LINE_SIZE))) atomic_int current_chunk; // currently processing chunk during mul_mat, shared between all the threads
+ 
+     enum ggml_status ec;
+ };
+@@ -14963,6 +14967,66 @@ static void ggml_compute_forward_concat_f32(
+         return;
+     }
+ 
++    if (dim == 0) {
++        const int64_t total_rows = (int64_t)ne1 * ne2 * ne3;
++        const int64_t rows_per_th = (total_rows + nth - 1) / nth;
++        const int64_t r_begin = ith * rows_per_th;
++        const int64_t r_end = MIN(r_begin + rows_per_th, total_rows);
++        const size_t row_bytes_0 = (size_t)ne00 * sizeof(float);
++        const size_t row_bytes_1 = (size_t)ne10 * sizeof(float);
++
++        for (int64_t r = r_begin; r < r_end; ++r) {
++            int64_t i3 = r / (ne1 * ne2);
++            int64_t rem = r - i3 * (ne1 * ne2);
++            int64_t i2 = rem / ne1;
++            int64_t i1 = rem - i2 * ne1;
++
++            char * y = (char *)dst->data + i1*nb1 + i2*nb2 + i3*nb3;
++            const char * x0 = (const char *)src0->data + i1*nb01 + i2*nb02 + i3*nb03;
++            const char * x1 = (const char *)src1->data + i1*nb11 + i2*nb12 + i3*nb13;
++
++            memcpy(y, x0, row_bytes_0);
++            memcpy(y + row_bytes_0, x1, row_bytes_1);
++        }
++        return;
++    }
++
++    if (dim == 1) {
++        const int64_t total_slices = (int64_t)ne2 * ne3;
++        const int64_t slices_per_th = (total_slices + nth - 1) / nth;
++        const int64_t s_begin = ith * slices_per_th;
++        const int64_t s_end = MIN(s_begin + slices_per_th, total_slices);
++        const size_t bytes_0 = (size_t)ne00 * ne01 * sizeof(float);
++        const size_t bytes_1 = (size_t)ne10 * ne11 * sizeof(float);
++
++        for (int64_t s = s_begin; s < s_end; ++s) {
++            int64_t i3 = s / ne2;
++            int64_t i2 = s - i3 * ne2;
++
++            char * y0 = (char *)dst->data + i2*nb2 + i3*nb3;
++            char * y1 = y0 + ne01*nb1;
++            const char * x0 = (const char *)src0->data + i2*nb02 + i3*nb03;
++            const char * x1 = (const char *)src1->data + i2*nb12 + i3*nb13;
++
++            if (nb01 == (int64_t)ne00*sizeof(float) && nb1 == (int64_t)ne0*sizeof(float)) {
++                memcpy(y0, x0, bytes_0);
++            } else {
++                for (int64_t i1 = 0; i1 < ne01; ++i1) {
++                    memcpy(y0 + i1*nb1, x0 + i1*nb01, ne00*sizeof(float));
++                }
++            }
++
++            if (nb11 == (int64_t)ne10*sizeof(float) && nb1 == (int64_t)ne0*sizeof(float)) {
++                memcpy(y1, x1, bytes_1);
++            } else {
++                for (int64_t i1 = 0; i1 < ne11; ++i1) {
++                    memcpy(y1 + i1*nb1, x1 + i1*nb11, ne10*sizeof(float));
++                }
++            }
++        }
++        return;
++    }
++
+     int64_t o[4] = {0, 0, 0, 0};
+     o[dim] = src0->ne[dim];
+ 
+@@ -21771,21 +21835,26 @@ static void ggml_compute_forward_argsort_thresh_f32(
+             dst_data[j] = j;
+         }
+ 
+-        // C doesn't have a functional sort, so we do a bubble sort instead
+-        for (int64_t j = 0; j < ne0; j++) {
++        // Fast register-based Top-K selection sort (only top entries needed by ggml_top_k_thresh)
++        const int64_t sort_limit = (ne0 < 16) ? ne0 : 16;
++        for (int64_t j = 0; j < sort_limit; j++) {
++            int64_t max_idx = j;
++            float max_val = src_data[dst_data[j]];
+             for (int64_t k = j + 1; k < ne0; k++) {
+-                if (src_data[dst_data[j]] < src_data[dst_data[k]]) {
+-                    int32_t tmp = dst_data[j];
+-                    dst_data[j] = dst_data[k];
+-                    dst_data[k] = tmp;
++                if (src_data[dst_data[k]] > max_val) {
++                    max_val = src_data[dst_data[k]];
++                    max_idx = k;
+                 }
+             }
++            if (max_idx != j) {
++                int32_t tmp = dst_data[j];
++                dst_data[j] = dst_data[max_idx];
++                dst_data[max_idx] = tmp;
++            }
+         }
+         float max_value = src_data[dst_data[0]];
+-        //printf("Row %ld: max_value is %g, next is %g\n", i, (double)max_value, (double)src_data[dst_data[1]]);
+-        for (int j = min_entries; j < ne0; ++j) {
++        for (int j = min_entries; j < sort_limit; ++j) {
+             if (src_data[dst_data[j]] < max_value*thresh) {
+-                //printf("    row %ld: turning off expert %d(%d) with value %g\n", i, j, dst_data[j], (double)src_data[dst_data[j]]);
+                 dst_data[j] = -1;
+             }
+         }
+@@ -26885,14 +26954,23 @@ static thread_ret_t ggml_graph_compute_thread(void * data) {
+ 
+         if (ggml_is_noop(node)) continue;
+ 
+-#if IK_PRINT_TIMING
+-        int64_t tim1 = ggml_time_us();
+-#endif
++        int64_t tim1 = 0;
++        if (state->ith == 0) {
++            tim1 = ggml_time_us();
++        }
++
+         node_n = ggml_compute_forward(&params, node, cgraph, node_n);
+-#if IK_PRINT_TIMING
+-        int64_t tim2 = ggml_time_us();
+-        t_eval += tim2 - tim1;
+-#endif
++
++        if (state->ith == 0) {
++            int64_t tim2 = ggml_time_us();
++            extern int64_t global_op_times[GGML_OP_COUNT];
++            extern int64_t global_op_counts[GGML_OP_COUNT];
++            if (state->ith == 0) {
++                global_op_times[node->op] += (tim2 - tim1);
++                global_op_counts[node->op]++;
++            }
++        }
++
+ 
+         if (state->ith == 0 && cplan->abort_callback && cplan->abort_callback(cplan->abort_callback_data)) {
+             state->shared->ec = GGML_STATUS_ABORTED;
+@@ -26996,6 +27074,20 @@ enum ggml_status ggml_graph_compute(struct ggml_cgraph * cgraph, struct ggml_cpl
+     }
+ #endif
+ 
++    extern int64_t global_op_print_counter;
++    extern int64_t global_op_times[GGML_OP_COUNT];
++    extern int64_t global_op_counts[GGML_OP_COUNT];
++    global_op_print_counter++;
++    if (global_op_print_counter % 20 == 0) {
++        printf("\n--- GGML OP PROFILING ---\n");
++        for (int i = 0; i < GGML_OP_COUNT; i++) {
++            if (global_op_counts[i] > 0) {
++                printf("OP %s: %8ld us (%6ld calls)\n", ggml_op_name((enum ggml_op)i), global_op_times[i], global_op_counts[i]);
++            }
++        }
++        printf("-------------------------\n");
++    }
++
+     // don't leave affinity set on the main thread
+     clear_numa_thread_affinity();
+ 
+diff --git a/ggml/src/iqk/iqk_gemm_kquants.cpp b/ggml/src/iqk/iqk_gemm_kquants.cpp
+index 88a5d191..a74257db 100644
+--- a/ggml/src/iqk/iqk_gemm_kquants.cpp
++++ b/ggml/src/iqk/iqk_gemm_kquants.cpp
+@@ -952,12 +952,19 @@ static void mul_mat_qY_K_q8_2_X4_T(int n, const void * vx, size_t bx, const Data
+     auto shuff = _mm256_loadu_si256((const __m256i *)k_shuff);
+ 
+     for (int ix = 0; ix < nrc_x; ++ix) {
++        if (ix + 1 < nrc_x) {
++            _mm_prefetch((const char *)vx + (ix + 1)*bx, _MM_HINT_T0);
++            _mm_prefetch((const char *)vx + (ix + 1)*bx + 64, _MM_HINT_T0);
++        }
+ 
+         for (int iy = 0; iy < nrc_y; ++iy) accd[iy] = _mm256_setzero_ps();
+ 
+         deq.new_row(ix);
+ 
+         for (int i = 0; i < nb; ++i) {
++            if (i + 2 < nb) {
++                _mm_prefetch((const char *)(&deq.x[i + 2]), _MM_HINT_T0);
++            }
+ 
+             deq.d = GGML_FP16_TO_FP32(deq.x[i].d);
+             auto vd = _mm256_set1_ps(deq.d);
+diff --git a/ggml/src/iqk/iqk_gemm_legacy_quants.cpp b/ggml/src/iqk/iqk_gemm_legacy_quants.cpp
+index 4955d472..a4274374 100644
+--- a/ggml/src/iqk/iqk_gemm_legacy_quants.cpp
++++ b/ggml/src/iqk/iqk_gemm_legacy_quants.cpp
+@@ -376,6 +376,10 @@ void mul_mat_qX_q8_Helper(int nb, const void * vx, size_t bx, const DataInfo& in
+     typename Unpacker::Sum4T sum4;
+     Scales scales;
+     for (int ix = 0; ix < nrc_x; ++ix) {
++        if (ix + 1 < nrc_x) {
++            _mm_prefetch((const char *)unp.cx_0 + (ix + 1)*unp.bx, _MM_HINT_T0);
++            _mm_prefetch((const char *)unp.cx_0 + (ix + 1)*unp.bx + 64, _MM_HINT_T0);
++        }
+         unp.set_row(ix);
+         AccumType accum;
+         accum.compute(nb, unp, scales, sum4, y, info, ix);
+@@ -389,6 +393,10 @@ void mul_mat_qX_q8_Helper_x2(int nb, const void * vx, size_t bx, const DataInfo&
+     typename Unpacker::Sum4T sum4;
+     Scales scales;
+     for (int ix = 0; ix < nrc_x; ix += 2) {
++        if (ix + 2 < nrc_x) {
++            _mm_prefetch((const char *)unp.cx_0 + (ix + 2)*unp.bx, _MM_HINT_T0);
++            _mm_prefetch((const char *)unp.cx_0 + (ix + 2)*unp.bx + 64, _MM_HINT_T0);
++        }
+         unp.set_row(ix);
+         AccumType accum;
+         accum.compute(nb, unp, scales, sum4, y, info, ix);
+@@ -734,12 +742,14 @@ struct Q_Unpacker {
+     inline void set_row(int ix) { x = (const Q*)(cx_0 + ix*bx); }
+ 
+     inline auto set_block_4(int i) {
++        _mm_prefetch((const char *)(x + 4*i + 16), _MM_HINT_T0);
+         for (int j = 0; j < 4; ++j) {
+             qx[j] = deq.dequant(x + 4*i + j);
+         }
+         return scales.prepare4(x + 4*i);
+     }
+     inline auto set_block(int i) {
++        _mm_prefetch((const char *)(x + i + 16), _MM_HINT_T0);
+         qx[0] = deq.dequant(x + i);
+         return scales.prepare1(x + i);
+     }
+@@ -1025,10 +1035,14 @@ static void mul_mat_q4_0_r8_q8_2_avx2(int n, const void * vx, size_t bx, const D
+     if constexpr (nrc_y == 1) {
+         union { __m256 vec; float val[8]; } helper;
+         for (int ix = 0; ix < nrc_x; ix += 8) {
++            if (ix + 8 < nrc_x) {
++                _mm_prefetch((const char *)vx + (ix + 8)*bx, _MM_HINT_T0);
++            }
+             const block_iq4_nl_r8 * iq4 = (const block_iq4_nl_r8 *)((const char *)vx + ix*bx);
+             auto acc1 = _mm256_setzero_ps();
+             auto acc2 = _mm256_setzero_ps();
+             for (int ib4 = 0; ib4 < nb/4; ++ib4) {
++                _mm_prefetch((const char *)(iq4 + 4*ib4 + 16), _MM_HINT_T0);
+                 helper.vec = convert_scales((const uint16_t *)q8.y[0][ib4].d);
+                 for (int k = 0; k < 4; ++k) {
+                     auto scales = _mm256_cvtph_ps(_mm_loadu_si128((const __m128i *)iq4[4*ib4+k].d));
+@@ -1057,8 +1071,12 @@ static void mul_mat_q4_0_r8_q8_2_avx2(int n, const void * vx, size_t bx, const D
+     __m256 acc[nrc_y] = {};
+     float d8[8*nrc_y];
+     for (int ix = 0; ix < nrc_x; ix += 8) {
++        if (ix + 8 < nrc_x) {
++            _mm_prefetch((const char *)vx + (ix + 8)*bx, _MM_HINT_T0);
++        }
+         const block_iq4_nl_r8 * iq4 = (const block_iq4_nl_r8 *)((const char *)vx + ix*bx);
+         for (int ib4 = 0; ib4 < nb/4; ++ib4) {
++            _mm_prefetch((const char *)(iq4 + 4*ib4 + 16), _MM_HINT_T0);
+             {
+                 __m256 d4[4];
+                 for (int k = 0; k < 4; ++k) {

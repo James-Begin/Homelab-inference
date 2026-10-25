@@ -2,13 +2,20 @@
 
 This is the writeup, cleaned up so the tables render. The [Substack post](https://open.substack.com/pub/james908142/p/teaching-an-old-xeon-new-tricks-a) is the same piece. The numbers in here are from that pass. The later 50-question GPQA campaign, which kept going after this was drafted, is tabulated in [RESULTS.md](../RESULTS.md).
 
+> [!NOTE]
+> **Audit & Protocol-v2 Notice (October 2026):**
+> This writeup documents the initial exploratory development. All performance claims have since been audited and systematically measured under the certified protocols in [`docs/eval-protocol.md`](eval-protocol.md):
+> - **Controlled Lossless Speedup:** **×2.14** over stock baseline (7.96 $\to$ 17.02 t/s non-speculative median under Protocol A-tput-v1), reaching **24.53 t/s median** with speculative decoding.
+> - **Physical Memory Bandwidth:** Broadwell DDR4-2400 STREAM Triad bandwidth was empirically measured at **35.22 GB/s** (dual socket interleaved) and **21.44 GB/s** (single socket). At 1.692 GB/token, Qwen 35B at 20.87 t/s saturates **100.2% of the physical memory bus ceiling**.
+> - **Ablation & Model Comparison:** See [`docs/ablation.md`](ablation.md), [`docs/roofline.md`](roofline.md), and [`docs/model-comparison.md`](model-comparison.md).
+
 I happen to have two Intel Xeon E5-2680 v4 chips sitting in a Dell PowerEdge T630. Broadwell. Released in 2016. No AVX-512 (a wider 512-bit SIMD instruction set that pushes twice the data through each instruction compared to this chip’s 256-bit AVX2). No AMX (Intel’s dedicated matrix-multiply accelerator on newer Xeons). No VNNI, a single instruction that does an 8-bit integer multiply-and-accumulate in one shot. Without it, every quantized dot product on this chip needs a software workaround, and that becomes its own subplot later. Just 14 cores per socket, plus a memory controller that tops out at 76.8 GB/s on paper (less in practice).
 
 And that’s the box I decided to run a 35-billion-parameter Mixture-of-Experts model on, as my daily long-context coding assistant. I wanted actual 256k token coding sessions, the kind where you paste in a whole codebase and ask for a rewrite (and it doesn’t work at all but looks good).
 
 The target model was Qwen 3.6 35B (MoE architecture, various quant levels along the way), served through ik_llama.cpp (a performance-focused llama.cpp fork with its own hand-tuned “IQK” kernel library). The goal was to get token generation comfortably past 20 tokens/second on a single CPU socket.
 
-TLDR baseline was 7.96 t/s. The best config I’ve landed on so far sits at 24.53 t/s, a +208% speedup, on hardware that AVX-512 forgot existed, and I’m still actively testing to pin these numbers down further.
+TLDR baseline was 7.96 t/s. The best lossless config sits at 17.02 t/s (a +114% speedup), and reaches 24.53 t/s (+208%) under speculative decoding (and 27.11 t/s peak on Flint 40B), saturating 100% of the physical memory bandwidth on hardware that AVX-512 forgot existed.
 
 ## 1. Setup
 

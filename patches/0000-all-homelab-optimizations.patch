@@ -1,0 +1,1283 @@
+diff --git a/common/jinja/lexer.cpp b/common/jinja/lexer.cpp
+index 598982c2..bf2dfacd 100644
+--- a/common/jinja/lexer.cpp
++++ b/common/jinja/lexer.cpp
+@@ -1,7 +1,9 @@
+ #include "lexer.h"
+ #include "runtime.h"
++#include "unicode.h"
+ 
+ #include <cctype>
++#include <charconv>
+ #include <functional>
+ #include <map>
+ #include <string>
+@@ -75,6 +77,24 @@ lexer_result lexer::tokenize(const std::string & source) {
+                 }
+                 // add escaped char
+                 char escaped_char = src[pos++];
++                if (escaped_char == 'x') {
++                    if (pos + 1 >= src.size()) {
++                        throw lexer_exception("incomplete hexadecimal escape", source, pos);
++                    }
++
++                    unsigned int value = 0;
++                    const char * first = &src[pos];
++                    const char * last  = first + 2;
++
++                    auto [ptr, ec] = std::from_chars(first, last, value, 16);
++                    if (ec != std::errc{} || ptr != last) {
++                        throw lexer_exception("invalid hexadecimal escape", source, pos);
++                    }
++
++                    str += common_unicode_cpt_to_utf8(value);
++                    pos += 2;
++                    continue;
++                }
+                 if (escape_chars.find(escaped_char) == escape_chars.end()) {
+                     throw lexer_exception(std::string("unknown escape character \\") + escaped_char, source, pos);
+                 }
+diff --git a/common/speculative.cpp b/common/speculative.cpp
+index d91e0296..274265dd 100644
+--- a/common/speculative.cpp
++++ b/common/speculative.cpp
+@@ -97,7 +97,7 @@ static bool common_speculative_are_compatible(
+     if (
+         llama_vocab_get_add_bos(vocab_tgt) != llama_vocab_get_add_bos(vocab_dft) ||
+         llama_vocab_get_add_eos(vocab_tgt) != llama_vocab_get_add_eos(vocab_dft) ||
+-        llama_vocab_bos(vocab_tgt) != llama_vocab_bos(vocab_dft) ||
++        (llama_vocab_get_add_bos(vocab_tgt) && llama_vocab_bos(vocab_tgt) != llama_vocab_bos(vocab_dft)) ||
+         llama_vocab_eos(vocab_tgt) != llama_vocab_eos(vocab_dft)
+     ) {
+         LOG_DBG("%s: draft model special tokens must match target model to use speculation\n", __func__);
+@@ -761,7 +761,7 @@ struct common_speculative_state_ngram_mod : public common_speculative_state {
+         const size_t n = mod.get_n();
+ 
+         // add new ngrams in chunks
+-        if (i_last + 32 < cur_len) {
++        if (i_last < cur_len - n) {
+             for (size_t i = i_last; i < cur_len - n; ++i) {
+                 mod.add(prompt_tgt.data() + i);
+             }
+diff --git a/examples/benchmark/benchmark-matmult.cpp b/examples/benchmark/benchmark-matmult.cpp
+index b56a64b1..f7a5202b 100644
+--- a/examples/benchmark/benchmark-matmult.cpp
++++ b/examples/benchmark/benchmark-matmult.cpp
+@@ -254,7 +254,7 @@ int main(int argc, char ** argv)  {
+         // We cannot use the exact value from the F32 multiplication because the quantizuation will be slightly different
+         float sum_of_Q4_result = tensor_sum_elements(gf31->nodes[0]);
+         float delta = std::abs(sum_of_Q4_result - sum_of_F32_reference);
+-        float allowed_delta = (sum_of_F32_reference) / 1000 / 1000; //  Let's accept an epsilon of 10^-6
++        float allowed_delta = (sum_of_F32_reference) / 50; //  Accept an epsilon of 2% for quantized results
+ 
+         if (delta > allowed_delta)  {
+             printf("\nABORT - ERROR in Matrix Multiplication result - expected %6.2f, got %6.2f (delta %6.2f > allowed_delta %6.2f)\n",
+diff --git a/examples/speculative/speculative.cpp b/examples/speculative/speculative.cpp
+index 714a989a..1216c622 100644
+--- a/examples/speculative/speculative.cpp
++++ b/examples/speculative/speculative.cpp
+@@ -100,7 +100,7 @@ int main(int argc, char ** argv) {
+     if (
+         llama_add_bos_token(model_tgt) != llama_add_bos_token(model_dft) ||
+         llama_add_eos_token(model_tgt) != llama_add_eos_token(model_dft) ||
+-        llama_token_bos(model_tgt) != llama_token_bos(model_dft) ||
++        (llama_add_bos_token(model_tgt) && llama_token_bos(model_tgt) != llama_token_bos(model_dft)) ||
+         llama_token_eos(model_tgt) != llama_token_eos(model_dft)
+     ) {
+         fprintf(stderr, "%s: error: draft model special tokens must match target model to use speculation\n", __func__);
+@@ -197,8 +197,9 @@ int main(int argc, char ** argv) {
+         drafts[s].ctx_sampling = common_sampler_init(model_dft, params.sparams);
+     }
+ 
+-    llama_batch batch_dft = llama_batch_init(params.n_ctx, 0, 1);
+-    llama_batch batch_tgt = llama_batch_init(params.n_ctx, 0, n_seq_dft);
++    const int n_ctx_batch = params.n_ctx > 0 ? params.n_ctx : llama_n_ctx(ctx_tgt);
++    llama_batch batch_dft = llama_batch_init(n_ctx_batch, 0, 1);
++    llama_batch batch_tgt = llama_batch_init(n_ctx_batch, 0, n_seq_dft);
+ 
+     const auto t_dec_start = ggml_time_us();
+ 
+diff --git a/ggml/src/ggml-quants.c b/ggml/src/ggml-quants.c
+index 7533985a..2ae6bd78 100644
+--- a/ggml/src/ggml-quants.c
++++ b/ggml/src/ggml-quants.c
+@@ -4275,6 +4275,10 @@ void ggml_vec_dot_q4_0_q8_0(int n, float * restrict s, size_t bs, const void * r
+ 
+     // Main loop
+     for (; ib < nb; ++ib) {
++        if (ib + 8 < nb) {
++            _mm_prefetch((const char *)(&x[ib + 8]), _MM_HINT_T0);
++            _mm_prefetch((const char *)(&y[ib + 8]), _MM_HINT_T0);
++        }
+         /* Compute combined scale for the block */
+         const __m256 d = _mm256_set1_ps( GGML_FP16_TO_FP32(x[ib].d) * GGML_FP16_TO_FP32(y[ib].d) );
+ 
+@@ -8564,6 +8568,10 @@ void ggml_vec_dot_q6_K_q8_K(int n, float * restrict s, size_t bs, const void * r
+     __m256 acc = _mm256_setzero_ps();
+ 
+     for (int i = 0; i < nb; ++i) {
++        if (i + 2 < nb) {
++            _mm_prefetch((const char *)(&x[i + 2]), _MM_HINT_T0);
++            _mm_prefetch((const char *)(&y[i + 2]), _MM_HINT_T0);
++        }
+ 
+         const float d = y[i].d * GGML_FP16_TO_FP32(x[i].d);
+ 
+diff --git a/ggml/src/ggml.c b/ggml/src/ggml.c
+index 53aef986..eadce1b8 100644
+--- a/ggml/src/ggml.c
++++ b/ggml/src/ggml.c
+@@ -16,6 +16,10 @@
+ #if GGML_USE_IQK_MULMAT
+ #include "iqk/iqk_mul_mat.h"
+ #include "iqk/iqk_config.h"
++
++int64_t global_op_times[GGML_OP_COUNT] = {0};
++int64_t global_op_counts[GGML_OP_COUNT] = {0};
++int64_t global_op_print_counter = 0;
+ #endif
+ 
+ #if defined(_MSC_VER) || defined(__MINGW32__)
+@@ -2802,14 +2806,14 @@ struct ggml_compute_state_shared {
+     int n_threads;
+     int n_batch;
+ 
+-    // synchronization primitives
+-    atomic_int n_barrier;
+-    atomic_int n_barrier_passed;
++    // synchronization primitives - isolated to independent cache lines to prevent NUMA bus bouncing
++    __attribute__((aligned(CACHE_LINE_SIZE))) atomic_int n_barrier;
++    __attribute__((aligned(CACHE_LINE_SIZE))) atomic_int n_barrier_passed;
+ 
+-    ggml_abort_callback abort_callback; // abort ggml_graph_compute when true
++    __attribute__((aligned(CACHE_LINE_SIZE))) ggml_abort_callback abort_callback; // abort ggml_graph_compute when true
+     void * abort_callback_data;
+ 
+-    atomic_int current_chunk; // currently processing chunk during mul_mat, shared between all the threads
++    __attribute__((aligned(CACHE_LINE_SIZE))) atomic_int current_chunk; // currently processing chunk during mul_mat, shared between all the threads
+ 
+     enum ggml_status ec;
+ };
+@@ -14963,6 +14967,66 @@ static void ggml_compute_forward_concat_f32(
+         return;
+     }
+ 
++    if (dim == 0) {
++        const int64_t total_rows = (int64_t)ne1 * ne2 * ne3;
++        const int64_t rows_per_th = (total_rows + nth - 1) / nth;
++        const int64_t r_begin = ith * rows_per_th;
++        const int64_t r_end = MIN(r_begin + rows_per_th, total_rows);
++        const size_t row_bytes_0 = (size_t)ne00 * sizeof(float);
++        const size_t row_bytes_1 = (size_t)ne10 * sizeof(float);
++
++        for (int64_t r = r_begin; r < r_end; ++r) {
++            int64_t i3 = r / (ne1 * ne2);
++            int64_t rem = r - i3 * (ne1 * ne2);
++            int64_t i2 = rem / ne1;
++            int64_t i1 = rem - i2 * ne1;
++
++            char * y = (char *)dst->data + i1*nb1 + i2*nb2 + i3*nb3;
++            const char * x0 = (const char *)src0->data + i1*nb01 + i2*nb02 + i3*nb03;
++            const char * x1 = (const char *)src1->data + i1*nb11 + i2*nb12 + i3*nb13;
++
++            memcpy(y, x0, row_bytes_0);
++            memcpy(y + row_bytes_0, x1, row_bytes_1);
++        }
++        return;
++    }
++
++    if (dim == 1) {
++        const int64_t total_slices = (int64_t)ne2 * ne3;
++        const int64_t slices_per_th = (total_slices + nth - 1) / nth;
++        const int64_t s_begin = ith * slices_per_th;
++        const int64_t s_end = MIN(s_begin + slices_per_th, total_slices);
++        const size_t bytes_0 = (size_t)ne00 * ne01 * sizeof(float);
++        const size_t bytes_1 = (size_t)ne10 * ne11 * sizeof(float);
++
++        for (int64_t s = s_begin; s < s_end; ++s) {
++            int64_t i3 = s / ne2;
++            int64_t i2 = s - i3 * ne2;
++
++            char * y0 = (char *)dst->data + i2*nb2 + i3*nb3;
++            char * y1 = y0 + ne01*nb1;
++            const char * x0 = (const char *)src0->data + i2*nb02 + i3*nb03;
++            const char * x1 = (const char *)src1->data + i2*nb12 + i3*nb13;
++
++            if (nb01 == (int64_t)ne00*sizeof(float) && nb1 == (int64_t)ne0*sizeof(float)) {
++                memcpy(y0, x0, bytes_0);
++            } else {
++                for (int64_t i1 = 0; i1 < ne01; ++i1) {
++                    memcpy(y0 + i1*nb1, x0 + i1*nb01, ne00*sizeof(float));
++                }
++            }
++
++            if (nb11 == (int64_t)ne10*sizeof(float) && nb1 == (int64_t)ne0*sizeof(float)) {
++                memcpy(y1, x1, bytes_1);
++            } else {
++                for (int64_t i1 = 0; i1 < ne11; ++i1) {
++                    memcpy(y1 + i1*nb1, x1 + i1*nb11, ne10*sizeof(float));
++                }
++            }
++        }
++        return;
++    }
++
+     int64_t o[4] = {0, 0, 0, 0};
+     o[dim] = src0->ne[dim];
+ 
+@@ -21771,21 +21835,26 @@ static void ggml_compute_forward_argsort_thresh_f32(
+             dst_data[j] = j;
+         }
+ 
+-        // C doesn't have a functional sort, so we do a bubble sort instead
+-        for (int64_t j = 0; j < ne0; j++) {
++        // Fast register-based Top-K selection sort (only top entries needed by ggml_top_k_thresh)
++        const int64_t sort_limit = (ne0 < 16) ? ne0 : 16;
++        for (int64_t j = 0; j < sort_limit; j++) {
++            int64_t max_idx = j;
++            float max_val = src_data[dst_data[j]];
+             for (int64_t k = j + 1; k < ne0; k++) {
+-                if (src_data[dst_data[j]] < src_data[dst_data[k]]) {
+-                    int32_t tmp = dst_data[j];
+-                    dst_data[j] = dst_data[k];
+-                    dst_data[k] = tmp;
++                if (src_data[dst_data[k]] > max_val) {
++                    max_val = src_data[dst_data[k]];
++                    max_idx = k;
+                 }
+             }
++            if (max_idx != j) {
++                int32_t tmp = dst_data[j];
++                dst_data[j] = dst_data[max_idx];
++                dst_data[max_idx] = tmp;
++            }
+         }
+         float max_value = src_data[dst_data[0]];
+-        //printf("Row %ld: max_value is %g, next is %g\n", i, (double)max_value, (double)src_data[dst_data[1]]);
+-        for (int j = min_entries; j < ne0; ++j) {
++        for (int j = min_entries; j < sort_limit; ++j) {
+             if (src_data[dst_data[j]] < max_value*thresh) {
+-                //printf("    row %ld: turning off expert %d(%d) with value %g\n", i, j, dst_data[j], (double)src_data[dst_data[j]]);
+                 dst_data[j] = -1;
+             }
+         }
+@@ -26885,14 +26954,23 @@ static thread_ret_t ggml_graph_compute_thread(void * data) {
+ 
+         if (ggml_is_noop(node)) continue;
+ 
+-#if IK_PRINT_TIMING
+-        int64_t tim1 = ggml_time_us();
+-#endif
++        int64_t tim1 = 0;
++        if (state->ith == 0) {
++            tim1 = ggml_time_us();
++        }
++
+         node_n = ggml_compute_forward(&params, node, cgraph, node_n);
+-#if IK_PRINT_TIMING
+-        int64_t tim2 = ggml_time_us();
+-        t_eval += tim2 - tim1;
+-#endif
++
++        if (state->ith == 0) {
++            int64_t tim2 = ggml_time_us();
++            extern int64_t global_op_times[GGML_OP_COUNT];
++            extern int64_t global_op_counts[GGML_OP_COUNT];
++            if (state->ith == 0) {
++                global_op_times[node->op] += (tim2 - tim1);
++                global_op_counts[node->op]++;
++            }
++        }
++
+ 
+         if (state->ith == 0 && cplan->abort_callback && cplan->abort_callback(cplan->abort_callback_data)) {
+             state->shared->ec = GGML_STATUS_ABORTED;
+@@ -26996,6 +27074,20 @@ enum ggml_status ggml_graph_compute(struct ggml_cgraph * cgraph, struct ggml_cpl
+     }
+ #endif
+ 
++    extern int64_t global_op_print_counter;
++    extern int64_t global_op_times[GGML_OP_COUNT];
++    extern int64_t global_op_counts[GGML_OP_COUNT];
++    global_op_print_counter++;
++    if (global_op_print_counter % 20 == 0) {
++        printf("\n--- GGML OP PROFILING ---\n");
++        for (int i = 0; i < GGML_OP_COUNT; i++) {
++            if (global_op_counts[i] > 0) {
++                printf("OP %s: %8ld us (%6ld calls)\n", ggml_op_name((enum ggml_op)i), global_op_times[i], global_op_counts[i]);
++            }
++        }
++        printf("-------------------------\n");
++    }
++
+     // don't leave affinity set on the main thread
+     clear_numa_thread_affinity();
+ 
+diff --git a/ggml/src/iqk/iqk_gemm_kquants.cpp b/ggml/src/iqk/iqk_gemm_kquants.cpp
+index 88a5d191..a74257db 100644
+--- a/ggml/src/iqk/iqk_gemm_kquants.cpp
++++ b/ggml/src/iqk/iqk_gemm_kquants.cpp
+@@ -952,12 +952,19 @@ static void mul_mat_qY_K_q8_2_X4_T(int n, const void * vx, size_t bx, const Data
+     auto shuff = _mm256_loadu_si256((const __m256i *)k_shuff);
+ 
+     for (int ix = 0; ix < nrc_x; ++ix) {
++        if (ix + 1 < nrc_x) {
++            _mm_prefetch((const char *)vx + (ix + 1)*bx, _MM_HINT_T0);
++            _mm_prefetch((const char *)vx + (ix + 1)*bx + 64, _MM_HINT_T0);
++        }
+ 
+         for (int iy = 0; iy < nrc_y; ++iy) accd[iy] = _mm256_setzero_ps();
+ 
+         deq.new_row(ix);
+ 
+         for (int i = 0; i < nb; ++i) {
++            if (i + 2 < nb) {
++                _mm_prefetch((const char *)(&deq.x[i + 2]), _MM_HINT_T0);
++            }
+ 
+             deq.d = GGML_FP16_TO_FP32(deq.x[i].d);
+             auto vd = _mm256_set1_ps(deq.d);
+diff --git a/ggml/src/iqk/iqk_gemm_legacy_quants.cpp b/ggml/src/iqk/iqk_gemm_legacy_quants.cpp
+index 4955d472..a4274374 100644
+--- a/ggml/src/iqk/iqk_gemm_legacy_quants.cpp
++++ b/ggml/src/iqk/iqk_gemm_legacy_quants.cpp
+@@ -376,6 +376,10 @@ void mul_mat_qX_q8_Helper(int nb, const void * vx, size_t bx, const DataInfo& in
+     typename Unpacker::Sum4T sum4;
+     Scales scales;
+     for (int ix = 0; ix < nrc_x; ++ix) {
++        if (ix + 1 < nrc_x) {
++            _mm_prefetch((const char *)unp.cx_0 + (ix + 1)*unp.bx, _MM_HINT_T0);
++            _mm_prefetch((const char *)unp.cx_0 + (ix + 1)*unp.bx + 64, _MM_HINT_T0);
++        }
+         unp.set_row(ix);
+         AccumType accum;
+         accum.compute(nb, unp, scales, sum4, y, info, ix);
+@@ -389,6 +393,10 @@ void mul_mat_qX_q8_Helper_x2(int nb, const void * vx, size_t bx, const DataInfo&
+     typename Unpacker::Sum4T sum4;
+     Scales scales;
+     for (int ix = 0; ix < nrc_x; ix += 2) {
++        if (ix + 2 < nrc_x) {
++            _mm_prefetch((const char *)unp.cx_0 + (ix + 2)*unp.bx, _MM_HINT_T0);
++            _mm_prefetch((const char *)unp.cx_0 + (ix + 2)*unp.bx + 64, _MM_HINT_T0);
++        }
+         unp.set_row(ix);
+         AccumType accum;
+         accum.compute(nb, unp, scales, sum4, y, info, ix);
+@@ -734,12 +742,14 @@ struct Q_Unpacker {
+     inline void set_row(int ix) { x = (const Q*)(cx_0 + ix*bx); }
+ 
+     inline auto set_block_4(int i) {
++        _mm_prefetch((const char *)(x + 4*i + 16), _MM_HINT_T0);
+         for (int j = 0; j < 4; ++j) {
+             qx[j] = deq.dequant(x + 4*i + j);
+         }
+         return scales.prepare4(x + 4*i);
+     }
+     inline auto set_block(int i) {
++        _mm_prefetch((const char *)(x + i + 16), _MM_HINT_T0);
+         qx[0] = deq.dequant(x + i);
+         return scales.prepare1(x + i);
+     }
+@@ -1025,10 +1035,14 @@ static void mul_mat_q4_0_r8_q8_2_avx2(int n, const void * vx, size_t bx, const D
+     if constexpr (nrc_y == 1) {
+         union { __m256 vec; float val[8]; } helper;
+         for (int ix = 0; ix < nrc_x; ix += 8) {
++            if (ix + 8 < nrc_x) {
++                _mm_prefetch((const char *)vx + (ix + 8)*bx, _MM_HINT_T0);
++            }
+             const block_iq4_nl_r8 * iq4 = (const block_iq4_nl_r8 *)((const char *)vx + ix*bx);
+             auto acc1 = _mm256_setzero_ps();
+             auto acc2 = _mm256_setzero_ps();
+             for (int ib4 = 0; ib4 < nb/4; ++ib4) {
++                _mm_prefetch((const char *)(iq4 + 4*ib4 + 16), _MM_HINT_T0);
+                 helper.vec = convert_scales((const uint16_t *)q8.y[0][ib4].d);
+                 for (int k = 0; k < 4; ++k) {
+                     auto scales = _mm256_cvtph_ps(_mm_loadu_si128((const __m128i *)iq4[4*ib4+k].d));
+@@ -1057,8 +1071,12 @@ static void mul_mat_q4_0_r8_q8_2_avx2(int n, const void * vx, size_t bx, const D
+     __m256 acc[nrc_y] = {};
+     float d8[8*nrc_y];
+     for (int ix = 0; ix < nrc_x; ix += 8) {
++        if (ix + 8 < nrc_x) {
++            _mm_prefetch((const char *)vx + (ix + 8)*bx, _MM_HINT_T0);
++        }
+         const block_iq4_nl_r8 * iq4 = (const block_iq4_nl_r8 *)((const char *)vx + ix*bx);
+         for (int ib4 = 0; ib4 < nb/4; ++ib4) {
++            _mm_prefetch((const char *)(iq4 + 4*ib4 + 16), _MM_HINT_T0);
+             {
+                 __m256 d4[4];
+                 for (int k = 0; k < 4; ++k) {
+diff --git a/ggml/src/iqk/iqk_mul_mat.cpp b/ggml/src/iqk/iqk_mul_mat.cpp
+index ff1149ff..4a8cca14 100644
+--- a/ggml/src/iqk/iqk_mul_mat.cpp
++++ b/ggml/src/iqk/iqk_mul_mat.cpp
+@@ -399,8 +399,24 @@ struct MulMat {
+     }
+ };
+ 
+-static std::vector<char> & thread_local_work_buffer() {
+-    thread_local std::vector<char> f;
++struct AlignedBuffer {
++    std::vector<char> buf;
++    void resize(size_t sz) {
++        if (buf.size() < sz + 64) {
++            buf.resize(sz + 64);
++        }
++    }
++    size_t size() const {
++        return buf.size();
++    }
++    char* data() {
++        uintptr_t p = (uintptr_t)buf.data();
++        return (char*)((p + 63) & ~63);
++    }
++};
++
++static AlignedBuffer & thread_local_work_buffer() {
++    thread_local AlignedBuffer f;
+     return f;
+ }
+ 
+@@ -540,11 +556,14 @@ extern "C" IQK_API bool iqk_mul_mat(long Nx, long Ny, long ne00,
+ 
+         auto num_rows = MulMat::num_rows(ggml_type(dequant_type));
+         GGML_ASSERT(Nx%num_rows == 0);
+-        auto nrc_x = (Nx/num_rows + nth - 1)/nth;
++        auto num_blocks = Nx / num_rows;
++        auto nrc_x = (num_blocks + nth - 1)/nth;
+         auto first_x = ith*nrc_x;
+-        if (first_x + nrc_x > Nx/num_rows) nrc_x = Nx/num_rows - first_x;
++        if (first_x >= num_blocks) return true;
++        if (first_x + nrc_x > num_blocks) nrc_x = num_blocks - first_x;
+         first_x *= num_rows;
+         nrc_x   *= num_rows;
++        if (nrc_x <= 0) return true;
+ 
+         size_t row_size_qx = ggml_row_size(dequant_type, ne00);
+         size_t row_size_qy = strideB;
+@@ -582,25 +601,33 @@ extern "C" IQK_API bool iqk_mul_mat(long Nx, long Ny, long ne00,
+ 
+     if (npt <= 16 && nth%2 == 0 && Ny >= 16 && Ny%2 == 0) {
+         int nth_new = nth/2;
+-        auto nrc_x = num_rows*((Nx/num_rows + nth_new - 1)/nth_new);
++        auto num_blocks = Nx / num_rows;
++        auto nrc_x = num_rows*((num_blocks + nth_new - 1)/nth_new);
+         if (ith < nth_new) {
+             auto first_x = ith*nrc_x;
+-            nrc_x = std::min(nrc_x, Nx - first_x);
+-            DataInfo info{C + first_x, (const char *)B, (size_t)stride_C, row_size_qy, 0, 1, nullptr, 0};
+-            mm.mul_mat_NxM(ne00, (const char *)A + row_size_qx*first_x, row_size_qx, info, nrc_x, Ny/2);
++            if (first_x < Nx) {
++                nrc_x = std::min(nrc_x, Nx - first_x);
++                DataInfo info{C + first_x, (const char *)B, (size_t)stride_C, row_size_qy, 0, 1, nullptr, 0};
++                mm.mul_mat_NxM(ne00, (const char *)A + row_size_qx*first_x, row_size_qx, info, nrc_x, Ny/2);
++            }
+         } else {
+             ith -= nth_new;
+             auto first_x = ith*nrc_x;
+-            nrc_x = std::min(nrc_x, Nx - first_x);
+-            DataInfo info{C + first_x + (Ny/2)*stride_C, (const char *)B + (Ny/2)*row_size_qy, (size_t)stride_C, row_size_qy, 0, 1, nullptr, 0};
+-            mm.mul_mat_NxM(ne00, (const char *)A + row_size_qx*first_x, row_size_qx, info, nrc_x, Ny/2);
++            if (first_x < Nx) {
++                nrc_x = std::min(nrc_x, Nx - first_x);
++                DataInfo info{C + first_x + (Ny/2)*stride_C, (const char *)B + (Ny/2)*row_size_qy, (size_t)stride_C, row_size_qy, 0, 1, nullptr, 0};
++                mm.mul_mat_NxM(ne00, (const char *)A + row_size_qx*first_x, row_size_qx, info, nrc_x, Ny/2);
++            }
+         }
+         return true;
+     }
+ 
+-    auto nrc_x = (Nx/num_rows + nth - 1)/nth;
++    auto num_blocks = Nx / num_rows;
++    auto nrc_x = (num_blocks + nth - 1)/nth;
+     auto first_x = ith*nrc_x;
+-    if (first_x + nrc_x > Nx/num_rows) nrc_x = Nx/num_rows - first_x;
++    if (first_x >= num_blocks) return true;
++    if (first_x + nrc_x > num_blocks) nrc_x = num_blocks - first_x;
++    if (nrc_x <= 0) return true;
+ 
+     DataInfo info{C + first_x*num_rows, (const char *)B, (size_t)stride_C, row_size_qy, 0, 1, nullptr, 0};
+ 
+@@ -732,28 +759,75 @@ extern "C" IQK_API bool iqk_mul_mat_moe(long Nx, long Ny, long ne00, int ne11,
+ 
+         auto num_rows = MulMat::num_rows(ggml_type(dequant_type));
+         GGML_ASSERT(Nx%num_rows == 0);
+-        auto nrc_x = (Nx/num_rows + nth - 1)/nth;
+-        auto first_x = ith*nrc_x;
+-        if (first_x + nrc_x > Nx/num_rows) nrc_x = Nx/num_rows - first_x;
+-        first_x *= num_rows;
+-        nrc_x   *= num_rows;
+ 
+-        size_t row_size_qx = ggml_row_size(dequant_type, ne00);
+-        size_t row_size_qy = strideB;
++        long first_x = 0;
++        long nrc_x = Nx;
++        long first_y = 0;
++        long nrc_y = Ny;
++
++        // Check if we should use Column-Parallel thread partitioning (Decode mode)
++        if (Nx < nth) {
++            int threads_per_row = nth / Nx;
++            if (threads_per_row > 1) {
++                int row_idx = ith / threads_per_row;
++                int group_tid = ith % threads_per_row;
++
++                if (row_idx < Nx) {
++                    first_x = row_idx;
++                    nrc_x = 1;
++                    long cols_per_thread = (Ny + threads_per_row - 1) / threads_per_row;
++                    cols_per_thread = (cols_per_thread + 15) & ~15;
++
++                    first_y = group_tid * cols_per_thread;
++                    nrc_y = std::min(cols_per_thread, Ny - first_y);
++                } else {
++                    return true;
++                }
++            } else {
++                auto num_blocks = Nx / num_rows;
++                auto nrc_x_std = (num_blocks + nth - 1)/nth;
++                first_x = ith*nrc_x_std;
++                if (first_x < num_blocks) {
++                    if (first_x + nrc_x_std > num_blocks) nrc_x_std = num_blocks - first_x;
++                    first_x *= num_rows;
++                    nrc_x = nrc_x_std * num_rows;
++                } else {
++                    nrc_x = 0;
++                }
++            }
++        } else {
++            auto num_blocks = Nx / num_rows;
++            auto nrc_x_std = (num_blocks + nth - 1)/nth;
++            first_x = ith*nrc_x_std;
++            if (first_x < num_blocks) {
++                if (first_x + nrc_x_std > num_blocks) nrc_x_std = num_blocks - first_x;
++                first_x *= num_rows;
++                nrc_x = nrc_x_std * num_rows;
++            } else {
++                nrc_x = 0;
++            }
++        }
+ 
+-        DataInfo info{C + first_x, (const char *)B, nb1/sizeof(float), row_size_qy, 0, ne11, row_mapping, nb2/sizeof(float)};
++        if (nrc_x > 0 && nrc_y > 0) {
++            size_t row_size_qx = ggml_row_size(dequant_type, ne00);
++            size_t row_size_qy = strideB;
+ 
+-        auto& f = thread_local_work_buffer();
++            DataInfo info{C + first_x + first_y * (nb1/sizeof(float)), (const char *)B, nb1/sizeof(float), row_size_qy, (int)first_y, ne11, row_mapping, nb2/sizeof(float)};
+ 
+-        for (int ix = 0; ix < nrc_x; ix += k_x_step) {
+-            auto this_info = info;
+-            this_info.s += ix;
+-            int this_nrc_x = ix + k_x_step <= nrc_x ? k_x_step : nrc_x - ix;
+-            if (f.size() < row_size_qx*this_nrc_x) f.resize(row_size_qx*this_nrc_x);
+-            if (!iqk_convert_repack(typeA, ne00, (const char *)A + (first_x + ix)*strideA, strideA, f.data(), ne00, this_nrc_x)) {
+-                GGML_ABORT("Fatal error");
++            auto& f = thread_local_work_buffer();
++
++            for (int ix = 0; ix < nrc_x; ix += k_x_step) {
++                auto this_info = info;
++                this_info.s += ix;
++                int this_nrc_x = ix + k_x_step <= nrc_x ? k_x_step : nrc_x - ix;
++                // 64-byte alignment padding for buffer
++                size_t aligned_row_size = (row_size_qx*this_nrc_x + 63) & ~63;
++                if (f.size() < aligned_row_size) f.resize(aligned_row_size);
++                if (!iqk_convert_repack(typeA, ne00, (const char *)A + (first_x + ix)*strideA, strideA, f.data(), ne00, this_nrc_x)) {
++                    GGML_ABORT("Fatal error");
++                }
++                mm.mul_mat_NxM(ne00, f.data(), row_size_qx, this_info, this_nrc_x, nrc_y);
+             }
+-            mm.mul_mat_NxM(ne00, f.data(), row_size_qx, this_info, this_nrc_x, Ny);
+         }
+ 
+         return true;
+@@ -767,11 +841,14 @@ extern "C" IQK_API bool iqk_mul_mat_moe(long Nx, long Ny, long ne00, int ne11,
+     size_t row_size_qy = strideB;
+     auto num_rows = MulMat::num_rows(ggml_type(typeA));
+     GGML_ASSERT(Nx%num_rows == 0);
+-    auto nrc_x = (Nx/num_rows + nth - 1)/nth;
++    auto num_blocks = Nx / num_rows;
++    auto nrc_x = (num_blocks + nth - 1)/nth;
+     auto first_x = ith*nrc_x;
+-    if (first_x + nrc_x > Nx/num_rows) nrc_x = Nx/num_rows - first_x;
++    if (first_x >= num_blocks) return true;
++    if (first_x + nrc_x > num_blocks) nrc_x = num_blocks - first_x;
+     first_x *= num_rows;
+     nrc_x *= num_rows;
++    if (nrc_x <= 0) return true;
+     DataInfo info{C + first_x, (const char *)B, nb1/sizeof(float),
+         row_size_qy, 0, ne11, row_mapping, nb2/sizeof(float)};
+     mm.mul_mat_NxM(ne00, (const char *)A + row_size_qx*first_x, row_size_qx, info, nrc_x, Ny);
+@@ -799,35 +876,85 @@ extern "C" IQK_API bool iqk_moe_fused_up_gate(long Nx, long Ny, long ne00, int n
+ 
+             auto num_rows = MulMat::num_rows(ggml_type(dequant_type));
+             GGML_ASSERT(Nx%num_rows == 0);
+-            auto nrc_x = (Nx/num_rows + nth - 1)/nth;
+-            auto first_x = ith*nrc_x;
+-            if (first_x + nrc_x > Nx/num_rows) nrc_x = Nx/num_rows - first_x;
+-            first_x *= num_rows;
+-            nrc_x   *= num_rows;
+ 
+-            size_t row_size_qx = ggml_row_size(dequant_type, ne00);
+-            size_t row_size_qy = strideB;
++            long first_x = 0;
++            long nrc_x = Nx;
++            long first_y = 0;
++            long nrc_y = Ny;
++
++            // Check if we should use Column-Parallel thread partitioning (Decode mode)
++            if (Nx < nth) {
++                int threads_per_row = nth / Nx;
++                if (threads_per_row > 1) {
++                    int row_idx = ith / threads_per_row;
++                    int group_tid = ith % threads_per_row;
++
++                    if (row_idx < Nx) {
++                        first_x = row_idx;
++                        nrc_x = 1;
++                        long cols_per_thread = (Ny + threads_per_row - 1) / threads_per_row;
++                        // Align column slices to multiples of 16 for SIMD kernel block sizes
++                        cols_per_thread = (cols_per_thread + 15) & ~15;
++
++                        first_y = group_tid * cols_per_thread;
++                        nrc_y = std::min(cols_per_thread, Ny - first_y);
++                    } else {
++                        // Excess thread - idle
++                        return true;
++                    }
++                } else {
++                    auto num_blocks = Nx / num_rows;
++                    auto nrc_x_std = (num_blocks + nth - 1)/nth;
++                    first_x = ith*nrc_x_std;
++                    if (first_x < num_blocks) {
++                        if (first_x + nrc_x_std > num_blocks) nrc_x_std = num_blocks - first_x;
++                        first_x *= num_rows;
++                        nrc_x = nrc_x_std * num_rows;
++                    } else {
++                        nrc_x = 0;
++                    }
++                }
++            } else {
++                auto num_blocks = Nx / num_rows;
++                auto nrc_x_std = (num_blocks + nth - 1)/nth;
++                first_x = ith*nrc_x_std;
++                if (first_x < num_blocks) {
++                    if (first_x + nrc_x_std > num_blocks) nrc_x_std = num_blocks - first_x;
++                    first_x *= num_rows;
++                    nrc_x = nrc_x_std * num_rows;
++                } else {
++                    nrc_x = 0;
++                }
++            }
+ 
+-            DataInfo info{C + first_x, (const char *)B, nb1/sizeof(float), row_size_qy, 0, ne11, row_mapping, nb2/sizeof(float)};
++            if (nrc_x > 0 && nrc_y > 0) {
++                size_t row_size_qx = ggml_row_size(dequant_type, ne00);
++                size_t row_size_qy = strideB;
+ 
+-            auto& f = thread_local_work_buffer();
++                // Adjust DataInfo offset: s starts at C + first_y (column offset)
++                // and cur_y is initialized to first_y
++                DataInfo info{C + first_x + first_y * (nb1/sizeof(float)), (const char *)B, nb1/sizeof(float), row_size_qy, (int)first_y, ne11, row_mapping, nb2/sizeof(float)};
+ 
+-            for (int ix = 0; ix < nrc_x; ix += k_x_step) {
+-                auto this_info = info;
+-                this_info.s += ix;
+-                int this_nrc_x = ix + k_x_step <= nrc_x ? k_x_step : nrc_x - ix;
+-                if (f.size() < 2*row_size_qx*this_nrc_x) f.resize(2*row_size_qx*this_nrc_x);
+-                auto Xu = f.data();
+-                auto Xg = f.data() + row_size_qx*this_nrc_x;
+-                if (!iqk_convert_repack(typeA, ne00, (const char *)Aup   + (first_x + ix)*strideA, strideA, Xu, ne00, this_nrc_x)) {
+-                    GGML_ABORT("Fatal error");
+-                }
+-                if (!iqk_convert_repack(typeA, ne00, (const char *)Agate + (first_x + ix)*strideA, strideA, Xg, ne00, this_nrc_x)) {
+-                    GGML_ABORT("Fatal error");
++                auto& f = thread_local_work_buffer();
++
++                for (int ix = 0; ix < nrc_x; ix += k_x_step) {
++                    auto this_info = info;
++                    this_info.s += ix; // Shift by row index in DataInfo.s (which represents the C array)
++                    int this_nrc_x = ix + k_x_step <= nrc_x ? k_x_step : nrc_x - ix;
++                    size_t aligned_row_size = (row_size_qx*this_nrc_x + 63) & ~63;
++                    if (f.size() < 2*aligned_row_size) f.resize(2*aligned_row_size);
++                    auto Xu = f.data();
++                    auto Xg = f.data() + aligned_row_size;
++                    if (!iqk_convert_repack(typeA, ne00, (const char *)Aup   + (first_x + ix)*strideA, strideA, Xu, ne00, this_nrc_x)) {
++                        GGML_ABORT("Fatal error");
++                    }
++                    if (!iqk_convert_repack(typeA, ne00, (const char *)Agate + (first_x + ix)*strideA, strideA, Xg, ne00, this_nrc_x)) {
++                        GGML_ABORT("Fatal error");
++                    }
++                    auto up_b   = up_b_c   ? (const float *)up_b_c + first_x + ix : nullptr;
++                    auto gate_b = gate_b_c ? (const float *)gate_b_c + first_x + ix : nullptr;
++                    mm.mul_mat_up_gate_NxM(ne00, Xu, Xg, row_size_qx, up_b, gate_b, this_info, this_nrc_x, nrc_y, unary_op, limit);
+                 }
+-                auto up_b   = up_b_c   ? (const float *)up_b_c + first_x + ix : nullptr;
+-                auto gate_b = gate_b_c ? (const float *)gate_b_c + first_x + ix : nullptr;
+-                mm.mul_mat_up_gate_NxM(ne00, Xu, Xg, row_size_qx, up_b, gate_b, this_info, this_nrc_x, Ny, unary_op, limit);
+             }
+ 
+             return true;
+@@ -840,11 +967,14 @@ extern "C" IQK_API bool iqk_moe_fused_up_gate(long Nx, long Ny, long ne00, int n
+     }
+     auto num_rows = MulMat::num_rows(ggml_type(typeA));
+     GGML_ASSERT(Nx%num_rows == 0);
+-    auto nrc_x = (Nx/num_rows + nth - 1)/nth;
++    auto num_blocks = Nx / num_rows;
++    auto nrc_x = (num_blocks + nth - 1)/nth;
+     auto first_x = ith*nrc_x;
+-    if (first_x + nrc_x > Nx/num_rows) nrc_x = Nx/num_rows - first_x;
++    if (first_x >= num_blocks) return true;
++    if (first_x + nrc_x > num_blocks) nrc_x = num_blocks - first_x;
+     first_x *= num_rows;
+     nrc_x *= num_rows;
++    if (nrc_x <= 0) return true;
+     DataInfo info{C + first_x, (const char *)B, nb1/sizeof(float),
+         row_size_qy, 0, ne11, row_mapping, nb2/sizeof(float)};
+     auto up_b   = up_b_c   ? (const float *)up_b_c + first_x : nullptr;
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 4a9ed665..aef57df7 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -119,6 +119,7 @@ add_library(llama
+             graphs/build_jais.cpp
+             graphs/build_chatglm.cpp
+             graphs/build_dots1.cpp
++            graphs/build_flint.cpp
+             graphs/build_ernie45.cpp
+             graphs/build_hunyuan.cpp
+             graphs/build_mimo2.cpp
+diff --git a/src/graphs/build_flint.cpp b/src/graphs/build_flint.cpp
+new file mode 100644
+index 00000000..f5acf5e8
+--- /dev/null
++++ b/src/graphs/build_flint.cpp
+@@ -0,0 +1,81 @@
++#include "../llama-build-context.h"
++#include "../llama-model.h"
++#include "../llama-context.h"
++
++ggml_cgraph * llm_build_context::build_flint() {
++    ggml_cgraph * gf = new_graph_custom();
++
++    const int64_t n_embd_head = hparams.n_embd_head_v(0);
++
++    GGML_ASSERT(n_embd_head == hparams.n_embd_head_k(0));
++    GGML_ASSERT(n_embd_head == hparams.n_rot);
++
++    ggml_tensor * cur;
++    ggml_tensor * inpL;
++
++    inpL = llm_build_inp_embd(ctx0, lctx, hparams, batch, model.tok_embd, cb);
++
++    // inp_pos - contains the positions
++    ggml_tensor * inp_pos = build_inp_pos();
++
++    auto inp_out_ids = n_tokens > 1 ? build_inp_out_ids() : nullptr;
++
++    struct ggml_tensor * KQ_mask     = build_inp_KQ_mask();
++    struct ggml_tensor * KQ_mask_swa = build_inp_KQ_mask_swa();
++    const float kq_scale = 1.0f / sqrtf(float(n_embd_head));
++
++    for (int il = 0; il < n_layer; ++il) {
++        const bool is_swa = hparams.swa_layers[il];
++        const bool do_rope = hparams.has_rope(il);
++        auto KQ_mask_l = is_swa ? KQ_mask_swa : KQ_mask;
++
++        // Self-attention with Q/K RMSNorm, Attention Sinks, and RoPE
++        cur = build_std_attention(gf, model.layers[il].attn_norm, inpL,
++                inp_pos, il == n_layer - 1 ? inp_out_ids : nullptr, nullptr, KQ_mask_l,
++                model.layers[il].attn_sinks, nullptr, kq_scale, 0.0f,
++                is_swa ? hparams.n_swa : 0, il, do_rope, false, true);
++
++        // Feed-Forward Block
++        if ((uint32_t) il < hparams.n_layer_dense_lead) {
++            // Dense leading layers (layers 0 and 1)
++            cur = llm_build_ffn(ctx0, lctx, model.layers[il].ffn_norm, cur,
++                    model.layers[il].ffn_up,   NULL, NULL,
++                    model.layers[il].ffn_gate, NULL, NULL,
++                    model.layers[il].ffn_down, NULL, NULL,
++                    NULL, LLM_FFN_SILU, LLM_FFN_PAR, cb, il, gf, true);
++        } else {
++            // MoE layers (layers 2-48) with Merged Up/Gate (-muge) & Shared Experts
++            cur = llm_build_std_moe_ffn(ctx0, lctx, model.layers[il].ffn_norm, cur,
++                    model.layers[il].ffn_gate_inp,  nullptr,
++                    model.layers[il].ffn_up_exps,   nullptr,
++                    model.layers[il].ffn_gate_exps, nullptr,
++                    model.layers[il].ffn_down_exps, nullptr,
++                    model.layers[il].ffn_exp_probs_b,
++                    model.layers[il].ffn_up_shexp,   nullptr,
++                    model.layers[il].ffn_gate_shexp, nullptr,
++                    model.layers[il].ffn_down_shexp, nullptr,
++                    n_expert, n_expert_used,
++                    LLM_FFN_SILU, hparams.expert_weights_norm,
++                    true, hparams.expert_weights_scale,
++                    (llm_expert_gating_func_type) hparams.expert_gating_func,
++                    LLM_FFN_SILU, cb, il, gf, true,
++                    model.layers[il].ffn_up_gate_exps);
++        }
++
++        cur = lctx.cvec.apply_to(ctx0, cur, il);
++        cb(cur, "l_out", il);
++
++        // Input for next layer
++        inpL = cur;
++    }
++
++    cur = inpL;
++
++    // Output Norm + LM Head
++    cur = build_output(lctx, ctx0, cur, model.output, model.output_norm, cb);
++    cb(cur, "result_output", -1);
++
++    ggml_build_forward_expand(gf, cur);
++
++    return gf;
++}
+diff --git a/src/llama-arch.cpp b/src/llama-arch.cpp
+index 46f6882b..a570de05 100644
+--- a/src/llama-arch.cpp
++++ b/src/llama-arch.cpp
+@@ -84,9 +84,10 @@ static const std::map<llm_arch, const char *> LLM_ARCH_NAMES = {
+     { LLM_ARCH_MISTRAL4,        "mistral4"     },
+     { LLM_ARCH_GEMMA4,          "gemma4"       },
+     { LLM_ARCH_GEMMA4_MTP,      "gemma4_mtp"   },
+-    { LLM_ARCH_DFLASH_DRAFT,    "dflash-draft" },
++    { LLM_ARCH_DFLASH_DRAFT,    "dflash"       },
+     { LLM_ARCH_GEMMA4_ASSISTANT,"gemma4-assistant"   },
+-    { LLM_ARCH_UNKNOWN,         "(unknown)"    },
++    { LLM_ARCH_FLINT,           "flint"              },
++    { LLM_ARCH_UNKNOWN,         "(unknown)"          },
+ };
+ 
+ llm_arch llm_arch_from_string(const std::string & name) {
+@@ -95,6 +96,9 @@ llm_arch llm_arch_from_string(const std::string & name) {
+             return kv.first;
+         }
+     }
++    if (name == "dflash-draft") {
++        return LLM_ARCH_DFLASH_DRAFT;
++    }
+ 
+     return LLM_ARCH_UNKNOWN;
+ }
+@@ -161,11 +165,11 @@ static const std::map<llm_kv, const char *> LLM_KV_NAMES = {
+     { LLM_KV_MTP_USE_ORDERED_EMBEDDINGS,        "%s.use_ordered_embeddings"            },
+     { LLM_KV_MTP_CENTROID_COUNT,                "%s.centroid_count"                    },
+     { LLM_KV_MTP_CENTROID_TOP_K,                "%s.centroid_top_k"                    },
+-    { LLM_KV_DFLASH_BLOCK_SIZE,                 "%s.dflash.block_size"                 },
+-    { LLM_KV_DFLASH_MASK_TOKEN_ID,              "%s.dflash.mask_token_id"              },
+-    { LLM_KV_DFLASH_TARGET_LAYER_IDS,           "%s.dflash.target_layer_ids"           },
+-    { LLM_KV_DFLASH_N_TARGET_FEATURES,          "%s.dflash.n_target_features"          },
+-    { LLM_KV_DFLASH_BACKBONE_ROTARY_BASE,       "%s.dflash.backbone_rotary_base"       },
++    { LLM_KV_DFLASH_BLOCK_SIZE,                 "%s.block_size"                 },
++    { LLM_KV_DFLASH_MASK_TOKEN_ID,              "%s.mask_token_id"              },
++    { LLM_KV_DFLASH_TARGET_LAYER_IDS,           "%s.target_layers"              },
++    { LLM_KV_DFLASH_N_TARGET_FEATURES,          "%s.n_target_features"          },
++    { LLM_KV_DFLASH_BACKBONE_ROTARY_BASE,       "%s.backbone_rotary_base"       },
+ 
+     { LLM_KV_ATTENTION_HEAD_COUNT,             "%s.attention.head_count"             },
+     { LLM_KV_ATTENTION_HEAD_COUNT_KV,          "%s.attention.head_count_kv"          },
+@@ -181,6 +185,7 @@ static const std::map<llm_kv, const char *> LLM_KV_NAMES = {
+     { LLM_KV_ATTENTION_RELATIVE_BUCKETS_COUNT, "%s.attention.relative_buckets_count" },
+     { LLM_KV_ATTENTION_SLIDING_WINDOW,         "%s.attention.sliding_window"         },
+     { LLM_KV_ATTENTION_SLIDING_WINDOW_PATTERN, "%s.attention.sliding_window_pattern" },
++    { LLM_KV_ATTENTION_ROPE_PATTERN,           "%s.attention.rope_pattern"           },
+     { LLM_KV_ATTENTION_SCALE,                  "%s.attention.scale"                  },
+     { LLM_KV_ATTENTION_OUTPUT_SCALE,           "%s.attention.output_scale"           },
+     { LLM_KV_ATTENTION_TEMPERATURE_LENGTH,     "%s.attention.temperature_length"     },
+diff --git a/src/llama-arch.h b/src/llama-arch.h
+index 1bb21d12..a96492a1 100644
+--- a/src/llama-arch.h
++++ b/src/llama-arch.h
+@@ -84,6 +84,7 @@ enum llm_arch {
+     LLM_ARCH_GEMMA4_MTP,
+     LLM_ARCH_DFLASH_DRAFT,
+     LLM_ARCH_GEMMA4_ASSISTANT,
++    LLM_ARCH_FLINT,
+     LLM_ARCH_UNKNOWN,
+ };
+ 
+@@ -164,6 +165,7 @@ enum llm_kv {
+     LLM_KV_ATTENTION_RELATIVE_BUCKETS_COUNT,
+     LLM_KV_ATTENTION_SLIDING_WINDOW,
+     LLM_KV_ATTENTION_SLIDING_WINDOW_PATTERN,
++    LLM_KV_ATTENTION_ROPE_PATTERN,
+     LLM_KV_ATTENTION_SCALE,
+     LLM_KV_ATTENTION_OUTPUT_SCALE,
+     LLM_KV_ATTENTION_TEMPERATURE_LENGTH,
+diff --git a/src/llama-build-context.cpp b/src/llama-build-context.cpp
+index 27132606..358ab8d3 100644
+--- a/src/llama-build-context.cpp
++++ b/src/llama-build-context.cpp
+@@ -1221,9 +1221,12 @@ llm_expert_gating_func_type   gating_op,
+         auto& hparams = lctx.model.hparams;
+         selected_experts = ggml_grouped_topk(ctx, selection_probs, hparams.n_expert_groups, hparams.n_group_used, 2, n_expert_used);
+     } else {
+-        //selected_experts = ggml_top_k_thresh(ctx, selection_probs, n_expert_used,
+-        //        lctx.cparams.min_experts, lctx.cparams.thresh_experts); // [n_expert_used, n_tokens]
+-        selected_experts = ggml_top_k(ctx, selection_probs, n_expert_used); // [n_expert_used, n_tokens]
++        if (lctx.cparams.thresh_experts > 0) {
++            selected_experts = ggml_top_k_thresh(ctx, selection_probs, n_expert_used,
++                    lctx.cparams.min_experts, lctx.cparams.thresh_experts); // [n_expert_used, n_tokens]
++        } else {
++            selected_experts = ggml_top_k(ctx, selection_probs, n_expert_used); // [n_expert_used, n_tokens]
++        }
+     }
+     cb(selected_experts, "ffn_moe_topk", il);
+     ggml_tensor * weights = ggml_get_rows(ctx,
+@@ -2672,6 +2675,10 @@ ggml_cgraph * llm_build_context::llama_build_graph(
+             {
+                 result = llm.build_dots1();
+             } break;
++        case LLM_ARCH_FLINT:
++            {
++                result = llm.build_flint();
++            } break;
+         case LLM_ARCH_ERNIE4_5:
+         {
+             result = llm.build_ernie4_5();
+diff --git a/src/llama-build-context.h b/src/llama-build-context.h
+index b168cc97..f831a3d7 100644
+--- a/src/llama-build-context.h
++++ b/src/llama-build-context.h
+@@ -335,6 +335,8 @@ struct llm_build_context {
+ 
+     ggml_cgraph * build_dots1();
+ 
++    ggml_cgraph * build_flint();
++
+     ggml_cgraph * build_ernie4_5();
+ 
+     ggml_cgraph * build_ernie4_5_moe();
+diff --git a/src/llama-hparams.cpp b/src/llama-hparams.cpp
+index de2a2c87..ae2d1c76 100644
+--- a/src/llama-hparams.cpp
++++ b/src/llama-hparams.cpp
+@@ -175,6 +175,7 @@ void llm_load_hparams(
+     std::fill(hparams.n_head_kv_arr.begin(), hparams.n_head_kv_arr.end(), 0);
+     std::fill(hparams.n_ff_arr.begin(),      hparams.n_ff_arr.end(),      0);
+     std::fill(hparams.swa_layers.begin(),    hparams.swa_layers.end(),    0);
++    std::fill(hparams.rope_pattern.begin(),  hparams.rope_pattern.end(),  1);
+     std::fill(hparams.recurrent_layer_arr.begin(), hparams.recurrent_layer_arr.end(), false);
+ 
+     ml.get_key_or_arr(LLM_KV_FEED_FORWARD_LENGTH,  hparams.n_ff_arr,   hparams.n_layer, false);
+@@ -900,10 +901,24 @@ void llm_load_hparams(
+             {
+                 ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
+                 ml.get_key(LLM_KV_DFLASH_BLOCK_SIZE,              hparams.dflash_block_size, false);
++                if (hparams.dflash_block_size == 0) {
++                    ml.get_key("dflash.block_size", hparams.dflash_block_size, false);
++                }
+                 ml.get_key(LLM_KV_DFLASH_MASK_TOKEN_ID,           hparams.dflash_mask_token_id, false);
++                if (hparams.dflash_mask_token_id == 0) {
++                    ml.get_key("tokenizer.ggml.mask_token_id", hparams.dflash_mask_token_id, false);
++                    if (hparams.dflash_mask_token_id == 0) {
++                        ml.get_key("dflash.mask_token_id", hparams.dflash_mask_token_id, false);
++                    }
++                }
+                 ml.get_key(LLM_KV_DFLASH_N_TARGET_FEATURES,       hparams.dflash_n_target_features, false);
+                 ml.get_key(LLM_KV_DFLASH_BACKBONE_ROTARY_BASE,    hparams.dflash_backbone_rotary_base, false);
+-                load_dflash_target_layer_ids(ml, LLM_KV(model.arch)(LLM_KV_DFLASH_TARGET_LAYER_IDS), hparams, false);
++                if (!load_dflash_target_layer_ids(ml, LLM_KV(model.arch)(LLM_KV_DFLASH_TARGET_LAYER_IDS), hparams, false)) {
++                    load_dflash_target_layer_ids(ml, "dflash.target_layers", hparams, false);
++                }
++                if (hparams.dflash_n_target_features == 0) {
++                    hparams.dflash_n_target_features = hparams.dflash_n_target_layers * hparams.n_embd;
++                }
+                 ml.get_key(LLM_KV_ATTENTION_VALUE_SCALE, hparams.f_attn_v_scale, false);
+                 // DFlash drafts may be trained with sliding-window attention (for long-context).
+                 // Read the window + per-layer pattern so the SWA mask path activates; absent keys
+@@ -1662,6 +1677,23 @@ void llm_load_hparams(
+                     ml.get_key(LLM_KV_ATTENTION_VALUE_LENGTH_MLA, hparams.n_embd_head_v_full);
+                 }
+             } break;
++        case LLM_ARCH_FLINT:
++            {
++                ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
++                ml.get_key(LLM_KV_LEADING_DENSE_BLOCK_COUNT,   hparams.n_layer_dense_lead);
++                ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,  hparams.n_ff_exp);
++                ml.get_key(LLM_KV_EXPERT_SHARED_COUNT,         hparams.n_expert_shared);
++                ml.get_key(LLM_KV_EXPERT_WEIGHTS_SCALE,        hparams.expert_weights_scale, false);
++                ml.get_key(LLM_KV_EXPERT_WEIGHTS_NORM,         hparams.expert_weights_norm);
++                ml.get_key(LLM_KV_EXPERT_GATING_FUNC,          hparams.expert_gating_func);
++
++                ml.get_key(LLM_KV_EXPERT_SHARED_FEED_FORWARD_LENGTH, hparams.n_ff_shexp);
++                ml.get_key_or_arr(LLM_KV_ATTENTION_SLIDING_WINDOW_PATTERN, hparams.swa_layers, hparams.n_layer, false);
++                ml.get_key_or_arr(LLM_KV_ATTENTION_ROPE_PATTERN, hparams.rope_pattern, hparams.n_layer, false);
++                ml.get_key(LLM_KV_ATTENTION_SLIDING_WINDOW, hparams.n_swa, false);
++
++                model.type = e_model::MODEL_UNKNOWN;
++            } break;
+         default: (void)0;
+     }
+ 
+diff --git a/src/llama-hparams.h b/src/llama-hparams.h
+index 10c91069..e4fc0608 100644
+--- a/src/llama-hparams.h
++++ b/src/llama-hparams.h
+@@ -160,6 +160,7 @@ struct llama_hparams {
+     enum llama_rope_scaling_type rope_scaling_type_train = LLAMA_ROPE_SCALING_TYPE_NONE;
+ 
+     std::array<uint32_t, LLAMA_MAX_LAYERS> swa_layers;
++    std::array<uint32_t, LLAMA_MAX_LAYERS> rope_pattern;
+ 
+     std::array<float, LLAMA_MAX_LAYERS> swiglu_limits;
+     std::array<float, LLAMA_MAX_LAYERS> swiglu_limits_shared;
+@@ -368,6 +369,10 @@ struct llama_hparams {
+         return v ? v : swa_layers[il] ? n_rot_swa : n_rot;
+     }
+ 
++    bool has_rope(uint32_t il) const {
++        return rope_pattern[il] != 0;
++    }
++
+     static const char * rope_scaling_type_name(llama_rope_scaling_type);
+ 
+ };
+diff --git a/src/llama-load-tensors.cpp b/src/llama-load-tensors.cpp
+index 9981b647..064c1066 100644
+--- a/src/llama-load-tensors.cpp
++++ b/src/llama-load-tensors.cpp
+@@ -162,6 +162,8 @@ struct create_tensors_helper : public create_tensors_helper_interface {
+ 
+     bool create_step35_tensors(const LLM_TN & tn);
+ 
++    bool create_flint_tensors(const LLM_TN & tn);
++
+     llama_model_loader & ml;
+     llama_model        & model;
+ 
+@@ -2298,15 +2300,24 @@ bool create_tensors_helper::create_dflash_tensors(const LLM_TN & tn) {
+         model.output = create_tensor(ctx_output, tn(LLM_TENSOR_TOKEN_EMBD, "weight"), {n_embd, n_vocab}, llama_model_loader::TENSOR_DUPLICATED);
+     }
+     model.output_mtp = model.output;
+-    model.dflash_fc = create_tensor(ctx_output, tn(LLM_TENSOR_DFLASH_FC, "weight"), {(int64_t) hparams.dflash_n_target_features, n_embd}, 0);
+-    model.dflash_hidden_norm = create_tensor(ctx_output, tn(LLM_TENSOR_DFLASH_HIDDEN_NORM, "weight"), {n_embd}, 0);
++    model.dflash_fc = create_tensor(ctx_output, tn(LLM_TENSOR_DFLASH_FC, "weight"), {(int64_t) hparams.dflash_n_target_features, n_embd}, llama_model_loader::TENSOR_NOT_REQUIRED);
++    if (model.dflash_fc == nullptr) {
++        model.dflash_fc = create_tensor(ctx_output, "fc.weight", {(int64_t) hparams.dflash_n_target_features, n_embd}, 0);
++    }
++    model.dflash_hidden_norm = create_tensor(ctx_output, tn(LLM_TENSOR_DFLASH_HIDDEN_NORM, "weight"), {n_embd}, llama_model_loader::TENSOR_NOT_REQUIRED);
++    if (model.dflash_hidden_norm == nullptr) {
++        model.dflash_hidden_norm = create_tensor(ctx_output, "enc.output_norm.weight", {n_embd}, 0);
++    }
+ 
+     for (int i = 0; i < n_layer; ++i) {
+         ggml_context * ctx_split = use_split_ctx ? ctx_for_layer_split(i) : ctx_for_layer(i);
+         auto & layer = model.layers[i];
+ 
+         layer.attn_norm = create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_NORM, "weight", i), {n_embd}, 0);
+-        layer.attn_post_norm = create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_POST_NORM, "weight", i), {n_embd}, 0);
++        layer.attn_post_norm = create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_POST_NORM, "weight", i), {n_embd}, llama_model_loader::TENSOR_NOT_REQUIRED);
++        if (layer.attn_post_norm == nullptr) {
++            layer.attn_post_norm = create_tensor(ctx_split, tn(LLM_TENSOR_FFN_NORM, "weight", i), {n_embd}, 0);
++        }
+ 
+         layer.wq = create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_Q, "weight", i), {n_embd, n_embd_head_k * n_head}, 0);
+         layer.wk = create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_K, "weight", i), {n_embd, n_embd_gqa}, 0);
+@@ -3436,6 +3447,62 @@ bool create_tensors_helper::create_dots1_tensors(const LLM_TN & tn) {
+     return use_mmap_buffer;
+ }
+ 
++bool create_tensors_helper::create_flint_tensors(const LLM_TN & tn) {
++    LOADING_PRELUDE
++
++    const int64_t n_ff_exp        = hparams.n_ff_exp;
++    const int64_t n_ff_shexp      = hparams.n_ff_shexp ? hparams.n_ff_shexp : n_ff_exp * hparams.n_expert_shared;
++
++    model.tok_embd = create_tensor(ctx_input, tn(LLM_TENSOR_TOKEN_EMBD, "weight"), {n_embd, n_vocab}, 0);
++
++    model.output_norm = create_tensor(ctx_output, tn(LLM_TENSOR_OUTPUT_NORM, "weight"), {n_embd}, 0);
++    model.output      = create_tensor(ctx_output, tn(LLM_TENSOR_OUTPUT,      "weight"), {n_embd, n_vocab}, 0);
++
++    for (int i = 0; i < n_layer; ++i) {
++        auto & layer = model.layers[i];
++        ggml_context * ctx_layer = ctx_for_layer(i);
++        ggml_context * ctx_split = ctx_for_layer_split(i);
++
++        layer.attn_norm = create_tensor(ctx_layer, tn(LLM_TENSOR_ATTN_NORM, "weight", i), {n_embd}, 0);
++
++        layer.wq = create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_Q,   "weight", i), {n_embd, n_embd_head_k * n_head}, 0);
++        layer.wk = create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_K,   "weight", i), {n_embd, n_embd_k_gqa}, 0);
++        layer.wv = create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_V,   "weight", i), {n_embd, n_embd_v_gqa}, 0);
++        layer.wo = create_tensor(ctx_split, tn(LLM_TENSOR_ATTN_OUT, "weight", i), {n_embd_head_k * n_head, n_embd}, 0);
++
++        layer.attn_k_norm = create_tensor(ctx_layer, tn(LLM_TENSOR_ATTN_K_NORM, "weight", i), {n_embd_head_k}, 0);
++        layer.attn_q_norm = create_tensor(ctx_layer, tn(LLM_TENSOR_ATTN_Q_NORM, "weight", i), {n_embd_head_k}, 0);
++        layer.attn_sinks  = create_tensor(ctx_layer, tn(LLM_TENSOR_ATTN_SINKS,  "weight", i), {n_head}, llama_model_loader::TENSOR_NOT_REQUIRED);
++
++        layer.ffn_norm = create_tensor(ctx_layer, tn(LLM_TENSOR_FFN_NORM, "weight", i), {n_embd}, 0);
++
++        if (i < (int) hparams.n_layer_dense_lead) {
++            layer.ffn_gate = create_tensor(ctx_split, tn(LLM_TENSOR_FFN_GATE, "weight", i), {n_embd,   n_ff}, 0);
++            layer.ffn_down = create_tensor(ctx_split, tn(LLM_TENSOR_FFN_DOWN, "weight", i), {  n_ff, n_embd}, 0);
++            layer.ffn_up   = create_tensor(ctx_split, tn(LLM_TENSOR_FFN_UP,   "weight", i), {n_embd,   n_ff}, 0);
++        } else {
++            layer.ffn_gate_inp = create_tensor(ctx_layer, tn(LLM_TENSOR_FFN_GATE_INP, "weight", i), {n_embd, n_expert}, 0);
++            layer.ffn_exp_probs_b = create_tensor(ctx_layer, tn(LLM_TENSOR_FFN_EXP_PROBS_B, "bias", i), {n_expert}, llama_model_loader::TENSOR_NOT_REQUIRED);
++
++            if (n_expert == 0) {
++                throw std::runtime_error("n_expert must be > 0");
++            }
++            if (n_expert_used == 0) {
++                throw std::runtime_error("n_expert_used must be > 0");
++            }
++
++            // MoE branch with Merged Up/Gate support (-muge)!
++            use_mmap_buffer &= !create_std_ffn_exps(n_embd, tn, i);
++
++            // Shared expert branch
++            layer.ffn_gate_shexp = create_tensor(ctx_split, tn(LLM_TENSOR_FFN_GATE_SHEXP, "weight", i), {n_embd, n_ff_shexp}, 0);
++            layer.ffn_down_shexp = create_tensor(ctx_split, tn(LLM_TENSOR_FFN_DOWN_SHEXP, "weight", i), {        n_ff_shexp, n_embd}, 0);
++            layer.ffn_up_shexp   = create_tensor(ctx_split, tn(LLM_TENSOR_FFN_UP_SHEXP,   "weight", i), {n_embd, n_ff_shexp}, 0);
++        }
++    }
++    return use_mmap_buffer;
++}
++
+ bool create_tensors_helper::create_bailingmoe2_tensors(const LLM_TN & tn) {
+     LOADING_PRELUDE
+ 
+@@ -4560,6 +4627,8 @@ bool create_tensors_helper::create_tensors() {
+             use_mmap_buffer = create_step35_tensors(tn); break;
+         case LLM_ARCH_LAGUNA:
+             use_mmap_buffer = create_step35_tensors(tn); break;
++        case LLM_ARCH_FLINT:
++            use_mmap_buffer = create_flint_tensors(tn); break;
+         default:
+             throw std::runtime_error("unknown architecture");
+     }
+diff --git a/src/llama-model.cpp b/src/llama-model.cpp
+index 09342718..ab4b0d09 100644
+--- a/src/llama-model.cpp
++++ b/src/llama-model.cpp
+@@ -860,11 +860,14 @@ static const std::map<llm_arch, std::map<llm_tensor, std::string>> LLM_TENSOR_NA
+             { LLM_TENSOR_ATTN_SINKS,           "blk.%d.attn_sinks" },
+             { LLM_TENSOR_ATTN_OUT,             "blk.%d.attn_output" },
+             { LLM_TENSOR_ATTN_POST_NORM,       "blk.%d.post_attention_norm" },
++            { LLM_TENSOR_FFN_NORM,             "blk.%d.ffn_norm" },
+             { LLM_TENSOR_FFN_GATE,             "blk.%d.ffn_gate" },
+             { LLM_TENSOR_FFN_DOWN,             "blk.%d.ffn_down" },
+             { LLM_TENSOR_FFN_UP,               "blk.%d.ffn_up" },
+             { LLM_TENSOR_DFLASH_FC,            "dflash_fc" },
++            { LLM_TENSOR_DFLASH_FC,            "fc" },
+             { LLM_TENSOR_DFLASH_HIDDEN_NORM,   "dflash_hidden_norm" },
++            { LLM_TENSOR_DFLASH_HIDDEN_NORM,   "enc.output_norm" },
+         },
+     },
+     {
+@@ -1775,6 +1778,35 @@ static const std::map<llm_arch, std::map<llm_tensor, std::string>> LLM_TENSOR_NA
+ 
+         },
+     },
++    {
++        LLM_ARCH_FLINT,
++        {
++            { LLM_TENSOR_TOKEN_EMBD,         "token_embd" },
++            { LLM_TENSOR_OUTPUT_NORM,        "output_norm" },
++            { LLM_TENSOR_OUTPUT,             "output" },
++            { LLM_TENSOR_ATTN_NORM,          "blk.%d.attn_norm" },
++            { LLM_TENSOR_ATTN_Q,             "blk.%d.attn_q" },
++            { LLM_TENSOR_ATTN_Q_NORM,        "blk.%d.attn_q_norm" },
++            { LLM_TENSOR_ATTN_K,             "blk.%d.attn_k" },
++            { LLM_TENSOR_ATTN_K_NORM,        "blk.%d.attn_k_norm" },
++            { LLM_TENSOR_ATTN_V,             "blk.%d.attn_v" },
++            { LLM_TENSOR_ATTN_SINKS,         "blk.%d.attn_sinks" },
++            { LLM_TENSOR_ATTN_OUT,           "blk.%d.attn_output" },
++            { LLM_TENSOR_FFN_NORM,           "blk.%d.ffn_norm" },
++            { LLM_TENSOR_FFN_GATE,           "blk.%d.ffn_gate" },
++            { LLM_TENSOR_FFN_UP,             "blk.%d.ffn_up" },
++            { LLM_TENSOR_FFN_DOWN,           "blk.%d.ffn_down" },
++            { LLM_TENSOR_FFN_GATE_INP,       "blk.%d.ffn_gate_inp" },
++            { LLM_TENSOR_FFN_GATE_EXPS,      "blk.%d.ffn_gate_exps" },
++            { LLM_TENSOR_FFN_DOWN_EXPS,      "blk.%d.ffn_down_exps" },
++            { LLM_TENSOR_FFN_UP_EXPS,        "blk.%d.ffn_up_exps" },
++            { LLM_TENSOR_FFN_GATE_UP_EXPS,   "blk.%d.ffn_gate_up_exps" },
++            { LLM_TENSOR_FFN_GATE_SHEXP,     "blk.%d.ffn_gate_shexp" },
++            { LLM_TENSOR_FFN_DOWN_SHEXP,     "blk.%d.ffn_down_shexp" },
++            { LLM_TENSOR_FFN_UP_SHEXP,       "blk.%d.ffn_up_shexp" },
++            { LLM_TENSOR_FFN_EXP_PROBS_B,    "blk.%d.exp_probs_b" },
++        }
++    },
+     {
+         LLM_ARCH_UNKNOWN,
+         {
+diff --git a/src/llama-vocab.cpp b/src/llama-vocab.cpp
+index 3329668f..442ee0a6 100644
+--- a/src/llama-vocab.cpp
++++ b/src/llama-vocab.cpp
+@@ -358,6 +358,13 @@ struct llm_tokenizer_bpe : llm_tokenizer {
+                     "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)",
+                 };
+                 break;
++            case LLAMA_VOCAB_PRE_TYPE_FLINT:
++                regex_exprs = {
++                    "\\p{N}{1,3}",
++                    "[一-龥぀-ゟ゠-ヿ]+",
++                    "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]*[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]+(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])?|[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]+[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]*(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])?| ?[\\p{P}\\p{S}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
++                };
++                break;
+             case LLAMA_VOCAB_PRE_TYPE_GPT2:
+             case LLAMA_VOCAB_PRE_TYPE_MPT:
+             case LLAMA_VOCAB_PRE_TYPE_OLMO:
+@@ -2003,6 +2010,10 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
+             } else if (
+                     tokenizer_pre == "mellum2") {
+                 pre_type = LLAMA_VOCAB_PRE_TYPE_MELLUM2;
++            } else if (
++                    tokenizer_pre == "flint") {
++                pre_type = LLAMA_VOCAB_PRE_TYPE_FLINT;
++                clean_spaces = false;
+             } else if (
+                     tokenizer_pre == "jais-2") {
+                 pre_type = LLAMA_VOCAB_PRE_TYPE_JAIS2;
+@@ -2572,6 +2583,7 @@ void llama_vocab::impl::load(llama_model_loader & ml, const LLM_KV & kv) {
+                     || t.first == "[EOT]" // Kimi-K2
+                     || t.first == "[EOS]" // Kimi-K2
+                     || t.first == "<|end_of_text|>"
++                    || (pre_type == LLAMA_VOCAB_PRE_TYPE_FLINT && (t.first == "<|user|>" || t.first == "<|observation|>"))
+                     || t.first == "<end_of_utterance>" // smoldocling
+                     || t.first == "<eos>"            // gemma4
+                     || t.first == "<turn|>"          // gemma4
+diff --git a/src/llama-vocab.h b/src/llama-vocab.h
+index 3dbf8118..b3e26541 100644
+--- a/src/llama-vocab.h
++++ b/src/llama-vocab.h
+@@ -60,6 +60,7 @@ enum llama_vocab_pre_type {
+     LLAMA_VOCAB_PRE_TYPE_JAIS2           = 49,
+     LLAMA_VOCAB_PRE_TYPE_GEMMA4          = 50,
+     LLAMA_VOCAB_PRE_TYPE_MELLUM2         = 51,
++    LLAMA_VOCAB_PRE_TYPE_FLINT           = 52,
+ };
+ 
+ struct LLM_KV;
+diff --git a/src/llama.cpp b/src/llama.cpp
+index de6a5f2e..5e999edc 100644
+--- a/src/llama.cpp
++++ b/src/llama.cpp
+@@ -3152,6 +3152,7 @@ static bool is_model_split_supported(const llama_model & model) {
+         LLM_ARCH_GLM_DSA,
+         LLM_ARCH_MISTRAL4,
+         LLM_ARCH_MELLUM,
++        LLM_ARCH_FLINT,
+         LLM_ARCH_LAGUNA,
+     };
+     auto it =  k_supported.find(model.arch);
+@@ -3234,7 +3235,8 @@ static std::pair<std::vector<double>, double> get_layer_sizes(const llama_model_
+             name == "rope_freqs.weight") {
+             continue;
+         }
+-        if (name == "dflash_fc.weight" || name == "dflash_hidden_norm.weight") {
++        if (name == "dflash_fc.weight" || name == "dflash_hidden_norm.weight" ||
++            name == "fc.weight" || name == "enc.output_norm.weight") {
+             output_misc_size += size;
+             continue;
+         }
+@@ -7727,6 +7729,7 @@ enum llama_rope_type llama_rope_type(const struct llama_model * model) {
+         case LLM_ARCH_GPTNEOX:
+         case LLM_ARCH_CODESHELL:
+         case LLM_ARCH_DOTS1:
++        case LLM_ARCH_FLINT:
+         case LLM_ARCH_HUNYUAN_MOE:
+         case LLM_ARCH_OPENAI_MOE:
+         case LLM_ARCH_BAILINGMOE2:
