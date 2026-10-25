@@ -1037,7 +1037,7 @@
     "change": "Synthesizing the speed champion (slot cache 0.50 at 22.76 t/s), accuracy champion (concise steering at 22.0%), and prefill champion (decoupled batch prefill -tb 26 at 41.77 t/s) into a unified configuration."
   },
   {
-    "number": 88,
+    "number": 87,
     "id": "exp87_phys_pinning_28threads_repacked_iq4xs_muge_suffix_match4_autotune_ceiling4096_q4kv",
     "name": "Exp 87: High-Frequency Suffix Speculation (match_len=4, n_max=4, depth=32 + Spec Autotune + Persistent Slot 0.50 + MTP + 4K Ceiling)",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
@@ -1053,7 +1053,7 @@
     "change": "Lowering suffix minimum match length from 5 to 4 to increase draft trigger frequency on short repeated scientific idioms while capping draft depth at n_max=4."
   },
   {
-    "number": 89,
+    "number": 88,
     "id": "exp88_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_pmin000_ceiling4096_q4kv",
     "name": "Exp 88: Unconstrained Pure Native MTP (p_min=0.0, Zero Threshold, No Suffix) + Direct NUMA Pinning + 4K Ceiling",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
@@ -1069,7 +1069,7 @@
     "change": "Testing zero-threshold pure Native MTP (p_min=0.0) where 100% of MTP candidate tokens are verified, testing maximum MTP throughput limit under unconstrained 4K ceiling."
   },
   {
-    "number": 90,
+    "number": 89,
     "id": "exp89_phys_pinning_28threads_repacked_iq4xs_muge_slot_similarity_070_ceiling4096_q4kv",
     "name": "Exp 89: Ultra-Selective Persistent Slot Cache (similarity=0.70, /tmp/slots/) + Constrained Draft + Autotune + MTP + 4K Ceiling",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",

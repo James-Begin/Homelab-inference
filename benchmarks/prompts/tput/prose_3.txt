@@ -1,0 +1,1 @@
+Analyze the computational complexity of the Non-Abelian Quantum Fourier Transform and its application to solving the Hidden Subgroup Problem for dihedral groups.

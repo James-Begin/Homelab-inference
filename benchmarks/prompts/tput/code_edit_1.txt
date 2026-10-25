@@ -1,0 +1,14 @@
+Refactor the following C++ thread pool implementation to use std::condition_variable_any and stop_tokens for graceful cooperative cancellation. Preserve all existing mutex lock semantics:
+
+```cpp
+class ThreadPool {
+    std::vector<std::thread> workers;
+    std::queue<std::function<void()>> tasks;
+    std::mutex queue_mutex;
+    std::condition_variable cv;
+    bool stop = false;
+public:
+    void enqueue(std::function<void()> task);
+    ~ThreadPool();
+};
+```

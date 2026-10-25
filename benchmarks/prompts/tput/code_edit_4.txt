@@ -1,0 +1,8 @@
+Modify this Python async HTTP request dispatcher to support token bucket rate-limiting with exponential backoff on HTTP 429 status codes:
+
+```python
+async def fetch_batch(urls, max_concurrency=10):
+    sem = asyncio.Semaphore(max_concurrency)
+    async with aiohttp.ClientSession() as session:
+        # dispatch requests
+```

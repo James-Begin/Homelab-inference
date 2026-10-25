@@ -1,0 +1,1 @@
+Provide a rigorous derivation of the Navier-Stokes existence and smoothness problem formulation in three dimensions, outlining the conserved quantities and energy dissipation mechanism.

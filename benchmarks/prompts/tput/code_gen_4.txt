@@ -1,0 +1,1 @@
+Write a Python implementation of the Boyer-Moore string search algorithm with both the bad character and good suffix heuristic tables fully precomputed.
