@@ -1,0 +1,13 @@
+{
+  "run_id": "run_exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv",
+  "experiment_id": "exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv",
+  "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+  "total_questions": 50,
+  "max_tokens_ceiling": 8192,
+  "strict_score": "10/50",
+  "strict_pct": 20.0,
+  "lenient_score": "12/50",
+  "lenient_pct": 24.0,
+  "truncated_count": 29,
+  "average_decode_tps": 21.36
+}

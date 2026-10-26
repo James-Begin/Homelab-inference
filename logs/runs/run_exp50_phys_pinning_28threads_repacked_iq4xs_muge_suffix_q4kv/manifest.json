@@ -1,0 +1,37 @@
+{
+  "experiment_id": "exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv",
+  "experiment_number": 50,
+  "protocol": "legacy-v1",
+  "model": {
+    "path": "/home/james/ik_llama.cpp/build/models/Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "size_bytes": 20317671712,
+    "header_sha256": "8afc72ae9df3f9687b43b80c5c2ca5304dec62dd3f2b1097f38078e13955407a"
+  },
+  "engine": {
+    "path": "/home/james/ik_llama.cpp",
+    "sha": "32d08eef6d182e7ae337606a4ee6c9a93d0fda04",
+    "diff_hash": "clean",
+    "dirty": "false"
+  },
+  "request": {
+    "endpoint": "chat",
+    "max_tokens": 8192,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "seed": 0,
+    "system_prompt": "You are an expert scientific researcher. Provide concise, rigorous reasoning within 600 words, then state your final answer choice clearly.",
+    "user_suffix": "standard_v2",
+    "prompt_type": "stored"
+  },
+  "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+  "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+  "system": {
+    "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+    "processor": "x86_64",
+    "thp": "always [madvise] never",
+    "cpu_model": "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz",
+    "cores_per_socket": "14",
+    "sockets": "2",
+    "numa_nodes": "2"
+  }
+}
