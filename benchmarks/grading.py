@@ -22,13 +22,13 @@ def extract_clean_answer_text(completion_text: str) -> Tuple[Optional[str], bool
     Strips internal reasoning from model output.
     Returns: (text_outside_think, is_closed)
     If <think> is present but unclosed, returns (None, False).
+    If </think> is present, returns the text following the final </think> tag.
     """
-    if "<think>" in completion_text:
-        if "</think>" not in completion_text:
-            return None, False
-        # Strip all text prior to the final </think> tag
+    if "</think>" in completion_text:
         parts = completion_text.split("</think>")
         return parts[-1], True
+    if "<think>" in completion_text:
+        return None, False
     return completion_text, True
 
 
