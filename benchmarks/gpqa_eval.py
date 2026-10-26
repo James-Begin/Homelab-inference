@@ -360,10 +360,18 @@ def run_eval(
 
             # Grade response strictly using grading.py
             is_length_truncated = (finish_reason == "length")
-            row_grade = grade_response(content, gold, is_length_truncated=is_length_truncated)
+            status, strict_ans, lenient_ans = grade_response(
+                content=content,
+                gold=gold,
+                finish_reason=finish_reason,
+                max_tokens_hit=is_length_truncated
+            )
 
-            status_str = "CORRECT" if row_grade.is_strict_correct else f"WRONG (pred={row_grade.strict_answer})"
-            if row_grade.status == RowStatus.NO_ANSWER_TRUNCATED:
+            is_strict_correct = (status == RowStatus.CORRECT)
+            is_lenient_correct = (lenient_ans is not None and lenient_ans.upper() == gold.upper())
+
+            status_str = "CORRECT" if is_strict_correct else f"WRONG (pred={strict_ans})"
+            if status == RowStatus.NO_ANSWER_TRUNCATED:
                 status_str = "TRUNCATED (hit token ceiling mid-thought)"
 
             timings = res.get("timings", {})
@@ -374,11 +382,11 @@ def run_eval(
                 "idx": completed_count + 1,
                 "id": qid,
                 "gold": gold,
-                "pred": row_grade.strict_answer,
-                "lenient_pred": row_grade.lenient_answer,
-                "regraded_strict_correct": row_grade.is_strict_correct,
-                "regraded_lenient_correct": row_grade.is_lenient_correct,
-                "status": row_grade.status.value,
+                "pred": strict_ans,
+                "lenient_pred": lenient_ans,
+                "regraded_strict_correct": is_strict_correct,
+                "regraded_lenient_correct": is_lenient_correct,
+                "status": status.value,
                 "tokens": tokens_pred,
                 "speed_tps": round(speed_tps, 2),
                 "wall_time": round(wall_sec, 2),
@@ -392,7 +400,7 @@ def run_eval(
 
             existing_rows[qid] = row_entry
             completed_count += 1
-            if row_grade.is_strict_correct:
+            if is_strict_correct:
                 correct_strict_count += 1
 
             print(
