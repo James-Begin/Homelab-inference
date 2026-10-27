@@ -28,52 +28,40 @@
 <line x1="80" y1="60.0" x2="1060" y2="60.0" class="grid" />
 <text x="68" y="64.0" class="axis-label" text-anchor="end">30 t/s</text>
 <line x1="80" y1="460" x2="1060" y2="460" stroke="#94a3b8" stroke-width="1.5" />
-<rect x="88.0" y="353.8666666666667" width="65.66666666666667" height="106.13333333333333" fill="#64748b" rx="3" opacity="0.9" />
-<text x="120.83333333333334" y="347.8666666666667" class="bar-label">7.96</text>
-<text x="120.83333333333334" y="476" class="x-label">Upstream Baseline</text>
-<text x="120.83333333333334" y="489" class="x-label">(Single Socket, Q6_K)</text>
-<rect x="169.66666666666669" y="320.66666666666663" width="65.66666666666667" height="33.200000000000045" fill="#3b82f6" rx="3" opacity="0.9" />
-<text x="202.50000000000003" y="314.66666666666663" class="bar-label">+2.49</text>
-<text x="202.50000000000003" y="476" class="x-label">+ Dual-Socket NUMA</text>
-<text x="202.50000000000003" y="489" class="x-label">Interleave</text>
-<rect x="251.33333333333334" y="311.2" width="65.66666666666667" height="9.46666666666664" fill="#3b82f6" rx="3" opacity="0.9" />
-<text x="284.1666666666667" y="305.2" class="bar-label">+0.71</text>
-<text x="284.1666666666667" y="476" class="x-label">+ 28 Physical Core</text>
-<text x="284.1666666666667" y="489" class="x-label">Pinning</text>
-<rect x="333.0" y="296.26666666666665" width="65.66666666666667" height="14.933333333333337" fill="#0ea5e9" rx="3" opacity="0.9" />
-<text x="365.8333333333333" y="290.26666666666665" class="bar-label">+1.12</text>
-<text x="365.8333333333333" y="476" class="x-label">+ MoE K-Split Kernel</text>
-<text x="365.8333333333333" y="489" class="x-label">Partitioning</text>
-<rect x="414.6666666666667" y="282.8" width="65.66666666666667" height="13.46666666666664" fill="#0ea5e9" rx="3" opacity="0.9" />
-<text x="447.5" y="276.8" class="bar-label">+1.01</text>
-<text x="447.5" y="476" class="x-label">+ AVX2 64-Byte Row</text>
-<text x="447.5" y="489" class="x-label">Repacking</text>
-<rect x="496.33333333333337" y="266.66666666666663" width="65.66666666666667" height="16.133333333333383" fill="#0ea5e9" rx="3" opacity="0.9" />
-<text x="529.1666666666667" y="260.66666666666663" class="bar-label">+1.21</text>
-<text x="529.1666666666667" y="476" class="x-label">+ Merged Up/Gate</text>
-<text x="529.1666666666667" y="489" class="x-label">Experts (-muge 1)</text>
-<rect x="578.0" y="233.06666666666666" width="65.66666666666667" height="33.599999999999966" fill="#8b5cf6" rx="3" opacity="0.9" />
-<text x="610.8333333333334" y="227.06666666666666" class="bar-label">+2.52</text>
-<text x="610.8333333333334" y="476" class="x-label">+ IQ4_XS Dense +</text>
-<text x="610.8333333333334" y="489" class="x-label">Q4_0 Experts</text>
-<rect x="659.6666666666667" y="181.73333333333335" width="65.66666666666667" height="51.333333333333314" fill="#10b981" rx="3" opacity="0.9" />
-<text x="692.5000000000001" y="175.73333333333335" class="bar-label">+3.85</text>
-<text x="692.5000000000001" y="476" class="x-label">+ Suffix Speculation</text>
-<text x="692.5000000000001" y="489" class="x-label">(ngram / MTP)</text>
-<rect x="741.3333333333334" y="233.06666666666666" width="65.66666666666667" height="226.93333333333334" fill="#6366f1" rx="3" opacity="0.9" />
-<text x="774.1666666666667" y="227.06666666666666" class="bar-label">17.02</text>
-<text x="774.1666666666667" y="476" class="x-label">Final Qwen Config</text>
-<text x="774.1666666666667" y="489" class="x-label">(Non-Speculative)</text>
-<rect x="823.0" y="132.93333333333334" width="65.66666666666667" height="327.06666666666666" fill="#059669" rx="3" opacity="0.9" />
-<text x="855.8333333333334" y="126.93333333333334" class="bar-label">24.53</text>
-<text x="855.8333333333334" y="476" class="x-label">Final Qwen Speculative</text>
-<text x="855.8333333333334" y="489" class="x-label">(Exp 23/50)</text>
-<rect x="904.6666666666667" y="219.73333333333332" width="65.66666666666667" height="240.26666666666668" fill="#f59e0b" rx="3" opacity="0.9" />
-<text x="937.5000000000001" y="213.73333333333332" class="bar-label">18.02</text>
-<text x="937.5000000000001" y="476" class="x-label">Flint 40B Port</text>
-<text x="937.5000000000001" y="489" class="x-label">(ik_llama + MUGE)</text>
-<rect x="986.3333333333334" y="98.53333333333336" width="65.66666666666667" height="361.46666666666664" fill="#d97706" rx="3" opacity="0.9" />
-<text x="1019.1666666666667" y="92.53333333333336" class="bar-label">27.11</text>
-<text x="1019.1666666666667" y="476" class="x-label">Flint 40B Spec Peak</text>
-<text x="1019.1666666666667" y="489" class="x-label">(Exp 94)</text>
+<rect x="88.0" y="364.8" width="92.88888888888889" height="95.19999999999999" fill="#64748b" rx="3" opacity="0.9" />
+<text x="134.44444444444446" y="358.8" class="bar-label">7.14</text>
+<text x="134.44444444444446" y="476" class="x-label">Upstream Baseline</text>
+<text x="134.44444444444446" y="489" class="x-label">(Single Socket, Q6_K)</text>
+<rect x="196.88888888888889" y="321.2" width="92.88888888888889" height="43.60000000000002" fill="#3b82f6" rx="3" opacity="0.9" />
+<text x="243.33333333333331" y="315.2" class="bar-label">+3.27</text>
+<text x="243.33333333333331" y="476" class="x-label">+ Dual-Socket NUMA</text>
+<text x="243.33333333333331" y="489" class="x-label">Interleave</text>
+<rect x="305.77777777777777" y="322.9333333333334" width="92.88888888888889" height="2.0" fill="#3b82f6" rx="3" opacity="0.9" />
+<text x="352.22222222222223" y="316.9333333333334" class="bar-label">+-0.13</text>
+<text x="352.22222222222223" y="476" class="x-label">+ 28 Physical Core</text>
+<text x="352.22222222222223" y="489" class="x-label">Pinning</text>
+<rect x="414.66666666666663" y="305.20000000000005" width="92.88888888888889" height="17.73333333333335" fill="#8b5cf6" rx="3" opacity="0.9" />
+<text x="461.1111111111111" y="299.20000000000005" class="bar-label">+1.33</text>
+<text x="461.1111111111111" y="476" class="x-label">+ IQ4_XS Dense +</text>
+<text x="461.1111111111111" y="489" class="x-label">Q4_0 Experts</text>
+<rect x="523.5555555555555" y="205.33333333333331" width="92.88888888888889" height="99.86666666666673" fill="#0ea5e9" rx="3" opacity="0.9" />
+<text x="570.0" y="199.33333333333331" class="bar-label">+7.49</text>
+<text x="570.0" y="476" class="x-label">+ AVX2 64-Byte Row</text>
+<text x="570.0" y="489" class="x-label">Repacking</text>
+<rect x="632.4444444444445" y="200.13333333333333" width="92.88888888888889" height="5.199999999999989" fill="#0ea5e9" rx="3" opacity="0.9" />
+<text x="678.8888888888889" y="194.13333333333333" class="bar-label">+0.39</text>
+<text x="678.8888888888889" y="476" class="x-label">+ Merged Up/Gate</text>
+<text x="678.8888888888889" y="489" class="x-label">Experts (-muge 1)</text>
+<rect x="741.3333333333333" y="146.8" width="92.88888888888889" height="53.333333333333314" fill="#10b981" rx="3" opacity="0.9" />
+<text x="787.7777777777777" y="140.8" class="bar-label">+4.00</text>
+<text x="787.7777777777777" y="476" class="x-label">+ Suffix Speculation</text>
+<text x="787.7777777777777" y="489" class="x-label">(MTP Drafting)</text>
+<rect x="850.2222222222222" y="146.8" width="92.88888888888889" height="313.2" fill="#059669" rx="3" opacity="0.9" />
+<text x="896.6666666666666" y="140.8" class="bar-label">23.49</text>
+<text x="896.6666666666666" y="476" class="x-label">Final Qwen Config</text>
+<text x="896.6666666666666" y="489" class="x-label">(Step 6)</text>
+<rect x="959.1111111111111" y="178.0" width="92.88888888888889" height="282.0" fill="#f59e0b" rx="3" opacity="0.9" />
+<text x="1005.5555555555555" y="172.0" class="bar-label">21.15</text>
+<text x="1005.5555555555555" y="476" class="x-label">Flint 40B Port</text>
+<text x="1005.5555555555555" y="489" class="x-label">(ik_llama + MUGE)</text>
 </svg>

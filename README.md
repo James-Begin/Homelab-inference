@@ -14,12 +14,12 @@ Serving 35B-to-40B parameter Mixture-of-Experts (MoE) coding models on a 2016 du
 
 ## Three Headline Findings
 
-1. **Lossless Engine Speedup (Protocol A-tput-v1):**
-   - **×2.14 speedup** from unoptimized baseline to production decode (**7.96 t/s $\to$ 17.02 t/s** non-speculative median; IQR 0.74 t/s).
-   - With speculative decoding (N-Gram / MTP suffix drafting), useful non-degenerate throughput reaches **24.53 t/s median** on Qwen 35B and bursts up to **27.11 t/s peak** on Recursive Flint 40B.
-2. **100% of Physical Memory Saturation (Empirical Roofline):**
+1. **Lossless Engine Speedup (Protocol A-tput-v1 Live Measurement):**
+   - **×2.73 speedup** from unoptimized baseline to production decode (**7.14 t/s $\to$ 19.49 t/s** non-speculative; IQR 0.05 t/s).
+   - With speculative decoding (MTP suffix drafting), useful non-degenerate throughput reaches **23.49 t/s weighted (23.38 t/s median)** on Qwen 35B and **21.15 t/s weighted** on Recursive Flint 40B.
+2. **Physical Memory Saturation (Empirical Roofline):**
    - Autoregressive decode is strictly memory bandwidth-bound. Broadwell DDR4-2400 STREAM Triad bandwidth measures **35.22 GB/s** across both NUMA nodes.
-   - At 1.692 GB touched per decoded token, Qwen 35B decoding at 20.87 t/s consumes **35.31 GB/s**—hitting **100.2% of the empirical DRAM bandwidth ceiling**.
+   - At 1.692 GB touched per decoded token, Qwen 35B non-speculative decode consumes **32.98 GB/s** (93.6% of physical memory ceiling), while speculative bursts reach **39.75 GB/s effective bandwidth**.
 3. **Head-to-Head Quality at Matched Budgets (Protocol C-gpqa-v2):**
    - Under the certified 8K runway protocol with strict regex extraction, **Recursive Flint 40B MoE achieves 36.0% [95% CI: 24.1% – 49.9%]** on GPQA Diamond vs. **20.0% [95% CI: 11.2% – 33.0%] for Qwen 3.6 35B MoE** (+80% more correct answers, paired McNemar $p = 0.0287$).
    - Flint consumed **15.6% fewer tokens** (-55,639 tokens) and exhibited near-zero looping (2% vs. 25%). In our 16K runway probe, Flint rescued an additional 2 candidate ceiling questions at tokens 14,435 and 15,459.

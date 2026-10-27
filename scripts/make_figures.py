@@ -19,19 +19,17 @@ FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 def generate_waterfall_svg(out_path: Path):
     """Generates the ablation waterfall chart from baseline to final optimization."""
     # Data sequence: (Label, delta, is_total, is_lossy, color)
+    # Using live measured Protocol A data from logs/runs/ablation_sweep/ablation_summary.json
     steps = [
-        ("Upstream Baseline\n(Single Socket, Q6_K)", 7.96, True, False, "#64748b"),
-        ("+ Dual-Socket NUMA\nInterleave", 2.49, False, False, "#3b82f6"),
-        ("+ 28 Physical Core\nPinning", 0.71, False, False, "#3b82f6"),
-        ("+ MoE K-Split Kernel\nPartitioning", 1.12, False, False, "#0ea5e9"),
-        ("+ AVX2 64-Byte Row\nRepacking", 1.01, False, False, "#0ea5e9"),
-        ("+ Merged Up/Gate\nExperts (-muge 1)", 1.21, False, False, "#0ea5e9"),
-        ("+ IQ4_XS Dense +\nQ4_0 Experts", 2.52, False, True, "#8b5cf6"),
-        ("+ Suffix Speculation\n(ngram / MTP)", 3.85, False, False, "#10b981"),
-        ("Final Qwen Config\n(Non-Speculative)", 17.02, True, False, "#6366f1"),
-        ("Final Qwen Speculative\n(Exp 23/50)", 24.53, True, False, "#059669"),
-        ("Flint 40B Port\n(ik_llama + MUGE)", 18.02, True, False, "#f59e0b"),
-        ("Flint 40B Spec Peak\n(Exp 94)", 27.11, True, False, "#d97706"),
+        ("Upstream Baseline\n(Single Socket, Q6_K)", 7.14, True, False, "#64748b"),
+        ("+ Dual-Socket NUMA\nInterleave", 3.27, False, False, "#3b82f6"),
+        ("+ 28 Physical Core\nPinning", -0.13, False, False, "#3b82f6"),
+        ("+ IQ4_XS Dense +\nQ4_0 Experts", 1.33, False, True, "#8b5cf6"),
+        ("+ AVX2 64-Byte Row\nRepacking", 7.49, False, False, "#0ea5e9"),
+        ("+ Merged Up/Gate\nExperts (-muge 1)", 0.39, False, False, "#0ea5e9"),
+        ("+ Suffix Speculation\n(MTP Drafting)", 4.00, False, False, "#10b981"),
+        ("Final Qwen Config\n(Step 6)", 23.49, True, False, "#059669"),
+        ("Flint 40B Port\n(ik_llama + MUGE)", 21.15, True, False, "#f59e0b"),
     ]
 
     width = 1100

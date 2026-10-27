@@ -8,23 +8,22 @@ All throughput measurements follow **Protocol A-tput-v1** (fixed $N=512$ token o
 
 ## 1. The Optimization Waterfall
 
-The waterfall below traces the forward-additive progression from the stock single-socket upstream baseline (7.96 t/s) to the final speculative configuration (24.53 t/s on Qwen 35B and 27.11 t/s peak on Flint 40B).
+The waterfall below traces the forward-additive progression from the stock single-socket upstream baseline (7.14 t/s) to the final speculative configuration (23.49 t/s on Qwen 35B and 21.15 t/s on Flint 40B).
 
 ![Ablation Waterfall](figures/waterfall.svg)
 
-### Forward-Add Progression (Protocol A-tput-v1)
+### Forward-Add Progression (Protocol A-tput-v1 Live Measurement)
 
-| Step | Optimization Component | Class | Marginal $\Delta$ (t/s) | Cumulative Median (t/s) | IQR (t/s) | Verification Gate |
-| :---: | :--- | :---: | :---: | :---: | :---: | :---: |
-| **0** | **Upstream llama.cpp Baseline** (Single-Socket, Q6_K, unpinned) | Baseline | — | **7.96** | 0.42 | Reference |
-| **1** | **Dual-Socket NUMA Interleave** (`--interleave=all`) | Lossless | **+2.49** | **10.45** | 0.58 | Protocol B: Identical |
-| **2** | **28 Physical Core Binding** (Asymmetric `-t 28 -tb 28`, NUMA-local) | Lossless | **+0.71** | **11.16** | 0.35 | Protocol B: Identical |
-| **3** | **MoE Small-Nx K-Split Partitioning** (`iqk_mul_mat.cpp`) | Lossless | **+1.12** | **12.28** | 0.48 | Protocol B: Identical |
-| **4** | **AVX2 64-Byte Row Repacking** (`Q4_0_R8` / `IQ4_XS_R8`) | Lossless | **+1.01** | **13.29** | 0.62 | Protocol B: Identical |
-| **5** | **Merged Up/Gate Experts** (`-muge 1` single-pass kernel) | Lossless | **+1.21** | **14.50** | 0.51 | Protocol B: Identical |
-| **6** | **Quantization Recipe** (IQ4_XS Dense Attention + Q4_0 MoE) | Lossy | **+2.52** | **17.02** | 0.74 | Protocol Q: Mean KLD 0.0142 |
-| **7** | **Speculative Decoding** (N-Gram / MTP Suffix Drafting) | Lossless | **+7.51** | **24.53** | 1.85 | Protocol B: Verified |
-| **8** | **Flint 40B MoE Architectural Port** (ik_llama + MUGE + Repack) | Model Port | **+8.20** | **18.02** *(peak 27.11)* | 1.33 | Protocol B: Verified |
+| Step | Optimization Component | Class | Marginal Δ (t/s) | Token-Weighted TPS | Median TPS | IQR (t/s) | Verification Gate |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **0** | **Upstream llama.cpp Baseline** (Single-Socket, Q6_K, unpinned) | Baseline | — | **7.14** | 7.14 | 0.01 | Reference |
+| **1** | **Dual-Socket NUMA Interleave** (`--interleave=all`, 28T) | Lossless | **+3.27** | **10.41** | 10.41 | 0.05 | Protocol B: Passed |
+| **2** | **28 Physical Core Binding** (`--physcpubind=... -t 28 -tb 28`) | Lossless | **-0.13** | **10.28** | 10.27 | 0.04 | Protocol B: Passed |
+| **3** | **Quantization Recipe** (IQ4_XS Dense Attention + Q4_0 MoE) | Lossy | **+1.33** | **11.61** | 11.62 | 0.11 | Protocol Q: Mean KLD 0.0142 |
+| **4** | **AVX2 64-Byte Row Repacking** (`Q4_0_R8` / `IQ4_XS_R8`) | Lossless | **+7.49** | **19.10** | 19.10 | 0.05 | Protocol B: Passed |
+| **5** | **Merged Up/Gate Experts** (`-muge 1` single-pass kernel) | Lossless | **+0.39** | **19.49** | 19.50 | 0.05 | Protocol B: Passed |
+| **6** | **Speculative Decoding** (MTP Suffix Drafting) | Lossless | **+4.00** | **23.49** | 23.38 | 1.38 | Protocol B: Passed |
+| **7** | **Flint 40B MoE Architectural Port** (ik_llama + MUGE + ngram-mod) | Model Port | — | **21.15** | 20.98 | 1.75 | Protocol B: Passed |
 
 ---
 
