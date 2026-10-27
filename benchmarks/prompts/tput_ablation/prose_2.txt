@@ -1,0 +1,1 @@
+Explain the thermodynamic implications of the AdS/CFT correspondence and the Ryu-Takayanagi holographic entanglement entropy formula. Discuss how quantum error correction emerges from spacetime geometry.
