@@ -19,4 +19,23 @@ This directory quarantines artifacts, checkpoints, and runners from the explorat
 3. **Anomaly R4 (Run 40/42 Peak Speeds):**
    The peak speeds of 66.30 t/s reported in Runs 40 and 42 were produced by degenerate repetition loops (`<think> The. . . .`) hitting the token ceiling. Under the new protocol, all degenerate outputs are excluded from useful throughput metrics.
 4. **Offline Regrading of Runs 66–95:**
-   Regraded outputs using the strict regex extractor (`^\s*Final answer:\s*\(?([A-D])\)?\s*$`) and deduplicated question IDs are located in `archive/regraded/`.
+   Regraded outputs using the strict regex extractor (`^\s*Final answer:\s*\(?([A-D])\)?\s*$`) and deduplicated question IDs are located in `archive/regraded/`. Full summary table in `archive/REGRADED_SUMMARY.md`.
+
+## 3. Directory Layout (`notebook-v1`)
+
+```
+archive/
+├── README.md               # Validity classification and quarantine notes
+├── REGRADED_SUMMARY.md     # Offline regraded score comparison (strict vs lenient)
+├── harness/                # Verbatim historical runners recovered from test host
+│   ├── gpqa_eval_runs66-91.py
+│   └── gpqa_eval_runs92-95.py
+├── regraded/               # Machine-readable offline regraded JSON files (runs 66-95)
+└── notebook-v1/            # Quarantined raw artifact trees from exploratory phase
+    ├── gpqa_reports/       # Historical markdown evaluation reports (runs 0-95)
+    ├── extreme_context_reports/ # Passkey needle outputs (runs 0-95; llama-passkey)
+    ├── optimization_tracker/    # Historical notebook (optimization_log_50tps.md)
+    └── raw_checkpoints/    # Historical JSON checkpoints (runs 0-95)
+```
+
+All future controlled benchmark results are maintained under `logs/runs/<id>/` complying with Protocols A, B, and C.

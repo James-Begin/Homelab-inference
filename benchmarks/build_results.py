@@ -50,7 +50,7 @@ def build_results_markdown():
         except Exception:
             lenient_pct = 0.0
 
-        report_link = f"[report](logs/gpqa_reports/gpqa_{run_id}_50q_report.md)"
+        report_link = f"[report](archive/notebook-v1/gpqa_reports/gpqa_{run_id}_50q_report.md)"
         output_lines.append(
             f"| {run_num} | `{run_id}` | {uniq} | **{strict_score}** | **{strict_pct:.1f}%** | {lenient_pct:.1f}% | {report_link} |\n"
         )
