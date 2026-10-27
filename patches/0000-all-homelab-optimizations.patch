@@ -1,3 +1,21 @@
+diff --git a/common/chat.cpp b/common/chat.cpp
+index 2dfbe238..7c03b350 100644
+--- a/common/chat.cpp
++++ b/common/chat.cpp
+@@ -2791,8 +2791,11 @@ common_chat_msg common_chat_peg_parse(const common_peg_arena &          src_pars
+             }
+             return msg;
+         }
+-        throw std::runtime_error(std::string("Failed to parse input at pos ") + std::to_string(result.end) + ": " +
+-                                 effective_input.substr(result.end));
++        LOG_DBG("Chat PEG parser failed at pos %zu, falling back to raw content\n", result.end);
++        common_chat_msg msg;
++        msg.role = "assistant";
++        msg.content = input;
++        return msg;
+     }
+ 
+     common_chat_msg msg;
 diff --git a/common/jinja/lexer.cpp b/common/jinja/lexer.cpp
 index 598982c2..bf2dfacd 100644
 --- a/common/jinja/lexer.cpp
@@ -72,6 +90,36 @@ index b56a64b1..f7a5202b 100644
  
          if (delta > allowed_delta)  {
              printf("\nABORT - ERROR in Matrix Multiplication result - expected %6.2f, got %6.2f (delta %6.2f > allowed_delta %6.2f)\n",
+diff --git a/examples/server/server-context.cpp b/examples/server/server-context.cpp
+index 66695af0..c1a21e28 100644
+--- a/examples/server/server-context.cpp
++++ b/examples/server/server-context.cpp
+@@ -652,10 +652,21 @@ result_timings server_slot::get_timings() const {
+ const common_chat_msg& server_slot::update_chat_msg(bool is_partial, std::vector<common_chat_msg_diff>& diffs,
+     bool filter_tool_calls) {
+     auto msg_prv_copy = chat_msg;
+-    auto new_msg = common_chat_parse(
+-        generated_text,
+-        /* is_partial= */ stop != STOP_TYPE_EOS,
+-        params.chat_parser_params);
++    common_chat_msg new_msg;
++    try {
++        new_msg = common_chat_parse(
++            generated_text,
++            /* is_partial= */ stop != STOP_TYPE_EOS,
++            params.chat_parser_params);
++    } catch (const std::exception & e) {
++        LLAMA_LOG_WARN("common_chat_parse exception: %s, falling back to raw generated text\n", e.what());
++        new_msg.role = "assistant";
++        new_msg.content = generated_text;
++    } catch (...) {
++        LLAMA_LOG_WARN("common_chat_parse unknown exception, falling back to raw generated text\n");
++        new_msg.role = "assistant";
++        new_msg.content = generated_text;
++    }
+     if (!new_msg.empty()) {
+         //new_msg.ensure_tool_call_ids_set(generated_tool_call_ids, gen_tool_call_id);
+         new_msg.set_tool_call_ids(generated_tool_call_ids, gen_tool_call_id);
 diff --git a/examples/speculative/speculative.cpp b/examples/speculative/speculative.cpp
 index 714a989a..1216c622 100644
 --- a/examples/speculative/speculative.cpp

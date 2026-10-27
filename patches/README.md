@@ -35,6 +35,12 @@ Together, these patches provide the foundational performance gains demonstrated 
 - **Solution:** Enhances hash-based n-gram mod speculation (`ngram-mod:4,4`) and adds seamless handling for heterogeneous prompt/draft contexts.
 - **Measured Effect:** Enables zero-parameter speculative bursts up to **27+ t/s** without requiring auxiliary GPU draft models.
 
+### 5. `0005-catch-server-peg-parser-exception.patch`
+- **Component:** `common/chat.cpp`, `examples/server/server-context.cpp`
+- **Problem:** When reasoning models (Qwen, Flint) generate repetitive sequences or hit context ceilings with unclosed `<think>` tags, upstream `llama-server` threw an uncaught `std::runtime_error: Failed to parse input at pos 0: <think>...` during PEG chat parsing, aborting the server process mid-evaluation.
+- **Solution:** Replaced exception throws in `common_chat_peg_parse` with graceful raw content fallbacks and wrapped `common_chat_parse` inside `server_slot::update_chat_msg` in `try/catch` blocks.
+- **Measured Effect:** Prevents server crashes during long-horizon evaluations and ensures completed generation tokens are returned safely to the client.
+
 ---
 
 ## Applying Patches
