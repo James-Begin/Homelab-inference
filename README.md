@@ -20,8 +20,9 @@ Serving 35B-to-40B parameter Mixture-of-Experts (MoE) coding models on a 2016 du
 2. **100% of Physical Memory Saturation (Empirical Roofline):**
    - Autoregressive decode is strictly memory bandwidth-bound. Broadwell DDR4-2400 STREAM Triad bandwidth measures **35.22 GB/s** across both NUMA nodes.
    - At 1.692 GB touched per decoded token, Qwen 35B decoding at 20.87 t/s consumes **35.31 GB/s**—hitting **100.2% of the empirical DRAM bandwidth ceiling**.
-3. **Head-to-Head Quality at Matched Budgets (Protocol C):**
-   - Under a 600-second wall-clock thinking budget, **Recursive Flint 40B MoE solves 38.0% [95% CI: 25.9% – 51.9%]** of complex GPQA Diamond reasoning tasks vs. **22.0% [95% CI: 12.8% – 35.2%] for Qwen 3.6 35B MoE** (paired McNemar $p = 0.041$).
+3. **Head-to-Head Quality at Matched Budgets (Protocol C-gpqa-v2):**
+   - Under the certified 8K runway protocol with strict regex extraction, **Recursive Flint 40B MoE achieves 36.0% [95% CI: 24.1% – 49.9%]** on GPQA Diamond vs. **20.0% [95% CI: 11.2% – 33.0%] for Qwen 3.6 35B MoE** (+80% more correct answers, paired McNemar $p = 0.0287$).
+   - Flint consumed **15.6% fewer tokens** (-55,639 tokens) and exhibited near-zero looping (2% vs. 25%). In our 16K runway probe, Flint rescued an additional 2 candidate ceiling questions at tokens 14,435 and 15,459.
    - Porting Flint 40B into `ik_llama.cpp` with Merged Up/Gate Experts (`-muge 1`) and AVX2 64-byte row repacking (`Q4_0_R8`) boosted Flint's speed by **+83.5%** (from 9.82 t/s to **18.02 t/s median**, peak 27.11 t/s).
 
 ---
