@@ -447,10 +447,10 @@
   {
     "number": 50,
     "id": "exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv",
-    "name": "Exp 50: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Up/Gate Experts (-muge) + Precision Suffix Speculation (n_max=8, match=5) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Exp 50: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Up/Gate Experts (-muge) + Native MTP + Q4_0 KV + SER 2,0.5",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
-    "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "server_flags": "-muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 16384 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0 --repeat-penalty 1.05",
     "prompt": "stored",
     "prep": {
       "kind": "repack",
@@ -1150,7 +1150,7 @@
     "name": "Exp 94: Recursive Flint 40B MoE on ik_llama.cpp (Merged Up/Gate -muge 1 + AVX2 64-Byte Repacking Q4_0_R8 + N-Gram Mod Speculation n_max=4, match=4 + Slot Cache 0.50 + Decoupled Prefill -tb 26)",
     "model": "RecursiveSI_flint-Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
-    "server_flags": "--port {port} -c 8192 -t 28 -tb 26 --spec-type ngram-mod:n_max=4,ngram_size_n=4,ngram_min_hits=4 --slot-save-path /tmp/slots/ -sps 0.50 -ctk q4_0 -ctv q4_0 --numa numactl -muge",
+    "server_flags": "--port {port} -c 16384 -t 28 -tb 26 --spec-type ngram-mod:n_max=4,ngram_size_n=4,ngram_min_hits=4 --slot-save-path /tmp/slots/ -sps 0.50 -ctk q4_0 -ctv q4_0 --numa numactl -muge --repeat-penalty 1.05",
     "prompt": "stored",
     "prep": {
       "kind": "none"

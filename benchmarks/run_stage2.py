@@ -50,7 +50,7 @@ def main():
         port=8087,
         max_tokens=8192,
         endpoint="chat",
-        force_new_run=False
+        force_new_run=True
     )
     t1_qwen = time.time()
 

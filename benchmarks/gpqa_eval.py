@@ -274,6 +274,8 @@ def run_eval(
             return 1
     else:
         manifest_file.write_text(json.dumps(current_manifest, indent=2), encoding="utf-8")
+        if force_new_run and rows_file.exists():
+            rows_file.unlink()
 
     # Load existing rows to resume
     existing_rows: Dict[str, Dict[str, Any]] = {}
