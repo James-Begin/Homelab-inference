@@ -188,14 +188,15 @@ def main():
         if out_json.exists():
             log(f"Step {step_num} ({step_name}) already completed. Loading cached results.")
             res = json.loads(out_json.read_text(encoding="utf-8"))
+            s_dict = res.get("summary", {})
             sweep_results.append({
                 "step": step_num,
                 "id": step_id,
                 "name": step_name,
-                "token_weighted_tps": res["summary"]["token_weighted_tps"],
-                "median_decode_tps": res["summary"]["median_decode_tps"],
-                "iqr_decode_tps": res["summary"]["iqr_decode_tps"],
-                "total_tokens": res["summary"]["total_tokens"],
+                "token_weighted_tps": s_dict.get("token_weighted_tps", 0.0),
+                "median_decode_tps": s_dict.get("median_decode_tps", 0.0),
+                "iqr_decode_tps": s_dict.get("iqr_decode_tps", 0.0),
+                "total_tokens": s_dict.get("total_tokens", s_dict.get("valid_runs", 0) * 512),
             })
             continue
 
@@ -234,6 +235,7 @@ def main():
             iqr_tps = res["summary"]["iqr_decode_tps"]
             log(f"    [STEP {step_num} COMPLETE] Weighted TPS: {tw_tps:.2f} t/s | Median: {med_tps:.2f} t/s (IQR: {iqr_tps:.2f})")
 
+            s_dict = res.get("summary", {})
             sweep_results.append({
                 "step": step_num,
                 "id": step_id,
@@ -241,7 +243,7 @@ def main():
                 "token_weighted_tps": tw_tps,
                 "median_decode_tps": med_tps,
                 "iqr_decode_tps": iqr_tps,
-                "total_tokens": res["summary"]["total_tokens"],
+                "total_tokens": s_dict.get("total_tokens", s_dict.get("valid_runs", 0) * 512),
             })
 
             # Save cumulative progress
