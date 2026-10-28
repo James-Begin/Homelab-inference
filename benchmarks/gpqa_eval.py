@@ -72,8 +72,23 @@ def wait_for_server(url: str, timeout: int = 120) -> bool:
 def free_port(port: int) -> None:
     try:
         out = subprocess.check_output(["lsof", "-ti", f":{port}"], text=True)
-        for pid in out.strip().split():
-            os.kill(int(pid), signal.SIGTERM)
+        pids = [int(p) for p in out.strip().split() if p.strip()]
+        for pid in pids:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+        for _ in range(20):
+            time.sleep(0.5)
+            check = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)
+            if not check.stdout.strip():
+                return
+        check = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)
+        for pid in [int(p) for p in check.stdout.strip().split() if p.strip()]:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
         time.sleep(1)
     except Exception:
         pass
@@ -139,6 +154,10 @@ def query_chat_completion(
                     "timings": timings,
                     "raw_response": res
                 }
+        except urllib.error.HTTPError as exc:
+            err_body = exc.read().decode("utf-8", errors="replace")
+            print(f"Chat completion HTTP error {exc.code} (attempt {attempt + 1}/3): {err_body}")
+            time.sleep(2)
         except Exception as exc:
             print(f"Chat completion query error (attempt {attempt + 1}/3): {exc}")
             time.sleep(2)
@@ -181,6 +200,10 @@ def query_raw_completion(
                     "timings": timings,
                     "raw_response": res
                 }
+        except urllib.error.HTTPError as exc:
+            err_body = exc.read().decode("utf-8", errors="replace")
+            print(f"Raw completion HTTP error {exc.code} (attempt {attempt + 1}/3): {err_body}")
+            time.sleep(2)
         except Exception as exc:
             print(f"Raw completion query error (attempt {attempt + 1}/3): {exc}")
             time.sleep(2)

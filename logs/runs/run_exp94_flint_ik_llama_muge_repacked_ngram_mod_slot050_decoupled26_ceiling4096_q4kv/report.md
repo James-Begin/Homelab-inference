@@ -1,11 +1,11 @@
-# Benchmark Report: Exp 94: Recursive Flint 40B MoE (ik_llama.cpp, -muge 1, Repacked Q4_0_R8, N-gram spec)
+# Benchmark Report: Exp 94: Recursive Flint 40B MoE on ik_llama.cpp (Merged Up/Gate -muge 1 + AVX2 64-Byte Repacking Q4_0_R8 + N-Gram Mod Speculation n_max=4, match=4 + Slot Cache 0.50 + Decoupled Prefill -tb 26)
 - **Run ID:** `run_exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv`
 - **Protocol:** Protocol C-gpqa-v2
 - **Model:** `RecursiveSI_flint-Q4_0_Repacked.gguf`
 - **Token Ceiling (max_tokens):** 8192 tokens
 - **Strict Score:** **18/50** (36.0%)
 - **Lenient Score:** 23/50 (46.0%)
-- **Mid-Thought Truncations:** 0
+- **Mid-Thought Truncations:** 0 (0.0%)
 - **Average Decode Speed:** 17.14 tokens/sec
 
 ## Detailed Question Rows
@@ -61,4 +61,3 @@
 | `gpqa_100` | D | - | `no_answer_format` | 8192 | 15.67 t/s | 524.56s |
 | `gpqa_142` | C | - | `no_answer_format` | 8192 | 15.73 t/s | 523.3s |
 | `gpqa_61` | B | - | `no_answer_format` | 8192 | 15.32 t/s | 536.57s |
-

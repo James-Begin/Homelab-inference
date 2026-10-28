@@ -1,63 +1,63 @@
-# Benchmark Report: Exp 50: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Up/Gate Experts (-muge) + Precision Suffix Speculation (n_max=8, match=5) + Native MTP + Q4_0 KV + SER 2,0.5
+# Benchmark Report: Exp 50: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Up/Gate Experts (-muge) + Native MTP + Q4_0 KV + SER 2,0.5
 - **Run ID:** `run_exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv`
 - **Protocol:** Protocol C-gpqa-v2
 - **Model:** `Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf`
 - **Token Ceiling (max_tokens):** 8192 tokens
-- **Strict Score:** **10/50** (20.0%)
-- **Lenient Score:** 12/50 (24.0%)
-- **Mid-Thought Truncations:** 29 (58.0%)
-- **Average Decode Speed:** 21.36 tokens/sec
+- **Strict Score:** **13/50** (26.0%)
+- **Lenient Score:** 10/50 (20.0%)
+- **Mid-Thought Truncations:** 27 (54.0%)
+- **Average Decode Speed:** 19.18 tokens/sec
 
 ## Detailed Question Rows
 | ID | Gold | Pred | Strict Status | Tokens | Decode Speed | Wall Time |
 | :--- | :---: | :---: | :--- | :---: | :---: | :---: |
-| `gpqa_110` | A | - | `no_answer_truncated` | 8192 | 18.66 t/s | 441.91s |
-| `gpqa_42` | A | - | `no_answer_truncated` | 8192 | 18.79 t/s | 438.3s |
-| `gpqa_2` | B | B | `correct` | 1239 | 23.34 t/s | 54.96s |
-| `gpqa_156` | A | A | `correct` | 2228 | 19.58 t/s | 115.74s |
-| `gpqa_128` | A | - | `no_answer_truncated` | 8192 | 36.2 t/s | 228.55s |
-| `gpqa_12` | D | - | `no_answer_format` | 8192 | 37.88 t/s | 218.79s |
-| `gpqa_79` | D | - | `no_answer_truncated` | 8192 | 22.18 t/s | 371.03s |
-| `gpqa_13` | B | - | `no_answer_truncated` | 8192 | 28.94 t/s | 284.85s |
-| `gpqa_127` | D | - | `no_answer_truncated` | 8192 | 42.07 t/s | 212.61s |
-| `gpqa_69` | C | - | `no_answer_format` | 8192 | 21.65 t/s | 380.07s |
-| `gpqa_3` | C | - | `no_answer_format` | 8192 | 19.25 t/s | 427.38s |
-| `gpqa_185` | A | - | `no_answer_format` | 8192 | 19.44 t/s | 423.29s |
-| `gpqa_30` | B | - | `no_answer_truncated` | 8192 | 20.89 t/s | 393.93s |
-| `gpqa_165` | C | C | `correct` | 6813 | 17.92 t/s | 385.82s |
-| `gpqa_169` | C | C | `correct` | 2125 | 24.36 t/s | 88.83s |
-| `gpqa_15` | D | D | `correct` | 6956 | 18.57 t/s | 376.66s |
-| `gpqa_159` | A | C | `wrong` | 1961 | 19.86 t/s | 100.64s |
-| `gpqa_36` | B | - | `no_answer_truncated` | 8192 | 37.94 t/s | 217.56s |
-| `gpqa_134` | D | D | `correct` | 1649 | 21.23 t/s | 80.64s |
-| `gpqa_44` | C | - | `no_answer_truncated` | 8192 | 20.94 t/s | 393.0s |
-| `gpqa_5` | C | C | `correct` | 1665 | 21.72 t/s | 78.72s |
-| `gpqa_53` | B | - | `no_answer_format` | 8192 | 17.76 t/s | 463.07s |
-| `gpqa_84` | B | - | `no_answer_format` | 8192 | 17.82 t/s | 462.38s |
-| `gpqa_80` | D | - | `no_answer_truncated` | 8192 | 23.9 t/s | 344.96s |
-| `gpqa_64` | D | - | `no_answer_truncated` | 8192 | 17.64 t/s | 466.76s |
-| `gpqa_73` | D | D | `correct` | 2115 | 21.97 t/s | 98.26s |
-| `gpqa_37` | A | - | `no_answer_truncated` | 8192 | 21.17 t/s | 389.14s |
-| `gpqa_126` | B | - | `no_answer_truncated` | 8192 | 26.11 t/s | 315.62s |
-| `gpqa_122` | B | B | `correct` | 5307 | 18.68 t/s | 286.35s |
-| `gpqa_78` | A | - | `no_answer_truncated` | 8192 | 18.48 t/s | 446.16s |
-| `gpqa_160` | A | - | `no_answer_truncated` | 8192 | 18.69 t/s | 441.04s |
-| `gpqa_66` | C | - | `no_answer_truncated` | 8192 | 19.83 t/s | 415.6s |
-| `gpqa_45` | C | - | `no_answer_format` | 8192 | 28.16 t/s | 292.3s |
-| `gpqa_184` | C | - | `no_answer_truncated` | 8192 | 18.24 t/s | 451.26s |
-| `gpqa_32` | B | - | `no_answer_format` | 8192 | 18.37 t/s | 448.5s |
-| `gpqa_52` | D | - | `no_answer_truncated` | 8192 | 16.33 t/s | 503.52s |
-| `gpqa_192` | C | - | `no_answer_truncated` | 8192 | 18.46 t/s | 445.32s |
-| `gpqa_174` | B | - | `no_answer_truncated` | 8192 | 16.24 t/s | 506.75s |
-| `gpqa_10` | B | - | `no_answer_truncated` | 8192 | 17.91 t/s | 460.47s |
-| `gpqa_60` | D | - | `no_answer_truncated` | 8192 | 16.6 t/s | 495.63s |
-| `gpqa_170` | C | C | `correct` | 4389 | 18.08 t/s | 245.12s |
-| `gpqa_47` | A | - | `no_answer_truncated` | 8192 | 17.41 t/s | 472.39s |
-| `gpqa_131` | A | - | `no_answer_format` | 8192 | 16.24 t/s | 507.44s |
-| `gpqa_103` | B | - | `no_answer_truncated` | 8192 | 18.26 t/s | 450.93s |
-| `gpqa_193` | D | - | `no_answer_truncated` | 8192 | 18.69 t/s | 440.49s |
-| `gpqa_95` | D | - | `no_answer_truncated` | 8192 | 17.96 t/s | 457.95s |
-| `gpqa_144` | C | - | `no_answer_truncated` | 8192 | 16.4 t/s | 500.93s |
-| `gpqa_100` | D | - | `no_answer_truncated` | 8192 | 22.58 t/s | 800.48s |
-| `gpqa_142` | C | - | `no_answer_truncated` | 8192 | 21.15 t/s | 390.25s |
-| `gpqa_61` | B | - | `no_answer_format` | 8192 | 17.31 t/s | 475.55s |
+| `gpqa_110` | A | - | `no_answer_truncated` | 8192 | 18.67 t/s | 441.42s |
+| `gpqa_42` | A | - | `no_answer_truncated` | 8192 | 18.89 t/s | 435.77s |
+| `gpqa_2` | B | B | `correct` | 2457 | 22.6 t/s | 110.52s |
+| `gpqa_156` | A | A | `correct` | 1795 | 20.85 t/s | 88.01s |
+| `gpqa_128` | A | - | `no_answer_truncated` | 8192 | 18.51 t/s | 445.03s |
+| `gpqa_12` | D | - | `no_answer_format` | 8192 | 19.42 t/s | 424.43s |
+| `gpqa_79` | D | - | `no_answer_format` | 8192 | 18.77 t/s | 438.04s |
+| `gpqa_13` | B | B | `correct` | 1638 | 19.63 t/s | 85.1s |
+| `gpqa_127` | D | - | `no_answer_truncated` | 8192 | 17.88 t/s | 475.78s |
+| `gpqa_69` | C | - | `no_answer_truncated` | 8192 | 19.47 t/s | 422.83s |
+| `gpqa_3` | C | C | `correct` | 2027 | 21.53 t/s | 95.91s |
+| `gpqa_185` | A | - | `no_answer_format` | 8192 | 18.43 t/s | 446.37s |
+| `gpqa_30` | B | - | `no_answer_truncated` | 8192 | 19.13 t/s | 429.85s |
+| `gpqa_165` | C | C | `correct` | 2154 | 19.28 t/s | 118.3s |
+| `gpqa_169` | C | C | `correct` | 2167 | 22.74 t/s | 96.97s |
+| `gpqa_15` | D | - | `no_answer_format` | 8192 | 18.26 t/s | 450.74s |
+| `gpqa_159` | A | A | `correct` | 1209 | 22.37 t/s | 55.83s |
+| `gpqa_36` | B | - | `no_answer_format` | 8192 | 18.52 t/s | 444.14s |
+| `gpqa_134` | D | D | `correct` | 1138 | 21.88 t/s | 54.61s |
+| `gpqa_44` | C | C | `correct` | 5781 | 20.01 t/s | 290.7s |
+| `gpqa_5` | C | C | `correct` | 1946 | 22.81 t/s | 87.32s |
+| `gpqa_53` | B | - | `no_answer_truncated` | 8192 | 18.51 t/s | 444.6s |
+| `gpqa_84` | B | B | `correct` | 5957 | 19.35 t/s | 310.4s |
+| `gpqa_80` | D | - | `no_answer_truncated` | 8192 | 19.08 t/s | 431.61s |
+| `gpqa_64` | D | - | `no_answer_truncated` | 8192 | 19.5 t/s | 422.75s |
+| `gpqa_73` | D | - | `no_answer_truncated` | 8192 | 18.8 t/s | 437.41s |
+| `gpqa_37` | A | - | `no_answer_truncated` | 8192 | 18.0 t/s | 457.62s |
+| `gpqa_126` | B | - | `no_answer_truncated` | 8192 | 19.55 t/s | 420.66s |
+| `gpqa_122` | B | B | `correct` | 5978 | 19.75 t/s | 304.74s |
+| `gpqa_78` | A | - | `no_answer_truncated` | 8192 | 17.95 t/s | 459.26s |
+| `gpqa_160` | A | A | `correct` | 6681 | 18.63 t/s | 360.97s |
+| `gpqa_66` | C | - | `no_answer_truncated` | 8192 | 18.47 t/s | 445.54s |
+| `gpqa_45` | C | - | `no_answer_format` | 8192 | 18.49 t/s | 444.38s |
+| `gpqa_184` | C | - | `no_answer_truncated` | 8192 | 18.54 t/s | 443.78s |
+| `gpqa_32` | B | - | `no_answer_format` | 8192 | 17.84 t/s | 461.67s |
+| `gpqa_52` | D | - | `no_answer_truncated` | 8192 | 18.26 t/s | 450.87s |
+| `gpqa_192` | C | - | `no_answer_truncated` | 8192 | 18.26 t/s | 450.37s |
+| `gpqa_174` | B | - | `no_answer_truncated` | 8192 | 18.05 t/s | 455.82s |
+| `gpqa_10` | B | - | `no_answer_truncated` | 8192 | 18.04 t/s | 456.99s |
+| `gpqa_60` | D | - | `no_answer_truncated` | 8192 | 17.89 t/s | 459.93s |
+| `gpqa_170` | C | - | `no_answer_format` | 8192 | 17.95 t/s | 458.76s |
+| `gpqa_47` | A | - | `no_answer_truncated` | 8192 | 19.3 t/s | 426.29s |
+| `gpqa_131` | A | - | `no_answer_format` | 8192 | 18.17 t/s | 453.47s |
+| `gpqa_103` | B | - | `no_answer_truncated` | 8192 | 18.36 t/s | 448.38s |
+| `gpqa_193` | D | - | `no_answer_truncated` | 8192 | 18.6 t/s | 442.61s |
+| `gpqa_95` | D | - | `no_answer_truncated` | 8192 | 19.02 t/s | 432.57s |
+| `gpqa_144` | C | - | `no_answer_truncated` | 8192 | 18.42 t/s | 446.28s |
+| `gpqa_100` | D | - | `no_answer_truncated` | 8192 | 18.96 t/s | 434.21s |
+| `gpqa_142` | C | - | `no_answer_format` | 8192 | 19.18 t/s | 430.02s |
+| `gpqa_61` | B | - | `no_answer_truncated` | 8192 | 18.18 t/s | 452.85s |
