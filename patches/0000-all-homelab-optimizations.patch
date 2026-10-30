@@ -120,6 +120,19 @@ index 66695af0..c1a21e28 100644
      if (!new_msg.empty()) {
          //new_msg.ensure_tool_call_ids_set(generated_tool_call_ids, gen_tool_call_id);
          new_msg.set_tool_call_ids(generated_tool_call_ids, gen_tool_call_id);
+diff --git a/examples/server/server.cpp b/examples/server/server.cpp
+index 1e33a8be..85c1858a 100644
+--- a/examples/server/server.cpp
++++ b/examples/server/server.cpp
+@@ -427,7 +427,7 @@ auto res_err = [](httplib::Response& res, json error_data) {
+ };
+ 
+ auto res_ok = [](httplib::Response& res, const json& data) {
+-    res.set_content(data.dump(), "application/json; charset=utf-8");
++    res.set_content(safe_json_to_str(data), "application/json; charset=utf-8");
+     res.status = 200;
+ };
+ 
 diff --git a/examples/speculative/speculative.cpp b/examples/speculative/speculative.cpp
 index 714a989a..1216c622 100644
 --- a/examples/speculative/speculative.cpp

@@ -41,6 +41,12 @@ Together, these patches provide the foundational performance gains demonstrated 
 - **Solution:** Replaced exception throws in `common_chat_peg_parse` with graceful raw content fallbacks and wrapped `common_chat_parse` inside `server_slot::update_chat_msg` in `try/catch` blocks.
 - **Measured Effect:** Prevents server crashes during long-horizon evaluations and ensures completed generation tokens are returned safely to the client.
 
+### 6. `0006-fix-server-safe-json-to-str-utf8-truncation.patch`
+- **Component:** `examples/server/server.cpp`
+- **Problem:** When autoregressive token decoding reaches a context ceiling or is terminated midway through a multi-byte UTF-8 character sequence, calling `nlohmann::json::dump()` inside HTTP response handler `res_ok` threw an unhandled `type_error`, aborting the response with HTTP 500.
+- **Solution:** Calls `safe_json_to_str(data)` in `res_ok`, which configures `nlohmann::json::error_handler_t::replace` to safely replace incomplete bytes with the Unicode replacement character `\ufffd`.
+- **Measured Effect:** Guarantees zero dropped completions or server 500 errors when evaluations hit context limits on non-ASCII boundaries.
+
 ---
 
 ## Applying Patches
