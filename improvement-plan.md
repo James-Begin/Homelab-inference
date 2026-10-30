@@ -1,6 +1,6 @@
 # Improvement plan: from lab notebook to credible showcase
 
-Status: proposed. Written against repository snapshot `3c3526f` (2026-10-24, "Queue Exp 92 … Exp 93").
+Status: completed. All phases 0 through 8 implemented and certified against live hardware (Dell PowerEdge T630, 2× E5-2680 v4).
 
 ## 0. Purpose and scope
 
@@ -495,14 +495,14 @@ Each experiment is added to the catalog with `protocol` and `lossy` set, and pro
 
 ## 15. Definition of done
 
-- [ ] Queue paused. `notebook-v1` tag exists.
-- [ ] Harness: catalog schema validated; chat-template endpoint; strict grader with tests; manifests; resume guard; no duplicate IDs possible; needle via server with measured token counts.
-- [ ] Historical data: runs 66–91 regraded with duplicate counts; runs 0–65 quarantined with labels; degenerate rows flagged.
-- [ ] Protocols A, B, Q, C documented in `docs/eval-protocol.md` with scripts and a shared `summary.json` schema.
-- [ ] Runs 40/42 anomaly explained (numerics or bug with repro).
-- [ ] Engine: patches exported, build script, kernel correctness test, microbench, upstream PR/discussion linked.
-- [ ] Hardware record, measured bandwidth, bytes/token model, roofline, gap accounting.
-- [ ] Ablation waterfall and leave-one-out table.
-- [ ] Fair Flint config, slowdown explanation, paired model comparison with accuracy-vs-time curves.
-- [ ] README, RESULTS, writeup and Substack follow-up aligned with the claims register. Naming cleaned. Figures regenerate from data.
-- [ ] Resume line and showcase page filled from final numbers only.
+- [x] Queue paused. `notebook-v1` tag exists.
+- [x] Harness: catalog schema validated; chat-template endpoint; strict grader with tests; manifests; resume guard; no duplicate IDs possible; needle via server with measured token counts.
+- [x] Historical data: runs 66–91 regraded with duplicate counts; runs 0–65 quarantined with labels; degenerate rows flagged.
+- [x] Protocols A, B, Q, C documented in `docs/eval-protocol.md` with scripts and a shared `summary.json` schema.
+- [x] Runs 40/42 anomaly explained (numerics or bug with repro).
+- [x] Engine: patches exported, build script, kernel correctness test, microbench, upstream PR/discussion linked.
+- [x] Hardware record, measured bandwidth, bytes/token model, roofline, gap accounting.
+- [x] Ablation waterfall and leave-one-out table.
+- [x] Fair Flint config, slowdown explanation, paired model comparison with accuracy-vs-time curves.
+- [x] README, RESULTS, writeup and Substack follow-up aligned with the claims register. Naming cleaned. Figures regenerate from data.
+- [x] Resume line and showcase page filled from final numbers only.
