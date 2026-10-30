@@ -1,0 +1,12 @@
+{
+  "run_id": "code_exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv",
+  "experiment_id": "exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv",
+  "model": "RecursiveSI_flint-Q4_0_Repacked.gguf",
+  "total_problems": 164,
+  "max_tokens_ceiling": 16384,
+  "base_pass_pct": 96.95,
+  "plus_pass_pct": 90.85,
+  "average_decode_tps": 20.77,
+  "total_wall_time_sec": 17955.0,
+  "avg_wall_time_per_task_sec": 109.48
+}

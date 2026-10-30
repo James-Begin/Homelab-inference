@@ -1,0 +1,12 @@
+{
+  "run_id": "code_exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv",
+  "experiment_id": "exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv",
+  "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+  "total_problems": 164,
+  "max_tokens_ceiling": 16384,
+  "base_pass_pct": 66.46,
+  "plus_pass_pct": 65.24,
+  "average_decode_tps": 21.31,
+  "total_wall_time_sec": 31883.5,
+  "avg_wall_time_per_task_sec": 194.41
+}

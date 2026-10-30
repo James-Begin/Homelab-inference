@@ -132,9 +132,10 @@ def query_chat_completion(
         data=data,
         headers={"Content-Type": "application/json"}
     )
+    req_timeout = max(1800, int(max_tokens / 10.0) + 300)
     for attempt in range(3):
         try:
-            with urllib.request.urlopen(req, timeout=600) as resp:
+            with urllib.request.urlopen(req, timeout=req_timeout) as resp:
                 res = json.loads(resp.read().decode("utf-8"))
                 choice = res.get("choices", [{}])[0]
                 msg = choice.get("message", {})
@@ -186,9 +187,10 @@ def query_raw_completion(
         data=data,
         headers={"Content-Type": "application/json"}
     )
+    req_timeout = max(1800, int(max_tokens / 10.0) + 300)
     for attempt in range(3):
         try:
-            with urllib.request.urlopen(req, timeout=600) as resp:
+            with urllib.request.urlopen(req, timeout=req_timeout) as resp:
                 res = json.loads(resp.read().decode("utf-8"))
                 timings = res.get("timings", {})
                 return {
@@ -217,7 +219,8 @@ def run_eval(
     dry_run: bool = False,
     endpoint: str = "chat",
     gpqa_path: Optional[Path] = None,
-    force_new_run: bool = False
+    force_new_run: bool = False,
+    run_suffix: str = ""
 ) -> int:
     catalog = load_catalog()
     exp = get_experiment(catalog, exp_key)
@@ -246,7 +249,7 @@ def run_eval(
 
     server_flags = exp["server_flags"].format(port=port)
     # Ensure server context -c has sufficient headroom for max_tokens generation + prompt
-    needed_ctx = max(16384, max_tokens + 4096)
+    needed_ctx = max(32768, max_tokens + 4096) if max_tokens >= 8192 else max(16384, max_tokens + 4096)
     if "-c " in server_flags:
         server_flags = re.sub(
             r"-c\s+(\d+)",
@@ -261,7 +264,7 @@ def run_eval(
     argv = shlex.split(full_cmd)
 
     # Manifest and Run Directory Setup
-    run_id = f"run_{exp['id']}"
+    run_id = f"run_{exp['id']}{run_suffix}"
     run_dir = RUNS_DIR / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest_file = run_dir / "manifest.json"
@@ -308,6 +311,10 @@ def run_eval(
                 r = json.loads(line)
                 existing_rows[r["id"]] = r
         print(f"Resuming run: loaded {len(existing_rows)} completed questions.")
+
+    if len(existing_rows) >= len(questions) and summary_file.exists():
+        print(f"All {len(questions)} questions already completed for {exp_key}. Skipping generation.")
+        return 0
 
     # Launch server
     free_port(port)

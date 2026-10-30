@@ -1,0 +1,13 @@
+{
+  "run_id": "run_exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv_16k_runway",
+  "experiment_id": "exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv",
+  "model": "RecursiveSI_flint-Q4_0_Repacked.gguf",
+  "total_questions": 50,
+  "max_tokens_ceiling": 16384,
+  "strict_score": "23/50",
+  "strict_pct": 46.0,
+  "lenient_score": "29/50",
+  "lenient_pct": 58.0,
+  "truncated_count": 19,
+  "average_decode_tps": 15.99
+}

@@ -6,8 +6,8 @@
   "max_tokens_ceiling": 8192,
   "strict_score": "13/50",
   "strict_pct": 26.0,
-  "lenient_score": "10/50",
-  "lenient_pct": 20.0,
+  "lenient_score": "20/50",
+  "lenient_pct": 40.0,
   "truncated_count": 27,
   "average_decode_tps": 19.18
 }

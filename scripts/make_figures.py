@@ -233,39 +233,39 @@ def generate_accuracy_budget_svg(out_path: Path):
     svg.append(f'<text x="{margin_l}" y="32" class="title">Strict Reasoning Accuracy vs. Wall-Clock Budget</text>')
     svg.append(f'<text x="{margin_l}" y="48" class="subtitle">Protocol C Benchmark: Flint 40B vs. Qwen 3.6 35B under Wall-Clock Thinking Limits</text>')
 
-    # Y-axis (0% to 50%)
-    for y_val in [0, 10, 20, 30, 40, 50]:
-        y_pos = margin_t + plot_h - (y_val / 50.0) * plot_h
+    # Y-axis (0% to 60%)
+    for y_val in [0, 10, 20, 30, 40, 50, 60]:
+        y_pos = margin_t + plot_h - (y_val / 60.0) * plot_h
         svg.append(f'<line x1="{margin_l}" y1="{y_pos}" x2="{width - margin_r}" y2="{y_pos}" class="grid" />')
         svg.append(f'<text x="{margin_l - 10}" y="{y_pos + 4}" class="axis-label" text-anchor="end">{y_val}%</text>')
 
-    budgets = ["30s", "60s", "120s", "300s", "600s"]
-    x_positions = [margin_l + i * (plot_w / 4) for i in range(5)]
+    budgets = ["30s", "60s", "120s", "300s", "600s", "1200s (20m)"]
+    x_positions = [margin_l + i * (plot_w / 5) for i in range(6)]
 
     for x_pos, label in zip(x_positions, budgets):
         svg.append(f'<line x1="{x_pos}" y1="{margin_t}" x2="{x_pos}" y2="{margin_t + plot_h}" class="grid" />')
         svg.append(f'<text x="{x_pos}" y="{margin_t + plot_h + 20}" class="axis-label" text-anchor="middle">{label}</text>')
 
-    svg.append(f'<text x="{margin_l + plot_w/2}" y="{margin_t + plot_h + 45}" class="axis-label" text-anchor="middle" font-weight="bold">Thinking Time Budget per Problem (Seconds)</text>')
+    svg.append(f'<text x="{margin_l + plot_w/2}" y="{margin_t + plot_h + 45}" class="axis-label" text-anchor="middle" font-weight="bold">Thinking Time Budget per Problem (Wall-Clock Seconds)</text>')
     svg.append(f'<line x1="{margin_l}" y1="{margin_t + plot_h}" x2="{width - margin_r}" y2="{margin_t + plot_h}" stroke="#94a3b8" stroke-width="1.5" />')
 
-    # Data: Flint strict accuracy vs budget
-    # 30s: 2.0%, 60s: 8.0%, 120s: 18.0%, 300s: 24.0%, 600s: 38.0%
-    flint_data = [(x_positions[0], 2.0), (x_positions[1], 8.0), (x_positions[2], 18.0), (x_positions[3], 24.0), (x_positions[4], 38.0)]
-    flint_path = "M " + " L ".join(f"{x},{margin_t + plot_h - (y/50.0)*plot_h}" for x, y in flint_data)
+    # Data: Flint strict accuracy vs budget (Protocol C-gpqa-v2 16K Runway)
+    # <=30s: 4.0%, <=60s: 12.0%, <=120s: 14.0%, <=300s: 26.0%, <=600s: 38.0%, <=1200s: 46.0%
+    flint_data = [(x_positions[0], 4.0), (x_positions[1], 12.0), (x_positions[2], 14.0), (x_positions[3], 26.0), (x_positions[4], 38.0), (x_positions[5], 46.0)]
+    flint_path = "M " + " L ".join(f"{x},{margin_t + plot_h - (y/60.0)*plot_h}" for x, y in flint_data)
     svg.append(f'<path d="{flint_path}" class="curve-flint" />')
     for x, y in flint_data:
-        yp = margin_t + plot_h - (y / 50.0) * plot_h
+        yp = margin_t + plot_h - (y / 60.0) * plot_h
         svg.append(f'<circle cx="{x}" cy="{yp}" r="6" fill="#d97706" stroke="#ffffff" stroke-width="2"/>')
         svg.append(f'<text x="{x}" y="{yp - 10}" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">{y:.1f}%</text>')
 
-    # Data: Qwen strict accuracy vs budget
-    # 30s: 0.0%, 60s: 4.0%, 120s: 14.0%, 300s: 18.0%, 600s: 22.0%
-    qwen_data = [(x_positions[0], 0.0), (x_positions[1], 4.0), (x_positions[2], 14.0), (x_positions[3], 18.0), (x_positions[4], 22.0)]
-    qwen_path = "M " + " L ".join(f"{x},{margin_t + plot_h - (y/50.0)*plot_h}" for x, y in qwen_data)
+    # Data: Qwen strict accuracy vs budget (Protocol C-gpqa-v2 16K Runway)
+    # <=30s: 0.0%, <=60s: 4.0%, <=120s: 18.0%, <=300s: 20.0%, <=600s: 28.0%, <=1200s: 38.0%
+    qwen_data = [(x_positions[0], 0.0), (x_positions[1], 4.0), (x_positions[2], 18.0), (x_positions[3], 20.0), (x_positions[4], 28.0), (x_positions[5], 38.0)]
+    qwen_path = "M " + " L ".join(f"{x},{margin_t + plot_h - (y/60.0)*plot_h}" for x, y in qwen_data)
     svg.append(f'<path d="{qwen_path}" class="curve-qwen" />')
     for x, y in qwen_data:
-        yp = margin_t + plot_h - (y / 50.0) * plot_h
+        yp = margin_t + plot_h - (y / 60.0) * plot_h
         svg.append(f'<circle cx="{x}" cy="{yp}" r="6" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>')
         svg.append(f'<text x="{x}" y="{yp + 18}" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">{y:.1f}%</text>')
 

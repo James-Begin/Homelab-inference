@@ -4,16 +4,27 @@ Dual Intel Xeon E5-2680 v4 (28 physical cores, Broadwell AVX2), 256 GB DDR4-2400
 All measurements adhere to the certified protocols defined in [`docs/eval-protocol.md`](docs/eval-protocol.md).
 Historical exploratory runs (Runs 0–65) are archived in [`archive/README.md`](archive/README.md).
 
-## 1. Certified Protocol C-gpqa-v2 Production Runs (8,192-Token Runway)
+## 1. Certified Protocol C-code-v1 Coding Suite (EvalPlus HumanEval+ 164 Problems)
 
-Evaluated on the standardized 50-Question GPQA Diamond subset under strict parsing (`Final answer: X` outside reasoning blocks). Server context size expanded to `-c 16384` with unconstrained `--max-tokens 8192`.
+Evaluated on the full 164 coding tasks using the EvalPlus sandbox verification suite (`evalplus` v0.3.1). Pass@1 greedy decoding with full physical core pinning and NUMA interleaving.
 
-| Exp | Model | Architecture | Decode t/s | Strict Score | Strict % | Natural Accuracy | Truncated % | Report |
+| Exp | Model | Architecture | Base Pass@1 | Plus Pass@1 | Decode Speed | Avg Time / Task | Total Time | Report |
 | :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| 50 | `Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf` | Qwen 3.6 35B MoE | 19.18 | **13/50** | **26.0%** | **13/13** (100.0%) | 54.0% | [report](logs/runs/run_exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv/report.md) |
-| 94 | `RecursiveSI_flint-Q4_0_Repacked.gguf` | Recursive Flint 40B MoE | 17.14 | **18/50** | **36.0%** | **18/21** (85.7%) | 0.0% | [report](logs/runs/run_exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv/report.md) |
+| 50 | `Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf` | Qwen 3.6 35B MoE | **66.5%** | **65.2%** | 21.31 t/s | 194.4s | 531.4 min | [report](logs/runs/code_exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv/report.md) |
+| 94 | `RecursiveSI_flint-Q4_0_Repacked.gguf` | Recursive Flint 40B MoE | **97.0%** | **90.8%** | 20.77 t/s | 109.5s | 299.2 min | [report](logs/runs/code_exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv/report.md) |
 
-## 2. Audited & Regraded Historical Task Evaluations (Runs 66–95)
+## 2. Certified Protocol C-gpqa-v2 Reasoning Suite: 8K vs. 16K Runway Scaling
+
+Evaluated on the standardized 50-Question GPQA Diamond subset under strict parsing (`Final answer: X` outside reasoning blocks) and audited lenient parsing. Comparing 8,192-token runway (`-c 16384`) vs. 16,384-token runway (`-c 32768`).
+
+| Exp | Model | Runway | Decode t/s | Strict Score | Strict % | Lenient % | Natural Completions | Truncated % | Report |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| 50 | `Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf` | 8K (8,192) | 19.18 | **13/50** | **26.0%** | 40.0% | **13/13** (100.0%) | 54.0% | [report](logs/runs/run_exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv/report.md) |
+| 50 | `Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf` | 16K (16,384) | 17.60 | **19/50** | **38.0%** | 46.0% | **19/25** (76.0%) | 42.0% | [report](logs/runs/run_exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv_16k_runway/report.md) |
+| 94 | `RecursiveSI_flint-Q4_0_Repacked.gguf` | 8K (8,192) | 17.14 | **18/50** | **36.0%** | 44.0% | **18/21** (85.7%) | 0.0% | [report](logs/runs/run_exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv/report.md) |
+| 94 | `RecursiveSI_flint-Q4_0_Repacked.gguf` | 16K (16,384) | 15.99 | **23/50** | **46.0%** | 58.0% | **23/31** (74.2%) | 38.0% | [report](logs/runs/run_exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv_16k_runway/report.md) |
+
+## 3. Audited & Regraded Historical Task Evaluations (Runs 66–95)
 
 Evaluated on the 50-Question GPQA Diamond subset under strict parsing (`^\s*Final answer:\s*\(?([A-D])\)?\s*$`). Text within reasoning blocks is excluded; unclosed chains of thought evaluate strictly to `None`.
 
@@ -50,11 +61,12 @@ Evaluated on the 50-Question GPQA Diamond subset under strict parsing (`^\s*Fina
 | 94 | `exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv_checkpoint` | 50 | **12/50** | **24.0%** | 38.0% | [report](archive/notebook-v1/gpqa_reports/gpqa_exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv_checkpoint_50q_report.md) |
 | 95 | `exp95_flint_unsloth_ud_q3kxl_repacked_muge_ngram_mod_slot050_decoupled26_ceiling4096_q4kv_checkpoint` | 50 | **12/50** | **24.0%** | 34.0% | [report](archive/notebook-v1/gpqa_reports/gpqa_exp95_flint_unsloth_ud_q3kxl_repacked_muge_ngram_mod_slot050_decoupled26_ceiling4096_q4kv_checkpoint_50q_report.md) |
 
-## 3. Standard Controlled Protocols
+## 4. Standard Controlled Protocols
 
 - **Protocol A (Controlled Throughput):** Standardized 12-prompt suite, fixed 512 tokens, 5 repetitions, median & IQR.
 - **Protocol B (Lossless Equivalence):** Greedy token match against reference.
 - **Protocol Q (Lossy KLD Divergence):** 150K-token reference perplexity shift.
 - **Protocol C-code (Coding Capabilities):** EvalPlus HumanEval+ pass@1 greedy.
+- **Protocol C-gpqa (Scientific Reasoning):** GPQA Diamond 50 questions strict parsing.
 
 See [`archive/REGRADED_SUMMARY.md`](archive/REGRADED_SUMMARY.md) for full breakdown of dropped duplicate IDs in historical checkpoints.

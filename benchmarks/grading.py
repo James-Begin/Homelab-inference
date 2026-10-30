@@ -64,26 +64,29 @@ def extract_answer_strict(completion_text: str) -> Optional[str]:
 
 def extract_answer_lenient(completion_text: str) -> Optional[str]:
     """
-    Legacy permissive extractor (for comparative auditing):
-    Accepts choice/option followed by a letter, or any lone A-D on the last line.
+    Permissive extractor (for comparative auditing):
+    If strict extractor succeeds, lenient agrees with strict.
+    Otherwise searches for the LAST choice/option assertion or lone A-D at the end of the text.
     """
+    strict = extract_answer_strict(completion_text)
+    if strict:
+        return strict
+
     clean_text = completion_text
     if "</think>" in clean_text:
-        clean_text = clean_text.split("</think>", 1)[1]
-    elif "<think>" in clean_text:
-        return None
+        clean_text = clean_text.split("</think>")[-1]
 
-    match = re.search(
-        r"(?:final answer is|the correct answer is|correct answer is|answer is|choice|option)[:\*\s]*\s*(?:\(?([A-D])\)?)",
+    matches = re.findall(
+        r"(?:final answer is|the correct answer is|correct answer is|the answer is|answer is|choice|option)[:\*\s]*\s*(?:\(?([A-D])\)?)(?:[\s\.\*\)\:\n]|$)",
         clean_text,
         re.IGNORECASE,
     )
-    if match:
-        return match.group(1).upper()
+    if matches:
+        return matches[-1].upper()
 
-    match = re.search(r"\\boxed\{\s*\(?([A-D])\)?\s*\}", clean_text)
-    if match:
-        return match.group(1).upper()
+    boxed_matches = re.findall(r"\\boxed\{\s*\(?([A-D])\)?\s*\}", clean_text)
+    if boxed_matches:
+        return boxed_matches[-1].upper()
 
     lines = [line.strip() for line in clean_text.splitlines() if line.strip()]
     if lines:
