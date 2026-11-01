@@ -26,6 +26,7 @@ def bin_dir() -> Path:
 
 def expand(text: str, **extra: object) -> str:
     values = {
+        "root": str(ROOT),
         "models": str(models_dir()),
         "bin": str(bin_dir()),
     }

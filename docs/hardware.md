@@ -1,69 +1,39 @@
-# Platform Record & Hardware Characterization
+# Hardware
 
-Status: Certified empirical measurements on host `talos` (Dell PowerEdge T630).
-Implements Phase 5 (Tasks 5.1 & 5.2) of [`improvement-plan.md`](../improvement-plan.md).
+The server is a Dell PowerEdge T630 with two Intel Xeon E5-2680 v4 processors. Each socket has 14 physical cores and its own memory controller. Talos exposes 28 physical cores, 56 logical CPUs, and two NUMA nodes.
 
----
+| Component | Configuration |
+| --- | --- |
+| CPU | 2 × E5-2680 v4, Broadwell-EP |
+| Clock | 2.4 GHz base, up to 3.3 GHz turbo; actual frequency varies with load |
+| Vector instructions | AVX2, FMA3, F16C; no AVX-512, VNNI, or AMX |
+| Installed memory | 256 GB registered ECC DDR4 |
+| Populated DIMMs | 18: fourteen 16 GB and four 8 GB modules |
+| Configured DIMM rate | 1866 MT/s on every populated module |
+| Populated memory channels | Three per socket |
+| Interconnect | Two bidirectional QPI links, rated up to 9.6 GT/s each |
 
-## 1. Compute & Processor Topology
+The DIMM layout comes from a read-only SMBIOS inventory taken on October 31, 2026. Each socket has 128 GB spread across its channels as 48, 0, 40, and 40 GB. The empty channel matters: the CPU supports four DDR4-2400 channels, but that specification does not describe the installed configuration. The inventory does not establish the memory layout during every earlier run.
 
-- **Server Model:** Dell PowerEdge T630
-- **Processors:** 2× Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40 GHz (Broadwell-EP, 14nm)
-- **Sockets:** 2
-- **Physical Cores:** 28 total (14 physical cores per socket)
-- **Logical Threads:** 56 total (SMT / Hyperthreading enabled, 2 threads per core)
-- **Base Frequency:** 2.40 GHz
-- **All-Core Turbo:** ~2.90 GHz | Max Single-Core Turbo: 3.30 GHz
-- **Instruction Extensions:** AVX2, FMA3, F16C, BMI1, BMI2, AES-NI (Broadwell AVX2 without AVX-512)
+## Cache and memory paths
 
-### Cache Hierarchy
-- **L1 Data Cache (L1d):** 32 KiB × 28 instances = **896 KiB** (8-way associative, 64-byte line size)
-- **L1 Instruction Cache (L1i):** 32 KiB × 28 instances = **896 KiB** (8-way associative, 64-byte line size)
-- **L2 Cache:** 256 KiB × 28 instances = **7 MiB** (8-way associative, 64-byte line size)
-- **L3 Smart Cache:** 35 MiB × 2 instances = **70 MiB** shared LLC (20-way associative)
+| Cache | Capacity | Sharing |
+| --- | ---: | --- |
+| L1 data | 32 KiB per core | The core's two hardware threads |
+| L1 instruction | 32 KiB per core | The core's two hardware threads |
+| L2 | 256 KiB per core | The core's two hardware threads |
+| L3 | 35 MiB per socket | Cores on that socket |
 
----
+All reported cache line sizes are 64 bytes. The two L3 domains add to 70 MiB of installed cache; they are separate socket-local caches. An AVX2 register holds 32 bytes. Neither quantity is a 64 KiB cache limit.
 
-## 2. Memory Subsystem & NUMA Topology
+A read served from the other socket's RAM crosses QPI. NUMA placement can therefore change where traffic travels, although core affinity alone does not prove page locality. Talos's NUMA distance table reports local distance 10 and remote distance 21; those are scheduler distance values, not measured load-latency ratios.
 
-- **Total RAM:** 256 GB DDR4 Registered ECC
-- **Topology:** 2 NUMA nodes (128 GB per socket)
-  - **NUMA Node 0:**
-    - Physical Cores: `0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26`
-    - Hyperthreads: `28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54`
-    - Memory: 128,808 MB
-  - **NUMA Node 1:**
-    - Physical Cores: `1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27`
-    - Hyperthreads: `29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55`
-    - Memory: 129,010 MB
-- **NUMA Distance Matrix:**
-  | Node | 0 | 1 |
-  | :---: | :---: | :---: |
-  | **0** | 10 | 21 |
-  | **1** | 21 | 10 |
-  - Interconnect: Dual Intel QPI links (9.6 GT/s) with a NUMA latency penalty factor of $2.1\times$.
+The populated channels give a nominal data-bus ceiling of `1.866e9 × 8 × 3 = 44.784 GB/s` per socket. This arithmetic excludes controller overhead and contention. Unequal channel capacities also prevent uniform three-channel interleaving over all installed memory.
 
----
+The [memory-path note](memory-speeds.md) separates configured DIMM rates, Intel's cache references, and the derived QPI packet ceiling. It includes the filtered inventory and primary sources. No reproducible STREAM output or memory-controller counter capture was found in the saved project records, so this repository does not claim a measured DRAM bandwidth ceiling.
 
-## 3. Measured Memory Bandwidth (STREAM Triad)
+## CPU affinity
 
-Rather than citing theoretical peak numbers (e.g. 76.8 GB/s per socket based on idealized bus arithmetic), actual sustainable memory bandwidth was measured on this machine using a standard OpenMP AVX2 STREAM Triad benchmark ($N = 80,000,000$ doubles, 1.92 GB active footprint, $\gg 70\text{ MB}$ LLC):
+On the inspected host, node 0's first hardware threads have logical IDs `0, 2, …, 26`; node 1's have `1, 3, …, 27`. Their SMT siblings are 28 IDs higher. This numbering is host-specific. Check socket, core, and sibling IDs before reusing an affinity list on another machine.
 
-| NUMA Configuration | Physical Cores | Pinned Command | Measured Bandwidth | Relative vs. Single Socket |
-| :--- | :---: | :--- | :---: | :---: |
-| **Local Single Socket (Node 0)** | 14 | `numactl --cpunodebind=0 --membind=0` | **`21.44 GB/s`** | 1.00× (Baseline) |
-| **Remote Access (CPU 0 → Mem 1)** | 14 | `numactl --cpunodebind=0 --membind=1` | **`14.52 GB/s`** | **0.68× (-32.3%)** |
-| **Dual Socket Interleaved (`--interleave=all`)** | 28 | `numactl --interleave=all --physcpubind=0,2..26,1,3..27` | **`35.22 GB/s`** | **1.64× (+64.3%)** |
-
-### Key Takeaways for Model Serving
-1. **Remote Memory Penalty:** Accessing weights allocated on the opposite socket incurs a **32.3% bandwidth penalty** over the QPI interconnect. Single-socket configurations must never span across remote memory.
-2. **Dual-Socket Interleaving Benefit:** Distributing model weights round-robin across both sockets via `numactl --interleave=all` aggregates memory channels across both Broadwell memory controllers, unlocking **`35.22 GB/s` sustainable DRAM bandwidth** (+64.3% higher throughput than a single socket).
-
----
-
-## 4. Operating System & Kernel Environment
-
-- **OS:** Ubuntu 24.04.1 LTS (Linux 6.8.0-147-generic, x86_64)
-- **CPU Scaling Governor:** `schedutil`
-- **Transparent Hugepages (THP):** `always [madvise] never` (configured to `madvise` to eliminate kernel page-fault tail latencies during active tensor mapping)
-- **Compiler:** GCC 13.2.0 / Clang 18.1.3 with `-O3 -mavx2 -mfma -mf16c -fopenmp`
+Per-run settings belong in the saved manifests. The source and build assumptions are described in [reproduction.md](reproduction.md).

@@ -1,41 +1,24 @@
-# Archive: Historical Notebook (Runs 0–95)
+# Historical experiments
 
-This directory quarantines artifacts, checkpoints, and runners from the exploratory phase of the project (tag `notebook-v1`, commits up to `1d0cd38`).
+This directory keeps the exploratory runs, old runners, and superseded explanations. Their original wording and measurements are preserved as records. Claims such as “certified,” “lossless,” or “100% utilization” in those files are historical claims, rather than conclusions of the current README.
 
-## 1. Overview and Validity Classification
+Start with [the current results](../RESULTS.md) and [evaluation notes](../docs/eval-protocol.md) for the retained comparison and its limits.
 
-| Run Series | Status | Scoring Method | Can Regrade? | Throughput Validity |
-| :--- | :--- | :--- | :---: | :--- |
-| **Runs 0–65** | Quarantined | Lenient regex parser on live stream; full completion text was **not recorded** in checkpoints. | **No** | Mean of variable-length decode rates; not a controlled throughput benchmark. |
-| **Runs 66–91** | Audited Historical | Full `content` saved in checkpoints. Strict and lenient parsers evaluated offline. | **Yes** | Variable-length generation speed under 4,096 token ceiling. |
-| **Runs 92–95** | Flint Series | Evaluated on Recursive Flint 40B MoE. Runs 94 & 95 port Flint to `ik_llama.cpp` (-muge 1 + repacking). | **Yes** | Controlled comparison against baseline upstream Flint. |
+| Directory | Contents |
+| --- | --- |
+| [notebook-v1/raw_checkpoints](notebook-v1/raw_checkpoints/) | Original exploratory checkpoints. Early runs often retain only a preview, so their answers cannot all be regraded. |
+| [notebook-v1/gpqa_reports](notebook-v1/gpqa_reports/) | Generated reports from the older question-answering campaign. |
+| [notebook-v1/extreme_context_reports](notebook-v1/extreme_context_reports/) | Historical passkey/context reports. These do not establish equivalent server speculation behavior. |
+| [notebook-v1/optimization_tracker](notebook-v1/optimization_tracker/) | The running experiment notebook, including failed configurations. |
+| [harness](harness/) | Historical runner snapshots recovered from Talos. |
+| [regraded](regraded/) | Previously derived strict and lenient grading of runs with saved full text. |
+| [docs](docs/README.md) | Superseded writeups and the earlier audit. |
+| [figures](figures/) | Old plots whose assumptions or supporting measurements were not established. |
+| [tools](tools/README.md) | Retired orchestration and analysis scripts. |
+| [plans](plans/) | The earlier implementation plan, including status assertions that did not match the reviewed code. |
 
-## 2. Key Findings & Known Anomalies
+The [historical regrade table](REGRADED_SUMMARY.md) is retained separately from the current coding and GPQA results. Regrading text can change an extraction decision; it does not recover missing completions, stopping metadata, or engine provenance.
 
-1. **Defect H1 / H2 (Harness Divergence):**
-   The runner committed in `benchmarks/gpqa_eval.py` at earlier commits lacked `correct` assignment and hard-coded a 1,536-token ceiling. The actual runners that produced Runs 66–91 and Runs 92–95 have been recovered from the test host and archived in `archive/harness/`.
-2. **Defect H5 / Finding 0.3 (Exp 93 Tokenizer Incompatibility):**
-   Exp 93 attempted to use `Qwen3.5-0.8B` as an auxiliary speculative draft model for `RecursiveSI_flint-Q4_0.gguf`. Tokenizer inspection confirms Flint uses a 150,144-vocabulary BPE with custom regex (type 52), whereas Qwen uses a 248,320-vocabulary BPE (type 35). Because token representations and IDs are entirely disjoint, draft acceptance was zero, yielding 10.04 t/s (identical to non-speculative baseline).
-3. **Anomaly R4 (Run 40/42 Peak Speeds):**
-   The peak speeds of 66.30 t/s reported in Runs 40 and 42 were produced by degenerate repetition loops (`<think> The. . . .`) hitting the token ceiling. Under the new protocol, all degenerate outputs are excluded from useful throughput metrics.
-4. **Offline Regrading of Runs 66–95:**
-   Regraded outputs using the strict regex extractor (`^\s*Final answer:\s*\(?([A-D])\)?\s*$`) and deduplicated question IDs are located in `archive/regraded/`. Full summary table in `archive/REGRADED_SUMMARY.md`.
+Compatibility links under `logs/` still point into this archive. The README uses one of them to link experiment 42's punctuation loop. They are aliases, not extra copies of the records.
 
-## 3. Directory Layout (`notebook-v1`)
-
-```
-archive/
-├── README.md               # Validity classification and quarantine notes
-├── REGRADED_SUMMARY.md     # Offline regraded score comparison (strict vs lenient)
-├── harness/                # Verbatim historical runners recovered from test host
-│   ├── gpqa_eval_runs66-91.py
-│   └── gpqa_eval_runs92-95.py
-├── regraded/               # Machine-readable offline regraded JSON files (runs 66-95)
-└── notebook-v1/            # Quarantined raw artifact trees from exploratory phase
-    ├── gpqa_reports/       # Historical markdown evaluation reports (runs 0-95)
-    ├── extreme_context_reports/ # Passkey needle outputs (runs 0-95; llama-passkey)
-    ├── optimization_tracker/    # Historical notebook (optimization_log_50tps.md)
-    └── raw_checkpoints/    # Historical JSON checkpoints (runs 0-95)
-```
-
-All future controlled benchmark results are maintained under `logs/runs/<id>/` complying with Protocols A, B, and C.
+The cleanup removed two byte-identical copies of the exp94/exp95 context reports from `gpqa_reports/`; their originals remain in `extreme_context_reports/`. The duplicated GPQA subset is kept once at [benchmarks/data/gpqa_subset_50.json](../benchmarks/data/gpqa_subset_50.json). Raw checkpoint responses were not edited.

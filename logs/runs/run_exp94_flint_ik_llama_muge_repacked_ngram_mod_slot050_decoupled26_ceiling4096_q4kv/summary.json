@@ -9,5 +9,14 @@
   "lenient_score": "22/50",
   "lenient_pct": 44.0,
   "truncated_count": 0,
-  "average_decode_tps": 17.14
+  "average_decode_tps": 17.14,
+  "token_limit_count": 29,
+  "at_or_above_ceiling_count": 29,
+  "derived_from": [
+    "rows.jsonl"
+  ],
+  "regeneration": "benchmarks/summarize_runs.py",
+  "valid_timing_rows": 50,
+  "invalid_timing_rows": 0,
+  "timing_filter": "Finite positive saved rate and more than one generated token"
 }

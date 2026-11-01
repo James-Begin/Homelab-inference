@@ -1,8 +1,4 @@
-#!/usr/bin/env python3
-"""
-Run Manifest and Resume Guard Module
-Implements manifest collection and resume verification per improvement-plan.md Section 5 (Phase 1.4).
-"""
+"""Record run inputs and refuse resumes when their identity changes."""
 
 import hashlib
 import json
@@ -10,155 +6,133 @@ import os
 from pathlib import Path
 import platform
 import subprocess
-from typing import Any, Dict, Optional, Tuple
 
 
-def get_git_info(repo_path: Path) -> Dict[str, str]:
-    """Extracts git commit SHA and dirty diff hash for a repository."""
-    if not (repo_path / ".git").exists():
-        return {"sha": "unknown", "diff_hash": "none", "dirty": "false"}
-
-    try:
-        sha = subprocess.check_output(
-            ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
-            text=True,
-            stderr=subprocess.DEVNULL
-        ).strip()
-    except Exception:
-        sha = "unknown"
-
-    try:
-        diff = subprocess.check_output(
-            ["git", "-C", str(repo_path), "diff", "HEAD"],
-            text=True,
-            stderr=subprocess.DEVNULL
-        )
-        if diff:
-            diff_hash = hashlib.sha256(diff.encode("utf-8")).hexdigest()[:16]
-            dirty = "true"
-        else:
-            diff_hash = "clean"
-            dirty = "false"
-    except Exception:
-        diff_hash = "unknown"
-        dirty = "unknown"
-
-    return {"sha": sha, "diff_hash": diff_hash, "dirty": dirty}
-
-
-def get_file_sha256(file_path: Path, max_bytes: Optional[int] = None) -> str:
-    """Computes sha256 of a file (optionally capped for fast hashing of large weights)."""
-    if not file_path.exists():
-        return "file_not_found"
-    h = hashlib.sha256()
-    with open(file_path, "rb") as f:
+def get_file_sha256(file_path, max_bytes=None):
+    digest = hashlib.sha256()
+    with Path(file_path).open("rb") as handle:
         if max_bytes is not None:
-            chunk = f.read(max_bytes)
-            h.update(chunk)
+            digest.update(handle.read(max_bytes))
         else:
-            while chunk := f.read(65536):
-                h.update(chunk)
-    return h.hexdigest()
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    return digest.hexdigest()
 
 
-def get_system_topology() -> Dict[str, Any]:
-    """Captures CPU model, physical cores, NUMA nodes, and THP setting."""
-    topology = {
-        "platform": platform.platform(),
-        "processor": platform.processor(),
-    }
-    # THP status
-    thp_path = Path("/sys/kernel/mm/transparent_hugepage/enabled")
-    if thp_path.exists():
-        try:
-            topology["thp"] = thp_path.read_text().strip()
-        except Exception:
-            topology["thp"] = "unknown"
-
-    # CPU info
+def get_git_info(repo_path):
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(repo_path), *args], stderr=subprocess.DEVNULL)
     try:
-        lscpu = subprocess.check_output(["lscpu"], text=True)
-        for line in lscpu.splitlines():
-            if "Model name:" in line:
-                topology["cpu_model"] = line.split(":", 1)[1].strip()
-            elif "Socket(s):" in line:
-                topology["sockets"] = line.split(":", 1)[1].strip()
-            elif "Core(s) per socket:" in line:
-                topology["cores_per_socket"] = line.split(":", 1)[1].strip()
-            elif "NUMA node(s):" in line:
-                topology["numa_nodes"] = line.split(":", 1)[1].strip()
-    except Exception:
-        pass
+        sha = git("rev-parse", "HEAD").decode().strip()
+        diff = git("diff", "--binary", "HEAD")
+        status = git("status", "--porcelain", "--untracked-files=all")
+        untracked = git("ls-files", "--others", "--exclude-standard", "-z").split(b"\0")
+        extra = {name.decode(): get_file_sha256(Path(repo_path) / name.decode()) for name in untracked if name and (Path(repo_path) / name.decode()).is_file()}
+        return {"sha": sha, "diff_hash": hashlib.sha256(diff).hexdigest(), "dirty": bool(status), "untracked": extra}
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError(f"Cannot identify engine checkout: {repo_path}") from exc
 
+
+def get_system_topology():
+    topology = {"platform": platform.platform(), "processor": platform.processor()}
+    if hasattr(os, "sched_getaffinity"):
+        topology["affinity"] = sorted(os.sched_getaffinity(0))
+    for name, command in (("lscpu", ["lscpu", "--json"]), ("numa", ["numactl", "--hardware"])):
+        try:
+            output = subprocess.check_output(command, text=True, stderr=subprocess.DEVNULL).strip()
+            if name == "lscpu":
+                output = {row["field"]: row["data"] for row in json.loads(output)["lscpu"] if not any(word in row["field"].lower() for word in ("mhz", "bogomips", "vulnerability"))}
+            else:
+                output = "\n".join(line for line in output.splitlines() if " free:" not in line)
+            topology[name] = output
+        except (OSError, subprocess.CalledProcessError):
+            topology[name] = None
+    thp = Path("/sys/kernel/mm/transparent_hugepage/enabled")
+    topology["thp"] = thp.read_text().strip() if thp.exists() else None
     return topology
 
 
-def create_manifest(
-    exp_entry: Dict[str, Any],
-    engine_dir: Path,
-    model_path: Path,
-    prompt_file: Optional[Path] = None,
-    request_params: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    """Creates a comprehensive manifest dictionary for an experiment run."""
-    engine_info = get_git_info(engine_dir)
-    sys_topo = get_system_topology()
+def get_build_artifacts(engine_dir, server_binary):
+    """Hash shared libraries and CMake caches within bounded project build roots."""
+    engine_dir = Path(engine_dir).resolve()
+    roots = set()
+    default_build = engine_dir / "build"
+    if default_build.is_dir():
+        roots.add(default_build)
+    if server_binary:
+        binary_dir = Path(server_binary).resolve().parent
+        roots.add(binary_dir)
+        ancestor = binary_dir
+        for _ in range(4):
+            if (ancestor / "CMakeCache.txt").is_file():
+                roots.add(ancestor)
+                break
+            if ancestor.parent == ancestor:
+                break
+            ancestor = ancestor.parent
+    roots = sorted(root for root in roots if not any(root != other and other in root.parents for other in roots))
+    artifacts = {}
+    directory_count = file_count = 0
+    for root in roots:
+        for directory, subdirs, filenames in os.walk(root, followlinks=False):
+            directory = Path(directory)
+            directory_count += 1
+            if directory_count > 512:
+                raise RuntimeError("Build artifact discovery exceeded 512 directories")
+            depth = len(directory.relative_to(root).parts)
+            subdirs[:] = sorted(name for name in subdirs if name not in ("CMakeFiles", "_deps", ".git", "Testing")) if depth < 5 else []
+            for name in sorted(filenames):
+                file_count += 1
+                if file_count > 8192:
+                    raise RuntimeError("Build artifact discovery exceeded 8192 files")
+                if name != "CMakeCache.txt" and not (".so" in name or name.endswith((".dylib", ".dll"))):
+                    continue
+                path = directory / name
+                if not path.is_file():
+                    raise RuntimeError(f"Build artifact cannot be read: {path}")
+                artifacts[str(path)] = {"resolved_path": str(path.resolve()), "sha256": get_file_sha256(path)}
+    return {"roots": [str(root) for root in roots], "files": artifacts,
+            "library_path": {name: os.environ.get(name) for name in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "LD_PRELOAD", "DYLD_INSERT_LIBRARIES")}}
 
-    req = dict(exp_entry.get("request", {}))
-    if request_params:
-        req.update(request_params)
 
+def create_manifest(exp_entry, engine_dir, model_path, prompt_file=None, request_params=None, server_argv=None, dataset=None, server_binary=None):
+    request = dict(request_params or {})
+    model_path = Path(model_path).resolve()
+    binary = Path(server_binary).resolve() if server_binary else None
+    harness = Path(__file__).resolve().parent
     manifest = {
+        "schema_version": 2,
         "experiment_id": exp_entry.get("id"),
         "experiment_number": exp_entry.get("number"),
-        "protocol": exp_entry.get("protocol", "C-gpqa-v2"),
-        "model": {
-            "path": str(model_path),
-            "size_bytes": model_path.stat().st_size if model_path.exists() else 0,
-            "header_sha256": get_file_sha256(model_path, max_bytes=10 * 1024 * 1024)
-        },
-        "engine": {
-            "path": str(engine_dir),
-            "sha": engine_info["sha"],
-            "diff_hash": engine_info["diff_hash"],
-            "dirty": engine_info["dirty"]
-        },
-        "request": req,
+        "protocol": request.get("benchmark", exp_entry.get("protocol", "C-gpqa-v2")),
+        "model": {"path": str(model_path), "size_bytes": model_path.stat().st_size, "sha256": get_file_sha256(model_path)},
+        "engine": {"path": str(Path(engine_dir).resolve()), **get_git_info(engine_dir)},
+        "binary": {"path": str(binary), "sha256": get_file_sha256(binary)} if binary else None,
+        "build_artifacts": get_build_artifacts(engine_dir, binary),
+        "harness": {p.name: get_file_sha256(p) for p in sorted(harness.glob("*.py"))},
+        "request": request,
+        "catalog_request": exp_entry.get("request", {}),
         "numactl": exp_entry.get("numactl", ""),
         "server_flags": exp_entry.get("server_flags", ""),
-        "system": sys_topo,
+        "server_argv": server_argv,
+        "system": get_system_topology(),
     }
-
-    if prompt_file and prompt_file.exists():
-        manifest["prompt_file"] = {
-            "path": str(prompt_file),
-            "sha256": get_file_sha256(prompt_file)
-        }
-
+    if dataset is not None:
+        serialized = json.dumps(dataset, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        manifest["dataset_sha256"] = hashlib.sha256(serialized).hexdigest()
+        if isinstance(dataset, dict):
+            manifest["dataset_ids"] = sorted(dataset)
+        elif isinstance(dataset, list):
+            manifest["dataset_ids"] = [str(item["id"]) for item in dataset]
+    if prompt_file:
+        manifest["prompt_file"] = {"path": str(prompt_file), "sha256": get_file_sha256(prompt_file)}
     return manifest
 
 
-def verify_resume(
-    existing_manifest: Dict[str, Any],
-    current_manifest: Dict[str, Any]
-) -> Tuple[bool, Optional[str]]:
-    """
-    Checks if a run can be safely resumed.
-    Refuses resume if engine, model, or core request parameters changed.
-    """
-    # Check model
-    if existing_manifest.get("model", {}).get("header_sha256") != current_manifest.get("model", {}).get("header_sha256"):
-        return False, "Model file or header hash mismatch."
-
-    # Check request parameters
-    req_old = existing_manifest.get("request", {})
-    req_new = current_manifest.get("request", {})
-    for key in ["max_tokens", "temperature", "top_p", "seed", "user_suffix"]:
-        if req_old.get(key) != req_new.get(key):
-            return False, f"Request parameter mismatch: {key} was {req_old.get(key)}, now {req_new.get(key)}."
-
-    # Check flags
-    if existing_manifest.get("server_flags") != current_manifest.get("server_flags"):
-        return False, "Server flags mismatch."
-
+def verify_resume(existing_manifest, current_manifest):
+    if existing_manifest.get("schema_version") != 2:
+        return False, "Legacy manifest lacks full input hashes; choose a new run suffix."
+    for key in sorted(set(existing_manifest) | set(current_manifest)):
+        if existing_manifest.get(key) != current_manifest.get(key):
+            return False, f"Run input changed: {key}. Choose a new run suffix."
     return True, None

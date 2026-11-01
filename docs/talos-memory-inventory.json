@@ -1,0 +1,185 @@
+{
+  "date": "2026-10-31",
+  "host": "talos",
+  "method": "Read-only SMBIOS memory-device inventory via dmidecode -t 17 over SSH. No settings changed.",
+  "dimms": [
+    {
+      "sizeGB": 16,
+      "slot": "A1",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 0,
+      "slot": "A2"
+    },
+    {
+      "sizeGB": 16,
+      "slot": "A3",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 16,
+      "slot": "A4",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 16,
+      "slot": "A5",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 0,
+      "slot": "A6"
+    },
+    {
+      "sizeGB": 16,
+      "slot": "A7",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 16,
+      "slot": "A8",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 16,
+      "slot": "A9",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 0,
+      "slot": "A10"
+    },
+    {
+      "sizeGB": 8,
+      "slot": "A11",
+      "ratedMTs": 2133,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 8,
+      "slot": "A12",
+      "ratedMTs": 2133,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 16,
+      "slot": "B1",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 0,
+      "slot": "B2"
+    },
+    {
+      "sizeGB": 16,
+      "slot": "B3",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 16,
+      "slot": "B4",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 16,
+      "slot": "B5",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 0,
+      "slot": "B6"
+    },
+    {
+      "sizeGB": 16,
+      "slot": "B7",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 16,
+      "slot": "B8",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 16,
+      "slot": "B9",
+      "ratedMTs": 2400,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 0,
+      "slot": "B10"
+    },
+    {
+      "sizeGB": 8,
+      "slot": "B11",
+      "ratedMTs": 2133,
+      "configuredMTs": 1866
+    },
+    {
+      "sizeGB": 8,
+      "slot": "B12",
+      "ratedMTs": 2133,
+      "configuredMTs": 1866
+    }
+  ],
+  "channelSlotNumbers": [
+    [
+      1,
+      5,
+      9
+    ],
+    [
+      2,
+      6,
+      10
+    ],
+    [
+      3,
+      7,
+      11
+    ],
+    [
+      4,
+      8,
+      12
+    ]
+  ],
+  "populatedChannelsPerSocket": 3,
+  "configuredMTs": 1866,
+  "theoreticalBusGBsPerSocket": 44.784,
+  "bandwidthScope": "Derived nominal data-bus ceiling, not measured application read bandwidth; unequal channel capacities affect address interleaving.",
+  "channelCapacities": [
+    {
+      "socketSlots": "A",
+      "channelCapacityGB": [
+        48,
+        0,
+        40,
+        40
+      ]
+    },
+    {
+      "socketSlots": "B",
+      "channelCapacityGB": [
+        48,
+        0,
+        40,
+        40
+      ]
+    }
+  ]
+}

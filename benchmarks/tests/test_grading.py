@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Unit tests for grading and answer extraction module (benchmarks/grading.py).
-Tests adversarial cases outlined in improvement-plan.md Section 5 (Phase 1.3).
+Covers explicit answers, reasoning tags and truncation.
 """
 
 import sys
@@ -30,6 +30,28 @@ class TestGrading(unittest.TestCase):
         status, strict_ans, _ = grade_response(content, gold="B", finish_reason="length")
         self.assertEqual(status, RowStatus.NO_ANSWER_TRUNCATED)
         self.assertIsNone(strict_ans)
+
+    def test_closed_block_followed_by_unclosed_block(self):
+        content = "<think>first</think><think>unfinished\nFinal answer: B"
+        self.assertIsNone(extract_answer_strict(content))
+        self.assertIsNone(extract_answer_lenient(content))
+        status, strict, lenient = grade_response(content, gold="B")
+        self.assertEqual(status, RowStatus.NO_ANSWER_TRUNCATED)
+        self.assertIsNone(strict)
+        self.assertIsNone(lenient)
+
+    def test_nested_thinking_is_removed_until_outer_close(self):
+        content = "<think>outer<think>inner</think>\nFinal answer: B</think>\nFinal answer: C"
+        self.assertEqual(extract_answer_strict(content), "C")
+        self.assertEqual(extract_answer_lenient(content), "C")
+        unfinished = "<think>outer<think>inner</think>\nFinal answer: B"
+        self.assertIsNone(extract_answer_strict(unfinished))
+        self.assertIsNone(extract_answer_lenient(unfinished))
+
+    def test_multiple_closed_thinking_blocks(self):
+        content = "<think>first</think>\n<think>second</think>\nFinal answer: D"
+        self.assertEqual(extract_answer_strict(content), "D")
+        self.assertEqual(extract_answer_strict("template reasoning</think>\nFinal answer: A"), "A")
 
     def test_choice_mid_sentence(self):
         """Word 'choice' or 'option' mentioned mid-sentence must not be extracted by strict extractor."""

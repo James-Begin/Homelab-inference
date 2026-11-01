@@ -1,85 +1,28 @@
-# Systematic Ablation Analysis: From 7.96 to 24.53+ Tokens/Second
+# Experiment comparisons
 
-This document synthesizes the systematic ablation campaign conducted on the Dell PowerEdge T630 (2× Intel Xeon E5-2680 v4 Broadwell, 28 physical cores, 256 GB DDR4-2400 NUMA). It isolates the exact marginal contribution of each engineering intervention, classified strictly into **lossless architectural/topology optimizations** (verified under Protocol B-equiv-v1) and **lossy quantization/routing optimizations** (characterized under Protocol Q-kld-v1).
+The experiment history contains useful comparisons, but it is not a controlled additive ablation. Many runs change several settings, target weights, or generated outputs. Saved equivalence and KL-divergence records are also missing, so the tables below do not classify the configurations as lossless.
 
-All throughput measurements follow **Protocol A-tput-v1** (fixed $N=512$ token output, randomized presentation across 12 standardized prompts, 5 repetitions, token-weighted aggregate throughput, with degenerate repetition loops filtered).
+The table below keeps a few comparisons that explain later choices. Rates are the arithmetic means reported by the saved runs, in tokens/s. They are configuration results; a difference between two rows is not an isolated kernel gain.
 
----
+| Runs | Reported decode rate | What the comparison supports |
+| --- | ---: | --- |
+| 0 → 4 | 11.16 → 15.72 | The early dual-socket configuration was faster; engine and configuration changes also occurred. |
+| 4 → 5 | 15.72 → 19.26 | Native MTP was worth testing further in this campaign. |
+| 24 → 30 | 20.00 → 20.02 | Explicit physical-core binding alone was effectively flat in these saved runs. |
+| 35 → 46 | 20.81 → 22.50 | The mixed dense-tensor quantization configuration was a useful candidate, with separate quality checks required. |
+| 47 → 48 → 50 | 21.30 → 21.30 → 21.33 | Added MUGE and offline repacking produced little change over these already-tuned configurations. |
+| 51–55, 57–60 | 20.28–22.06 | Further suffix and confidence sweeps did not produce another large gain. |
 
-## 1. The Optimization Waterfall
+These figures come from the [saved report directory](../logs/gpqa_reports/) and the [historical artifact audit](../archive/docs/experiment-audit.md). That audit also reconstructs aggregate decode rates from saved token counts. Its table covers an older snapshot and retains the historical labels and parser observations.
 
-The waterfall below traces the forward-additive progression from the stock single-socket upstream baseline (7.14 t/s) to the final speculative configuration (23.49 t/s on Qwen 35B and 21.15 t/s on Flint 40B).
+## A fast failure
 
-![Ablation Waterfall](figures/waterfall.svg)
+Experiment 42 includes a roughly 66 tokens/s peak whose saved output falls into repeated punctuation. It returns no parsed answer. That makes it a useful failure case for speculation, but it is not useful coding throughput. The [checkpoint](../logs/raw_checkpoints/exp42_phys_pinning_28threads_suffix_pmin015_burst16_q4kv_checkpoint.json) retains the output preview.
 
-### Forward-Add Progression (Protocol A-tput-v1 Live Measurement)
+A rate can rise because the output became easier to predict. For comparisons that change speculation, record output quality and acceptance behavior alongside timing. For comparisons that change routing, weights, or KV precision, treat the candidate as a changed model configuration.
 
-| Step | Optimization Component | Class | Marginal Δ (t/s) | Token-Weighted TPS | Median TPS | IQR (t/s) | Verification Gate |
-| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **0** | **Upstream llama.cpp Baseline** (Single-Socket, Q6_K, unpinned) | Baseline | — | **7.14** | 7.14 | 0.01 | Reference |
-| **1** | **Dual-Socket NUMA Interleave** (`--interleave=all`, 28T) | Lossless | **+3.27** | **10.41** | 10.41 | 0.05 | Protocol B: Passed |
-| **2** | **28 Physical Core Binding** (`--physcpubind=... -t 28 -tb 28`) | Lossless | **-0.13** | **10.28** | 10.27 | 0.04 | Protocol B: Passed |
-| **3** | **Quantization Recipe** (IQ4_XS Dense Attention + Q4_0 MoE) | Lossy | **+1.33** | **11.61** | 11.62 | 0.11 | Protocol Q: Mean KLD 0.0142 |
-| **4** | **AVX2 64-Byte Row Repacking** (`Q4_0_R8` / `IQ4_XS_R8`) | Lossless | **+7.49** | **19.10** | 19.10 | 0.05 | Protocol B: Passed |
-| **5** | **Merged Up/Gate Experts** (`-muge 1` single-pass kernel) | Lossless | **+0.39** | **19.49** | 19.50 | 0.05 | Protocol B: Passed |
-| **6** | **Speculative Decoding** (MTP Suffix Drafting) | Lossless | **+4.00** | **23.49** | 23.38 | 1.38 | Protocol B: Passed |
-| **7** | **Flint 40B MoE Architectural Port** (ik_llama + MUGE + ngram-mod) | Model Port | — | **21.15** | 20.98 | 1.75 | Protocol B: Passed |
+## What a new isolated comparison needs
 
----
+Keep the model file, prompt bytes, request settings, context, engine revision, and CPU placement fixed. Change one setting, warm the server, then repeat both configurations in randomized order. Save full output, server timing, failure counts, and the run manifest. Report decode and request elapsed time separately.
 
-## 2. Leave-One-Out Sensitivity Analysis
-
-To measure parameter interactions and isolate dependency on each layer of the inference stack, each component was removed individually from the full production configuration while keeping all other optimizations active.
-
-| Removed Component | Full Config Speed | Degraded Speed | Impact ($\Delta$ t/s) | % Degradation | Root Microarchitectural Cause |
-| :--- | :---: | :---: | :---: | :---: | :--- |
-| **NUMA Interleave** (`--interleave=all`) | 24.53 t/s | 15.82 t/s | **-8.71 t/s** | **-35.5%** | Cross-socket QPI saturation; single node limited to 21.44 GB/s STREAM rate. |
-| **Speculative Decoding** (ngram/MTP) | 24.53 t/s | 17.02 t/s | **-7.51 t/s** | **-30.6%** | Hits physical DRAM memory wall (1 token per memory pass). |
-| **Physical Core Pinning** (floating OS schedule) | 24.53 t/s | 19.84 t/s | **-4.69 t/s** | **-19.1%** | Hyperthread cache trashing and cross-socket thread migration penalties. |
-| **Quantization Recipe** (IQ4_XS $\to$ Q6_K) | 24.53 t/s | 20.12 t/s | **-4.41 t/s** | **-18.0%** | +28% active weight volume to stream across memory bus per token. |
-| **Merged Up/Gate Experts** (`-muge 1`) | 24.53 t/s | 22.41 t/s | **-2.12 t/s** | **-8.6%** | Doubled OpenMP thread barrier synchronization count across 40–49 layers. |
-| **AVX2 Row Repacking** (unaligned weights) | 24.53 t/s | 22.88 t/s | **-1.65 t/s** | **-6.7%** | L1D/L2 cache line split penalties on unaligned 32-byte AVX2 vector loads. |
-| **MoE K-Split Partitioning** (stock `ik_llama`) | 24.53 t/s | 23.05 t/s | **-1.48 t/s** | **-6.0%** | Severe thread starvation on small expert counts ($N_x \le 6$ over 28 threads). |
-
----
-
-## 3. Lossless Equivalence (Protocol B-equiv-v1)
-
-Any configuration marked "lossless" was subjected to greedy token-for-token comparison against the unoptimized reference binary on identical prompts and seeds:
-
-| Optimization | Token Agreement | First Divergence Point | Classification |
-| :--- | :---: | :---: | :--- |
-| **NUMA Physical Core Pinning** | 100.0% | None (identical across 512 tokens) | Bitwise identical |
-| **AVX2 64-Byte Repacking (`Q4_0_R8`)** | 100.0% | None (identical across 512 tokens) | Bitwise identical |
-| **MoE K-Split Kernel Partitioning** | 100.0% | Token 482 (Margin $\Delta < 0.003$ nats) | Numeric floating-point sum order |
-| **Merged Up/Gate Experts (`-muge 1`)** | 100.0% | None (identical across 512 tokens) | Bitwise identical |
-| **Speculative Decoding ($N_{\text{max}} \le 4$)** | 100.0% | None (identical across 512 tokens) | Lossless verification |
-
-> [!NOTE]
-> The isolated divergence observed at token 482 under K-split is due to OpenMP reduction order of floating-point partial sums across threads (non-associative IEEE 754 summation) where the top-2 logits differed by less than 0.003 nats. All prior 481 tokens were bitwise identical.
-
----
-
-## 4. Lossy Divergence Characterization (Protocol Q-kld-v1)
-
-For changes altering weight representation or KV cache precision, divergence was measured against unquantized FP16 references using KL-divergence over a 150,000-token corpus (100K code + 50K wikitext-2):
-
-| Change | Mean KLD | p99 KLD | Top-1 Agreement | $\Delta$ PPL | Classification |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Q6_K $\to$ IQ4_XS Attention + Q4_0 Experts** | **0.0142** | **0.0481** | **94.8%** | **+0.12** | High fidelity (Production default) |
-| **KV Cache FP16 $\to$ Q4_0** | **0.0089** | **0.0310** | **96.4%** | **+0.06** | Negligible drift, 4× RAM savings |
-| **Flint 40B Q4_0 $\to$ Unsloth UD Q3_K_XL** | **0.0284** | **0.0892** | **91.2%** | **+0.29** | Acceptable for tight RAM budgets |
-
----
-
-## 5. Speculative Decoding by Workload Class
-
-Speculative decoding relies on candidate draft acceptance, which varies substantially depending on output entropy and repetition:
-
-![Speculation by Workload](figures/speculation_workload.svg)
-
-| Workload Class | Non-Speculative Decode | Speculative Decode (Useful t/s) | Effective Speedup | Mean Accepted Draft Length ($\alpha$) |
-| :--- | :---: | :---: | :---: | :---: |
-| **Code Editing** (diffs, structured syntax) | 17.02 t/s | **26.85 t/s** | **+57.8%** | **2.74 tokens** |
-| **Fresh Code Gen** (algorithms, standard logic) | 17.02 t/s | **23.40 t/s** | **+37.5%** | **2.12 tokens** |
-| **Prose / Reasoning** (freeform text, high entropy) | 17.02 t/s | **19.80 t/s** | **+16.3%** | **1.45 tokens** |
+A claim that a change preserves output needs a saved comparison against the same target. An exact token match applies to the checked prompts and settings; it does not establish equality for every input. A divergence needs investigation, including batch-dependent numerical differences and state rollback. The current checks are described in [eval-protocol.md](eval-protocol.md).

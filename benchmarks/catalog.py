@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Experiment Catalog Validation and Loading Module
-Implements catalog schema validation per improvement-plan.md Section 5 (Phase 1.1).
-"""
+"""Load the experiment catalog and reject duplicate identities."""
 
 import json
 from pathlib import Path
@@ -51,13 +48,13 @@ def normalize_catalog_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
 
     # Normalize lossy flag
     if "lossy" not in norm:
-        # Heuristic: MTP, suffix, repack, numactl are lossless; KV quant, SER, expert clamping are lossy
+        # Flags identify some approximate configurations; absence is not proof of equivalence.
         change = norm.get("change", "").lower()
         server_flags = norm.get("server_flags", "").lower()
         if any(k in change or k in server_flags for k in ["-ctk", "-ctv", "-ser", "pruning", "clamp"]):
             norm["lossy"] = True
         else:
-            norm["lossy"] = False
+            norm["lossy"] = None
 
     return norm
 
@@ -69,7 +66,7 @@ def load_catalog(catalog_path: Optional[str] = None) -> List[Dict[str, Any]]:
       - Unique 'number'
       - Unique 'id'
       - Required fields
-    Fixes known defect H10 (duplicate number 90) during normalization.
+    Normalizes the recorded exp89 entry that shares number 90.
     """
     if catalog_path is None:
         catalog_path = Path(__file__).resolve().parent / "experiments.json"
@@ -101,7 +98,7 @@ def load_catalog(catalog_path: Optional[str] = None) -> List[Dict[str, Any]]:
             raise CatalogValidationError(f"Duplicate experiment id found: '{exp_id}' at index {idx}.")
         seen_ids.add(exp_id)
 
-        # Handle H10 fix: if duplicate number 90 occurs, check if it's the exp89 slot similarity run
+        # Preserve the catalog ID when correcting its recorded number.
         num = entry.get("number")
         if num is None:
             raise CatalogValidationError(f"Experiment '{exp_id}' missing required field 'number'.")

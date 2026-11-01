@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse
-import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -27,16 +27,14 @@ def run_passkey_step(ctx, junk, extra_flags="", numactl_prefix="numactl --interl
     numactl_prefix = expand(numactl_prefix)
     cmd = (
         f"/usr/bin/time -v {numactl_prefix} {PASSKEY_BIN} "
-        f"-m {model_path} -c {ctx} --junk {junk} -t {threads} -tb {threads_batch} -fa 1 "
+        f"-m {shlex.quote(model_path)} -c {ctx} --junk {junk} -t {threads} -tb {threads_batch} -fa 1 "
         f"--run-time-repack {extra_flags}"
     )
-    print(f"\n=======================================================", flush=True)
     print(f"Executing: {cmd}", flush=True)
-    print(f"=======================================================\n", flush=True)
     
     t0 = time.time()
     try:
-        proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=7200)
+        proc = subprocess.run(shlex.split(cmd), capture_output=True, text=True, timeout=7200)
         t1 = time.time()
         output = proc.stdout + proc.stderr
         
@@ -48,9 +46,9 @@ def run_passkey_step(ctx, junk, extra_flags="", numactl_prefix="numactl --interl
         tg_match = re.search(r"\n\s*llama_print_timings:\s+eval time\s*=\s*([\d.]+)\s*ms\s*/\s*(\d+)\s*(?:runs|tokens)\s*\(\s*([\d.]+)\s*ms per token,\s*([\d.]+)\s*tokens per second\)", output)
         mem_match = re.search(r"Maximum resident set size \(kbytes\): (\d+)", output)
         
-        tokens_evaluated = int(pp_match.group(2)) if pp_match else (junk * 25)
+        tokens_evaluated = int(pp_match.group(2)) if pp_match else 0
         pp_speed = float(pp_match.group(4)) if pp_match else 0.0
-        pp_time_sec = float(pp_match.group(1))/1000.0 if pp_match else (t1 - t0)
+        pp_time_sec = float(pp_match.group(1))/1000.0 if pp_match else 0.0
         tg_speed = float(tg_match.group(4)) if tg_match else 0.0
         max_rss_mb = float(mem_match.group(1))/1024.0 if mem_match else 0.0
         
@@ -58,7 +56,7 @@ def run_passkey_step(ctx, junk, extra_flags="", numactl_prefix="numactl --interl
         match = False
         after_prompt = output.split("What is the pass key?")
         decoded_snippet = after_prompt[1][:200].strip() if len(after_prompt) > 1 else ""
-        if proc.returncode == 0 and expected_passkey and expected_passkey in decoded_snippet:
+        if proc.returncode == 0 and expected_passkey and re.search(r"(?<!\d)" + re.escape(expected_passkey) + r"(?!\d)", decoded_snippet):
             match = True
                 
         return {
@@ -72,7 +70,8 @@ def run_passkey_step(ctx, junk, extra_flags="", numactl_prefix="numactl --interl
             "tg_speed": tg_speed,
             "max_rss_mb": max_rss_mb,
             "total_elapsed_sec": t1 - t0,
-            "error": None
+            "returncode": proc.returncode,
+            "error": None if proc.returncode == 0 else f"Process exited {proc.returncode}"
         }
     except Exception as e:
         print(f"Execution failed: {e}", flush=True)
@@ -145,7 +144,7 @@ def main():
         f.write("| Context Depth | Tokens Evaluated | Needle Found? | Prompt Processing Speed | Prompt Time | Decode Speed | Peak RAM (RSS) |\n")
         f.write("| :---: | :---: | :---: | :---: | :---: | :---: | :---: |\n")
         for r in results:
-            pass_str = "**PASSED (100%)**" if r["passed"] else "**FAILED**"
+            pass_str = "**PASSED**" if r["passed"] else "**FAILED**"
             f.write(f"| **{r['label']}** | {r['tokens_evaluated']:,} | {pass_str} | **`{r['pp_speed']:.2f} t/s`** | {r['pp_time_sec']:.1f}s | `{r['tg_speed']:.2f} t/s` | {r['max_rss_mb']:.1f} MB |\n")
             
         f.write("\n## Detailed Needle Extractions\n\n")
@@ -153,7 +152,7 @@ def main():
             f.write(f"### {r['label']} ({r['tokens_evaluated']:,} tokens)\n")
             f.write(f"- **Expected Passkey:** `{r['expected_passkey']}`\n")
             f.write(f"- **Decoded Snippet:** `{r['decoded_snippet']}`\n")
-            f.write(f"- **Status:** {'MATCH - ZERO REGRESSION' if r['passed'] else 'MISMATCH'}\n\n")
+            f.write(f"- **Status:** {'MATCH' if r['passed'] else 'MISMATCH'}\n\n")
             
     print(f"\nFinal report saved to: {report_file}", flush=True)
 

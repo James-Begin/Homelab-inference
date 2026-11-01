@@ -5,8 +5,21 @@
   "total_problems": 164,
   "max_tokens_ceiling": 16384,
   "base_pass_pct": 96.95,
-  "plus_pass_pct": 90.85,
+  "plus_pass_pct": 90.24,
   "average_decode_tps": 20.77,
   "total_wall_time_sec": 17955.0,
-  "avg_wall_time_per_task_sec": 109.48
+  "avg_wall_time_per_task_sec": 109.48,
+  "base_pass_count": 159,
+  "plus_pass_count": 148,
+  "extra_only_pass_count": 149,
+  "valid_timing_rows": 164,
+  "invalid_timing_rows": 0,
+  "aggregation": "base_status == pass AND plus_status == pass",
+  "derived_from": [
+    "rows.jsonl",
+    "samples.jsonl",
+    "samples_eval_results.json"
+  ],
+  "regeneration": "benchmarks/summarize_runs.py",
+  "timing_filter": "Finite positive saved rate and more than one generated token"
 }

@@ -2,7 +2,7 @@
   {
     "number": 12,
     "id": "exp12_precision_spec",
-    "name": "Exp 12: Dual NUMA + MoE K-split Kernel + Precision Chained Speculation (ngram_min_hits=2 + MTP)",
+    "name": "Experiment 12: Qwen n-gram map and MTP",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--port {port} -c 8192 -t 14 -tb 28 -ctk q8_0 -ctv q8_0 --defer-experts --run-time-repack --numa distribute -fa 1 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type ngram-map-k:n_max=16,ngram_min_hits=2,ngram_size_n=8 --spec-type mtp:n_max=1,p_min=0.0",
@@ -14,7 +14,7 @@
   {
     "number": 15,
     "id": "exp15_dynamic_expert_pruning",
-    "name": "Exp 15: Dual NUMA + Native MTP + MoE K-split Kernel + Dynamic Expert Pruning (-ser 2,0.05)",
+    "name": "Experiment 15: Qwen MTP with SER 2,0.05",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--port {port} -c 8192 -t 14 -tb 28 -ctk q8_0 -ctv q8_0 --defer-experts --run-time-repack --numa distribute -fa 1 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1 -ser 2,0.05",
@@ -26,7 +26,7 @@
   {
     "number": 16,
     "id": "exp16_fused_graph_compilation",
-    "name": "Exp 16: Dual NUMA + Native MTP + Fused Operator Graph Compilation & Barrier NUMA Isolation",
+    "name": "Experiment 16: Qwen MTP with runtime repacking",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--port {port} -c 8192 -t 14 -tb 28 -ctk q8_0 -ctv q8_0 --defer-experts --run-time-repack --numa distribute -fa 1 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1",
@@ -38,7 +38,7 @@
   {
     "number": 17,
     "id": "exp17_combined_champion",
-    "name": "Exp 17: Combined Spec + SER + Fused Barrier (Dual NUMA + MoE K-split Kernel + Precision Chained Spec + SER + Fused Barrier Isolation)",
+    "name": "Experiment 17: Qwen n-gram map, MTP and SER",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--port {port} -c 8192 -t 14 -tb 28 -ctk q8_0 -ctv q8_0 --defer-experts --run-time-repack --numa distribute -fa 1 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type ngram-map-k:n_max=16,ngram_min_hits=2,ngram_size_n=8 --spec-type mtp:n_max=1,p_min=0.0 -ser 2,0.05",
@@ -50,7 +50,7 @@
   {
     "number": 18,
     "id": "exp18_calibrated_ser",
-    "name": "Exp 18: Calibrated SER (Dual NUMA + Native MTP + -ser 2,0.5 + Fused Barrier Isolation)",
+    "name": "Experiment 18: Qwen MTP with SER 2,0.5",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--port {port} -c 8192 -t 14 -tb 28 -ctk q8_0 -ctv q8_0 --defer-experts --run-time-repack --numa distribute -fa 1 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 -ser 2,0.5",
@@ -62,7 +62,7 @@
   {
     "number": 19,
     "id": "exp19_q4_0_uniform_mtp",
-    "name": "Exp 19: Pure Uniform Q4_0 + Native MTP (Dual NUMA + MoE K-split Kernel + Barrier Isolation)",
+    "name": "Experiment 19: Qwen Q4_0 with four routed experts and MTP",
     "model": "Qwen3.6-35B-A3B-UD-Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--port {port} -c 8192 -t 14 -tb 28 -ctk q8_0 -ctv q8_0 --defer-experts --run-time-repack --numa distribute -fa 1 --override-kv qwen35moe.nextn_predict_layers=int:1 --override-kv qwen35moe.expert_used_count=int:4 --spec-type mtp:n_max=1,p_min=0.0",
@@ -74,7 +74,7 @@
   {
     "number": 20,
     "id": "exp20_dflash_spec",
-    "name": "Exp 20: DFlash Speculative Diffusion Drafting (Dual NUMA + n_max=3 + SER 2,0.5)",
+    "name": "Experiment 20: Qwen DFlash, draft limit 3",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--model-draft {models}/Qwen3.6-35B-A3B-DFlash-Q8_0.gguf --spec-type dflash:n_max=3,cross_ctx=512 --port {port} -c 8192 -t 14 -tb 28 -ctk q8_0 -ctv q8_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5",
@@ -86,7 +86,7 @@
   {
     "number": 23,
     "id": "exp23_grand_champion",
-    "name": "Exp 23: Chained Spec (ngram + MTP) + Q4_0 KV (Chained Precision Spec + Q4_0 KV Cache + SER 2,0.5)",
+    "name": "Experiment 23: Qwen MOD n-grams, MTP and Q4_0 KV",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type ngram-mod:n_max=16,n_min=3,ngram_size_n=4,ngram_min_hits=2 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 14 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5",
@@ -94,12 +94,12 @@
     "prep": null,
     "threads": 14,
     "threads_batch": 28,
-    "change": "Unifying Chained Precision Speculation (N-Gram min_hits=2 + Native MTP) with 4-bit KV cache quantization (-ctk q4_0 -ctv q4_0) and calibrated SER 2,0.5 under dual NUMA distribution."
+    "change": "Combines MOD n-gram drafting with n_max=16 and ngram_size_n=4, one-token MTP, Q4_0 KV, and SER 2,0.5. The MOD path does not use the recorded ngram_min_hits value as a hit-count gate."
   },
   {
     "number": 24,
     "id": "exp24_native_mtp_q4kv",
-    "name": "Exp 24: Calibrated Native MTP + Q4_0 KV Cache + SER 2,0.5 (Dual NUMA)",
+    "name": "Experiment 24: Qwen MTP with Q4_0 KV",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 14 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5",
@@ -107,12 +107,12 @@
     "prep": null,
     "threads": 14,
     "threads_batch": 28,
-    "change": "Coupling reigning accuracy champion (Exp 18: Native MTP + Calibrated SER 2,0.5) with Q4_0 KV Cache Quantization (-ctk q4_0 -ctv q4_0) to combine top reasoning score with halved attention memory bandwidth."
+    "change": "Uses one-token MTP, Q4_0 key/value caches, and SER 2,0.5 with 14 decode and 28 batch threads."
   },
   {
     "number": 25,
     "id": "exp25_dflash_nmax4_q4kv",
-    "name": "Exp 25: Multi-Token Batch Verification Scaling (DFlash n_max=4 + Q4_0 KV Cache + SER 2,0.5)",
+    "name": "Experiment 25: Qwen DFlash, draft limit 4",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--model-draft {models}/Qwen3.6-35B-A3B-DFlash-Q8_0.gguf --spec-type dflash:n_max=4,cross_ctx=512 --port {port} -c 8192 -t 14 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -120,12 +120,12 @@
     "prep": null,
     "threads": 14,
     "threads_batch": 28,
-    "change": "Scaling DFlash speculative diffusion draft depth to n_max=4 combined with Q4_0 KV Cache (-ctk q4_0 -ctv q4_0) and calibrated SER 2,0.5 under dual NUMA distribution to achieve multi-token batch verification."
+    "change": "Uses the Q8_0 DFlash draft model with n_max=4 and cross_ctx=512, Q4_0 KV, and SER 2,0.5."
   },
   {
     "number": 26,
     "id": "exp26_precision_chained_q4kv",
-    "name": "Exp 26: Precision Chained Speculation (N=8, Hits=3) + Native MTP + Q4_0 KV Cache + SER 2,0.5",
+    "name": "Experiment 26: Qwen MOD n-grams of length 8 and MTP",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type ngram-mod:n_max=16,n_min=3,ngram_size_n=8,ngram_min_hits=3 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 14 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -133,12 +133,12 @@
     "prep": null,
     "threads": 14,
     "threads_batch": 28,
-    "change": "Calibrated Precision Chained Speculation (N-Gram n_max=16, n_min=3, ngram_size_n=8, ngram_min_hits=3 + Native MTP mtp:n_max=1) combined with Q4_0 KV Cache (-ctk q4_0 -ctv q4_0) and calibrated SER 2,0.5 under dual NUMA distribution to eliminate false n-gram matches while enabling high-throughput multi-token burst speculation."
+    "change": "Uses MOD n-gram drafting with n_max=16 and ngram_size_n=8 alongside one-token MTP. The recorded ngram_min_hits=3 is not a hit-count gate in this path."
   },
   {
     "number": 27,
     "id": "exp27_dflash_pmin04_q4kv",
-    "name": "Exp 27: Confidence-Filtered Speculative Diffusion (DFlash n_max=3, p_min=0.4 + Q4_0 KV Cache + SER 2,0.5)",
+    "name": "Experiment 27: Qwen DFlash, probability floor 0.4",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--model-draft {models}/Qwen3.6-35B-A3B-DFlash-Q8_0.gguf --spec-type dflash:n_max=3,p_min=0.4,cross_ctx=512 --port {port} -c 8192 -t 14 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -146,12 +146,12 @@
     "prep": null,
     "threads": 14,
     "threads_batch": 28,
-    "change": "Calibrated Confidence-Filtered Speculative Diffusion (DFlash n_max=3, p_min=0.4, cross_ctx=512) combined with Q4_0 KV Cache (-ctk q4_0 -ctv q4_0) and calibrated SER 2,0.5 under dual NUMA distribution to prune low-confidence diffusion hallucination paths during complex reasoning while maximizing multi-token throughput."
+    "change": "Uses DFlash with n_max=3, p_min=0.4, and cross_ctx=512, plus Q4_0 KV and SER 2,0.5."
   },
   {
     "number": 28,
     "id": "exp28_window_chained_q4kv",
-    "name": "Exp 28: Window-Bounded Precision Chained Speculation (N=8, M=8, Hits=3) + Native MTP + Q4_0 KV Cache + SER 2,0.5",
+    "name": "Experiment 28: Qwen MOD n-grams with recorded window 8",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type ngram-mod:n_max=16,n_min=3,ngram_size_n=8,ngram_size_m=8,ngram_min_hits=3 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 14 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -159,12 +159,12 @@
     "prep": null,
     "threads": 14,
     "threads_batch": 28,
-    "change": "Anti-Repetition Window-Bounded Precision Chained Speculation (N-Gram n_max=16, n_min=3, ngram_size_n=8, ngram_size_m=8, ngram_min_hits=3 + Native MTP mtp:n_max=1) combined with Q4_0 KV Cache (-ctk q4_0 -ctv q4_0) and calibrated SER 2,0.5 under dual NUMA distribution to restrict the speculative window to validated n-gram bounds, reducing repetition attractors while enabling >60 TPS burst throughput."
+    "change": "Requests MOD n-gram drafting with n_max=16, ngram_size_n=8, and ngram_size_m=8, plus MTP. The extra n-gram options are recorded flags, not evidence that MOD implements the older name's repetition filter."
   },
   {
     "number": 29,
     "id": "exp29_dflash_nmax4_pmin045_q4kv",
-    "name": "Exp 29: Confidence-Gated Speculative Diffusion Scaling (DFlash n_max=4, p_min=0.45 + Q4_0 KV Cache + SER 2,0.5)",
+    "name": "Experiment 29: Qwen DFlash, limit 4 and probability floor 0.45",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all",
     "server_flags": "--model-draft {models}/Qwen3.6-35B-A3B-DFlash-Q8_0.gguf --spec-type dflash:n_max=4,p_min=0.45,cross_ctx=512 --port {port} -c 8192 -t 14 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -172,12 +172,12 @@
     "prep": null,
     "threads": 14,
     "threads_batch": 28,
-    "change": "Confidence-Gated Speculative Diffusion Scaling (DFlash n_max=4, p_min=0.45, cross_ctx=512) combined with Q4_0 KV Cache (-ctk q4_0 -ctv q4_0) and calibrated SER 2,0.5 under dual NUMA distribution to verify multi-token draft verification scaling while pruning low-confidence drift."
+    "change": "Uses DFlash with n_max=4, p_min=0.45, and cross_ctx=512, plus Q4_0 KV and SER 2,0.5."
   },
   {
     "number": 30,
     "id": "exp30_phys_pinning_mtp_q4kv",
-    "name": "Exp 30: Physical Core Pinning (Anti-SMT) + Native MTP + Q4_0 KV Cache + SER 2,0.5",
+    "name": "Experiment 30: Qwen MTP with physical-core affinity",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 14 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -185,12 +185,12 @@
     "prep": null,
     "threads": 14,
     "threads_batch": 28,
-    "change": "Explicit physical core pinning (--physcpubind=0,2,4...1,3,5...) to eliminate SMT hyperthread contention and cross-socket thread migration, combined with Native MTP (mtp:n_max=1), Q4_0 KV Cache (-ctk q4_0 -ctv q4_0), and calibrated SER 2,0.5."
+    "change": "Adds the explicit physical-core affinity list in numactl, retaining 14 decode threads, one-token MTP, Q4_0 KV, and SER 2,0.5."
   },
   {
     "number": 31,
     "id": "exp31_phys_pinning_dflash_nmax4_q4kv",
-    "name": "Exp 31: Physical Core Pinning (Anti-SMT) + Confidence-Gated Speculative Diffusion (DFlash n_max=4, p_min=0.45 + Q4_0 KV + SER 2,0.5)",
+    "name": "Experiment 31: Qwen DFlash with physical-core affinity",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--model-draft {models}/Qwen3.6-35B-A3B-DFlash-Q8_0.gguf --spec-type dflash:n_max=4,p_min=0.45,cross_ctx=512 --port {port} -c 8192 -t 14 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -198,12 +198,12 @@
     "prep": null,
     "threads": 14,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0,2,4...1,3,5...) combined with Confidence-Gated Speculative Diffusion Scaling (DFlash n_max=4, p_min=0.45), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses the recorded physical-core affinity list and DFlash with n_max=4 and p_min=0.45. Decode uses 14 threads; batch work uses 28."
   },
   {
     "number": 32,
     "id": "exp32_phys_pinning_chained_spec_q4kv",
-    "name": "Exp 32: Physical Core Pinning (Anti-SMT) + Precision Chained Spec (N=8, M=12, hits=2) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 32: Qwen MOD n-grams, draft limit 8",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type ngram-mod:n_max=8,ngram_size_n=8,ngram_size_m=12,ngram_min_hits=2 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 14 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -211,12 +211,12 @@
     "prep": null,
     "threads": 14,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0,2,4...1,3,5...) combined with Window-Bounded Precision Chained Speculation (N=8, M=12, hits=2), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Requests MOD n-gram drafting with n_max=8, ngram_size_n=8, ngram_size_m=12, and ngram_min_hits=2, alongside MTP. The last two options do not establish a bounded MOD search window or hit-count filter."
   },
   {
     "number": 33,
     "id": "exp33_phys_pinning_burst16_chained_spec_q4kv",
-    "name": "Exp 33: Physical Core Pinning (Anti-SMT) + Burst-16 Chained Spec (n_max=16, N=8, M=24, hits=2) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 33: Qwen MOD n-grams, draft limit 16",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type ngram-mod:n_max=16,ngram_size_n=8,ngram_size_m=24,ngram_min_hits=2 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 14 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -224,12 +224,12 @@
     "prep": null,
     "threads": 14,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0,2,4...1,3,5...) combined with Extended Burst-16 Chained Speculation (n_max=16, N=8, M=24, hits=2), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Requests MOD n-gram drafting with n_max=16, ngram_size_n=8, ngram_size_m=24, and ngram_min_hits=2, alongside MTP. These settings do not guarantee accepted draft length or useful output."
   },
   {
     "number": 34,
     "id": "exp34_phys_pinning_dflash_nmax3_pmin04_q4kv",
-    "name": "Exp 34: Physical Core Pinning (Anti-SMT) + Calibrated Speculative Diffusion (DFlash n_max=3, p_min=0.40 + Q4_0 KV + SER 2,0.5)",
+    "name": "Experiment 34: Qwen DFlash, limit 3 with physical-core affinity",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--model-draft {models}/Qwen3.6-35B-A3B-DFlash-Q8_0.gguf --spec-type dflash:n_max=3,p_min=0.40,cross_ctx=512 --port {port} -c 8192 -t 14 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -237,12 +237,12 @@
     "prep": null,
     "threads": 14,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0,2,4...1,3,5...) combined with Calibrated Speculative Diffusion (DFlash n_max=3, p_min=0.40), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses DFlash with n_max=3 and p_min=0.40 under the recorded physical-core affinity list, with 14 decode and 28 batch threads."
   },
   {
     "number": 35,
     "id": "exp35_phys_pinning_28threads_mtp_q4kv",
-    "name": "Exp 35: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 35: Qwen MTP with 28 decode threads",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -250,12 +250,12 @@
     "prep": null,
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Sets both decode and batch thread counts to 28, retaining MTP, Q4_0 KV, SER 2,0.5, and the recorded affinity list."
   },
   {
     "number": 36,
     "id": "exp36_phys_pinning_28threads_chained_spec_q4kv",
-    "name": "Exp 36: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Window Chained Spec (N=8, M=12, hits=2) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 36: Qwen MOD n-grams and MTP with 28 threads",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type ngram-mod:n_max=8,ngram_size_n=8,ngram_size_m=12,ngram_min_hits=2 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -263,12 +263,12 @@
     "prep": null,
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Window Chained Speculation (N=8, M=12, hits=2), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Sets decode and batch threads to 28 and requests MOD drafting with n_max=8 and ngram_size_n=8 alongside one-token MTP."
   },
   {
     "number": 37,
     "id": "exp37_phys_pinning_28threads_dflash_nmax3_pmin04_q4kv",
-    "name": "Exp 37: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Calibrated Speculative Diffusion (DFlash n_max=3, p_min=0.40 + Q4_0 KV + SER 2,0.5)",
+    "name": "Experiment 37: Qwen DFlash with 28 threads",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--model-draft {models}/Qwen3.6-35B-A3B-DFlash-Q8_0.gguf --spec-type dflash:n_max=3,p_min=0.40,cross_ctx=512 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -276,12 +276,12 @@
     "prep": null,
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Calibrated Speculative Diffusion (DFlash n_max=3, p_min=0.40), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Sets decode and batch threads to 28 and uses DFlash with n_max=3, p_min=0.40, and cross_ctx=512."
   },
   {
     "number": 38,
     "id": "exp38_phys_pinning_28threads_suffix_spec_q4kv",
-    "name": "Exp 38: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Dynamic Suffix-Tree Speculation (n_max=8, match=4, depth=32) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 38: Qwen suffix drafting, limit 8 and match 4",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=4,suffix_max_depth=32 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -289,12 +289,12 @@
     "prep": null,
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Dynamic Suffix-Tree Speculation (n_max=8, suffix_min_match_len=4, suffix_max_depth=32), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses suffix drafting with n_max=8, suffix_min_match_len=4, and suffix_max_depth=32 alongside one-token MTP."
   },
   {
     "number": 39,
     "id": "exp39_phys_pinning_28threads_tuned_chained_spec_q4kv",
-    "name": "Exp 39: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Tuned Window Chained Spec (n_max=10, N=8, M=16, hits=2) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 39: Qwen MOD n-grams, draft limit 10",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type ngram-mod:n_max=10,ngram_size_n=8,ngram_size_m=16,ngram_min_hits=2 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -302,12 +302,12 @@
     "prep": null,
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Tuned Window Chained Speculation (n_max=10, N=8, M=16, hits=2), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Requests MOD drafting with n_max=10, ngram_size_n=8, ngram_size_m=16, and ngram_min_hits=2 alongside MTP. The MOD path uses its own lookup logic rather than the map strategy's hit-count filter."
   },
   {
     "number": 40,
     "id": "exp40_phys_pinning_28threads_suffix_burst16_q4kv",
-    "name": "Exp 40: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Burst-16 Suffix Speculation (n_max=16, match=5, depth=64) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 40: Qwen suffix drafting, limit 16 and match 5",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=16,suffix_min_match_len=5,suffix_max_depth=64 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -315,12 +315,12 @@
     "prep": null,
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Burst-16 Suffix-Tree Speculation (n_max=16, suffix_min_match_len=5, suffix_max_depth=64), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses suffix drafting with n_max=16, suffix_min_match_len=5, and suffix_max_depth=64 alongside one-token MTP."
   },
   {
     "number": 41,
     "id": "exp41_phys_pinning_28threads_suffix_nmax12_q4kv",
-    "name": "Exp 41: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Balanced Suffix Speculation (n_max=12, match=4, depth=48) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 41: Qwen suffix drafting, limit 12 and match 4",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=12,suffix_min_match_len=4,suffix_max_depth=48 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -328,12 +328,12 @@
     "prep": null,
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Balanced Suffix-Tree Speculation (n_max=12, suffix_min_match_len=4, suffix_max_depth=48), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses suffix drafting with n_max=12, suffix_min_match_len=4, and suffix_max_depth=48 alongside one-token MTP."
   },
   {
     "number": 42,
     "id": "exp42_phys_pinning_28threads_suffix_pmin015_burst16_q4kv",
-    "name": "Exp 42: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Confidence-Gated Suffix Speculation (n_max=16, p_min=0.15, match=4, depth=64) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 42: Qwen suffix drafting, limit 16 and floor 0.15",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=16,p_min=0.15,suffix_min_match_len=4,suffix_max_depth=64 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -341,12 +341,12 @@
     "prep": null,
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Confidence-Gated Suffix-Tree Speculation (n_max=16, p_min=0.15, suffix_min_match_len=4, suffix_max_depth=64), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses suffix drafting with n_max=16, p_min=0.15, suffix_min_match_len=4, and suffix_max_depth=64 alongside MTP. The saved history includes repetitive output, so peaks require output inspection."
   },
   {
     "number": 43,
     "id": "exp43_phys_pinning_28threads_suffix_nmax8_match5_q4kv",
-    "name": "Exp 43: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Calibrated Precision Suffix Speculation (n_max=8, match=5, depth=48) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 43: Qwen suffix drafting, limit 8 and match 5",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -354,12 +354,12 @@
     "prep": null,
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Calibrated Precision Suffix Speculation (n_max=8, suffix_min_match_len=5, suffix_max_depth=48), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses suffix drafting with n_max=8, suffix_min_match_len=5, and suffix_max_depth=48 alongside one-token MTP."
   },
   {
     "number": 44,
     "id": "exp44_phys_pinning_28threads_muge_suffix_q4kv",
-    "name": "Exp 44: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Merged Up/Gate Experts (-muge) + Dynamic Suffix Speculation (n_max=8, match=4) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 44: Qwen MUGE with suffix drafting and MTP",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=4,suffix_max_depth=32 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -367,12 +367,12 @@
     "prep": null,
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Merged Up/Gate Experts (-muge), Dynamic Suffix-Tree Speculation (n_max=8, suffix_min_match_len=4, suffix_max_depth=32), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Enables merged up/gate experts with suffix drafting at n_max=8, match length 4, and depth 32, plus one-token MTP."
   },
   {
     "number": 45,
     "id": "exp45_phys_pinning_28threads_muge_suffix_nmax9_match5_q4kv",
-    "name": "Exp 45: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Merged Up/Gate Experts (-muge) + Precision Suffix Spec (n_max=9, match=5) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 45: Qwen MUGE with suffix draft limit 9",
     "model": "Qwen3.6-35B-A3B-UD-Q6_K_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=9,suffix_min_match_len=5,suffix_max_depth=48 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -380,12 +380,12 @@
     "prep": null,
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Merged Up/Gate Experts (-muge), Precision Suffix Speculation (n_max=9, suffix_min_match_len=5, suffix_max_depth=48), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses MUGE and suffix drafting with n_max=9, match length 5, and depth 48, plus one-token MTP."
   },
   {
     "number": 46,
     "id": "exp46_phys_pinning_28threads_iq4xs_dense_mtp_q4kv",
-    "name": "Exp 46: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Custom Non-Linear Dense Quantization (IQ4_XS Attention + Q4_0 MoE) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 46: Qwen IQ4_XS dense tensors with MTP",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -398,12 +398,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Custom Non-Linear Dense Quantization (IQ4_XS dense attention + Q4_0 MoE experts) with hand-tuned AVX2 kernel (mul_mat_iq4_xs_r8_q8_k_avx2), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses the IQ4_XS-dense/Q4_0-expert model with runtime repacking, MTP, Q4_0 KV, and SER 2,0.5. The vector arithmetic and repacked formats are upstream implementations."
   },
   {
     "number": 47,
     "id": "exp47_phys_pinning_28threads_iq4xs_suffix_match5_q4kv",
-    "name": "Exp 47: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Custom Non-Linear Dense Quantization (IQ4_XS Attention + Q4_0 MoE) + Precision Suffix Speculation (n_max=8, match=5, depth=48) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 47: Qwen IQ4_XS with suffix drafting and MTP",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -411,12 +411,12 @@
     "prep": null,
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Custom Non-Linear Dense Quantization (IQ4_XS Attention + Q4_0 MoE), Calibrated Precision Suffix Speculation (n_max=8, suffix_min_match_len=5, suffix_max_depth=48), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses the IQ4_XS-dense/Q4_0-expert model with suffix drafting at n_max=8, match length 5, and depth 48, plus MTP."
   },
   {
     "number": 48,
     "id": "exp48_phys_pinning_28threads_iq4xs_muge_suffix_q4kv",
-    "name": "Exp 48: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Custom IQ4_XS Attention + Merged Up/Gate Experts (-muge) + Precision Suffix Speculation (n_max=8, match=5, depth=48) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 48: Qwen IQ4_XS with MUGE, suffix drafting and MTP",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -424,12 +424,12 @@
     "prep": null,
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Custom IQ4_XS Dense Attention, Merged Up/Gate Experts (-muge), Calibrated Precision Suffix Speculation (n_max=8, suffix_min_match_len=5, suffix_max_depth=48), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Enables MUGE for the IQ4_XS-dense/Q4_0-expert model, with suffix drafting at n_max=8 and one-token MTP."
   },
   {
     "number": 49,
     "id": "exp49_phys_pinning_28threads_iq4nl_muge_suffix_q4kv",
-    "name": "Exp 49: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Custom Non-Linear Dense Quantization (IQ4_NL Attention + Q4_0 MoE) + Merged Up/Gate Experts (-muge) + Precision Suffix Speculation (n_max=8, match=5) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 49: Qwen IQ4_NL with MUGE, suffix drafting and MTP",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_NL_MoE_Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --run-time-repack --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -442,12 +442,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Custom Non-Linear Dense Quantization (IQ4_NL Attention + Q4_0 MoE), Merged Up/Gate Experts (-muge), Calibrated Precision Suffix Speculation (n_max=8, suffix_min_match_len=5, suffix_max_depth=48), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses IQ4_NL dense tensors and Q4_0 experts with MUGE, suffix drafting at n_max=8, and one-token MTP."
   },
   {
     "number": 50,
     "id": "exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv",
-    "name": "Exp 50: Physical Core Pinning (Anti-SMT) + Full 28-Core Scaling (-t 28 -tb 28) + Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Up/Gate Experts (-muge) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 50: Repacked Qwen with MUGE and MTP",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "-muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 16384 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0 --repeat-penalty 1.05",
@@ -458,12 +458,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Calibrated Precision Suffix Speculation (n_max=8, suffix_min_match_len=5, suffix_max_depth=48), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses the offline-repacked IQ4_XS-dense/Q4_0-expert model with MUGE, one-token MTP, Q4_0 KV, SER 2,0.5, and repeat penalty 1.05. Despite the historical ID, these server flags do not select suffix drafting."
   },
   {
     "number": 51,
     "id": "exp51_phys_pinning_28threads_repacked_iq4xs_muge_suffix_nmax10_match6_q4kv",
-    "name": "Exp 51: Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Experts (-muge) + Calibrated Horizon Expansion (n_max=10, match=6, depth=48) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 51: Repacked Qwen, suffix limit 10 and match 6",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=10,suffix_min_match_len=6,suffix_max_depth=48 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -474,12 +474,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Calibrated Horizon Expansion Suffix Speculation (n_max=10, suffix_min_match_len=6, suffix_max_depth=48), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses suffix drafting with n_max=10, match length 6, and depth 48, alongside MUGE and MTP on the repacked model."
   },
   {
     "number": 52,
     "id": "exp52_phys_pinning_28threads_repacked_iq4xs_muge_suffix_nmax12_match7_q4kv",
-    "name": "Exp 52: Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Experts (-muge) + Deep Precision Suffix (n_max=12, match=7, depth=64) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 52: Repacked Qwen, suffix limit 12 and match 7",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=12,suffix_min_match_len=7,suffix_max_depth=64 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -490,12 +490,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Deep Precision Suffix Speculation (n_max=12, suffix_min_match_len=7, suffix_max_depth=64), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses suffix drafting with n_max=12, match length 7, and depth 64, alongside MUGE and MTP on the repacked model."
   },
   {
     "number": 53,
     "id": "exp53_phys_pinning_28threads_repacked_iq4xs_muge_suffix_nmax14_match8_q4kv",
-    "name": "Exp 53: Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Experts (-muge) + High-Throughput Precision Suffix (n_max=14, match=8, depth=64) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 53: Repacked Qwen, suffix limit 14 and match 8",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=14,suffix_min_match_len=8,suffix_max_depth=64 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -506,12 +506,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), High-Throughput Precision Suffix Speculation (n_max=14, suffix_min_match_len=8, suffix_max_depth=64), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses suffix drafting with n_max=14, match length 8, and depth 64, alongside MUGE and MTP on the repacked model."
   },
   {
     "number": 54,
     "id": "exp54_phys_pinning_28threads_repacked_iq4xs_muge_suffix_nmax16_match8_pmin010_q4kv",
-    "name": "Exp 54: Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Experts (-muge) + Confidence-Gated Burst Suffix (n_max=16, match=8, p_min=0.10, depth=64) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 54: Repacked Qwen, suffix limit 16 and floor 0.10",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=16,suffix_min_match_len=8,p_min=0.10,suffix_max_depth=64 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -522,12 +522,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Confidence-Gated Burst Suffix Speculation (n_max=16, suffix_min_match_len=8, p_min=0.10, suffix_max_depth=64), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses suffix drafting with n_max=16, match length 8, p_min=0.10, and depth 64, alongside MUGE and MTP."
   },
   {
     "number": 55,
     "id": "exp55_phys_pinning_28threads_repacked_iq4xs_muge_dflash_nmax3_pmin045_q4kv",
-    "name": "Exp 55: Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Experts (-muge) + Calibrated Speculative Diffusion (DFlash n_max=3, p_min=0.45, cross_ctx=512) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 55: Repacked Qwen with DFlash, floor 0.45",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--model-draft {models}/Qwen3.6-35B-A3B-DFlash-Q8_0.gguf --spec-type dflash:n_max=3,p_min=0.45,cross_ctx=512 -muge --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -538,12 +538,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Speculative Diffusion Cascade (DFlash n_max=3, p_min=0.45 + Precision Suffix n_max=8, match=5), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses MUGE and DFlash with n_max=3, p_min=0.45, and cross_ctx=512. The server flags select neither suffix drafting nor MTP."
   },
   {
     "number": 56,
     "id": "exp56_phys_pinning_28threads_repacked_iq4xs_muge_suffix_draft08b_cascade_q4kv",
-    "name": "Exp 56: Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Experts (-muge) + Two-Stage Speculative Cascade (Suffix Tree n_max=8, match=5 + Qwen3.5-0.8B Draft Fallback n_max=2, p_min=0.50) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 56: Repacked Qwen with suffix and 0.8B drafting",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--model-draft {models}/Qwen3.5-0.8B-Q4_K_M.gguf --spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 --spec-type draft:n_max=2,p_min=0.50 -muge --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -554,12 +554,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Two-Stage Speculative Cascade (Suffix Tree n_max=8, match=5 + Qwen3.5-0.8B Draft Fallback n_max=2, p_min=0.50), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Selects suffix drafting with n_max=8 and an auxiliary Qwen3.5-0.8B draft model with n_max=2 and p_min=0.50, plus MUGE."
   },
   {
     "number": 57,
     "id": "exp57_phys_pinning_28threads_repacked_iq4xs_muge_suffix_mtp_pmin015_q4kv",
-    "name": "Exp 57: Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Experts (-muge) + Calibrated Precision Suffix (n_max=8, match=5) + Confidence-Gated MTP (n_max=1, p_min=0.15) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 57: Repacked Qwen with suffix and MTP floor 0.15",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -570,12 +570,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Calibrated Precision Suffix Speculation (n_max=8, match=5), Confidence-Gated MTP (n_max=1, p_min=0.15), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses suffix drafting with n_max=8, match length 5, and depth 48, plus MTP with p_min=0.15 and MUGE."
   },
   {
     "number": 58,
     "id": "exp58_phys_pinning_28threads_repacked_iq4xs_muge_suffix_autotune_q4kv",
-    "name": "Exp 58: Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Experts (-muge) + Suffix Spec (n_max=8, match=5) + Speculative Autotuning (--spec-autotune) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 58: Repacked Qwen with speculation autotuning",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -586,12 +586,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Precision Suffix Speculation (n_max=8, match=5), Speculative Autotuning (--spec-autotune), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Enables speculative autotuning with suffix drafting at n_max=8, one-token MTP, and MUGE."
   },
   {
     "number": 59,
     "id": "exp59_phys_pinning_28threads_repacked_iq4xs_muge_dflash_pmin060_q4kv",
-    "name": "Exp 59: Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Experts (-muge) + High-Confidence Speculative Diffusion (DFlash n_max=3, p_min=0.60, cross_ctx=512) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 59: Repacked Qwen with DFlash, floor 0.60",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--model-draft {models}/Qwen3.6-35B-A3B-DFlash-Q8_0.gguf --spec-type dflash:n_max=3,p_min=0.60,cross_ctx=512 -muge --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -602,12 +602,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), High-Confidence Speculative Diffusion (DFlash n_max=3, p_min=0.60, cross_ctx=512), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Uses MUGE and DFlash with n_max=3, p_min=0.60, and cross_ctx=512, retaining Q4_0 KV and SER 2,0.5."
   },
   {
     "number": 60,
     "id": "exp60_phys_pinning_28threads_repacked_iq4xs_muge_suffix_slot_similarity_q4kv",
-    "name": "Exp 60: Pre-Repacked Offline GGUF (IQ4_XS_R8 / Q4_0_R8) + Merged Experts (-muge) + Suffix Spec (n_max=8, match=5) + Prefix Cache Sharing (slot_prompt_similarity=0.20) + Native MTP + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 60: Repacked Qwen with slot similarity 0.20",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.20",
@@ -618,12 +618,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Precision Suffix Speculation (n_max=8, match=5), Slot Prompt Similarity (0.20), Native MTP (mtp:n_max=1), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Sets slot prompt similarity to 0.20 with suffix drafting at n_max=8, one-token MTP, and MUGE. The setting alone does not measure prompt reuse."
   },
   {
     "number": 61,
     "id": "exp61_phys_pinning_28threads_repacked_iq4xs_muge_grand_composite_champion_q4kv",
-    "name": "Exp 61: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Composite Speculative Cascade (Suffix n_max=8, match=5 + Confidence MTP p_min=0.15 + Spec Autotune + Slot Similarity 0.20 + Q4_0 KV + SER 2,0.5)",
+    "name": "Experiment 61: Repacked Qwen with autotuning and slot similarity 0.20",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.20",
@@ -634,12 +634,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Composite Speculative Cascade (Precision Suffix n_max=8, match=5, Speculative Autotuning, Confidence-Gated MTP p_min=0.15, Slot Prompt Similarity 0.20), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Combines suffix drafting at n_max=8, MTP with p_min=0.15, speculative autotuning, MUGE, and slot prompt similarity 0.20."
   },
   {
     "number": 62,
     "id": "exp62_phys_pinning_28threads_repacked_iq4xs_muge_numactl_pinning_q4kv",
-    "name": "Exp 62: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Direct NUMA Map Pinning (--numa numactl) + Precision Suffix (n_max=8, match=5) + Confidence MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 62: Repacked Qwen with numactl NUMA policy",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -650,12 +650,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Direct NUMA Map Pinning (--numa numactl), Precision Suffix Speculation (n_max=8, match=5), Confidence MTP (p_min=0.15), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Selects --numa numactl with the wrapper's recorded interleave and affinity settings, suffix drafting at n_max=8, MTP with p_min=0.15, and MUGE."
   },
   {
     "number": 63,
     "id": "exp63_phys_pinning_28threads_repacked_iq4xs_muge_3experts_pruning_q4kv",
-    "name": "Exp 63: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Dynamic 3-Expert Pruning (expert_used_count=int:3) + Precision Suffix (n_max=8, match=5) + Confidence MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 63: Repacked Qwen with three routed experts",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 -muge --override-kv qwen35moe.expert_used_count=int:3 --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -666,12 +666,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Dynamic 3-Expert Pruning (expert_used_count=int:3 saving 25% DRAM bandwidth), Precision Suffix Speculation (n_max=8, match=5), Confidence MTP (p_min=0.15), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Overrides expert_used_count to 3 and retains suffix drafting, MTP, MUGE, and SER 2,0.5. This changes the target routing configuration."
   },
   {
     "number": 64,
     "id": "exp64_phys_pinning_28threads_repacked_iq4xs_muge_ngram_mod_hybrid_q4kv",
-    "name": "Exp 64: Pre-Repacked Offline GGUF + Merged Experts (-muge) + N-Gram Mod Hash Spec (n_max=10, N=8, M=16, hits=2) + Confidence MTP (p_min=0.15) + Spec Autotune + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 64: Repacked Qwen with MOD n-grams and autotuning",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type ngram-mod:n_max=10,ngram_size_n=8,ngram_size_m=16,ngram_min_hits=2 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -682,12 +682,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), N-Gram Mod Hash Speculation (n_max=10, N=8, M=16, hits=2), Speculative Autotuning, Confidence MTP (p_min=0.15), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Selects MOD n-gram drafting with n_max=10 and ngram_size_n=8, MTP with p_min=0.15, autotuning, and MUGE. Recorded ngram_size_m and ngram_min_hits options do not add the map strategy's hit-count gate."
   },
   {
     "number": 65,
     "id": "exp65_phys_pinning_28threads_repacked_iq4xs_muge_grouped_expert_routing_q4kv",
-    "name": "Exp 65: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Grouped Expert Routing (-ger) + Precision Suffix (n_max=8, match=5) + Confidence MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 65: Repacked Qwen with grouped expert routing",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 -muge -ger --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -698,12 +698,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Anti-SMT physical core pinning (--physcpubind=0-27) scaled to all 28 physical cores (-t 28 -tb 28) combined with Pre-Repacked Offline GGUF Layout (IQ4_XS_R8 / Q4_0_R8), Merged Up/Gate Experts (-muge), Grouped Expert Routing (-ger to maximize L3 cache locality), Precision Suffix Speculation (n_max=8, match=5), Confidence MTP (p_min=0.15), Q4_0 KV Cache, and calibrated SER 2,0.5."
+    "change": "Enables grouped expert routing with -ger, retaining suffix drafting at n_max=8, MTP with p_min=0.15, and MUGE. Any locality benefit needs measurement."
   },
   {
     "number": 66,
     "id": "exp66_phys_pinning_28threads_repacked_iq4xs_muge_first_touch_numa_q4kv",
-    "name": "Exp 66: Pre-Repacked Offline GGUF + Merged Experts (-muge) + First-Touch Local NUMA Allocation (numactl --localalloc) + Direct NUMA Map Pinning (--numa numactl) + Suffix (n_max=8, match=5) + Confidence MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 66: Repacked Qwen with local allocation policy",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --localalloc --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -714,15 +714,15 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Replacing forced cross-QPI memory interleaving (--interleave=all) with first-touch local NUMA allocation (numactl --localalloc) combined with direct physical pinning (--numa numactl) to test whether reducing cross-socket DRAM traffic boosts decode throughput above 21.57 t/s."
+    "change": "Uses numactl --localalloc instead of forced interleaving, with explicit affinity and --numa numactl. Retains suffix drafting, MTP, and MUGE; actual page placement needs inspection."
   },
   {
     "number": 67,
     "id": "exp67_phys_pinning_28threads_repacked_iq4xs_muge_corpus_suffix_spec_q4kv",
-    "name": "Exp 67: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Corpus-Backed Suffix Speculation (suffix_corpus) + Confidence MTP (p_min=0.15) + Direct NUMA Map Pinning (--numa numactl) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 67: Repacked Qwen with a suffix corpus",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
-    "server_flags": "--spec-type \"suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48,suffix_corpus='/home/james/Homelab-inference/benchmarks/code_corpus.json'\" -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "server_flags": "--spec-type \"suffix:n_max=8,suffix_min_match_len=5,suffix_max_depth=48,suffix_corpus='{root}/benchmarks/code_corpus.json'\" -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
     "prompt": "stored",
     "prep": {
       "kind": "repack",
@@ -730,12 +730,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Preloading offline code algorithms and reasoning preambles into suffix tree via suffix_corpus to evaluate draft hit rate gains on structured reasoning and code patterns without issuing forward passes."
+    "change": "Supplies code_corpus.json to suffix drafting with n_max=8, match length 5, and depth 48, plus MTP with p_min=0.15 and MUGE."
   },
   {
     "number": 68,
     "id": "exp68_phys_pinning_28threads_repacked_iq4xs_muge_cost_aware_constrained_draft_q4kv",
-    "name": "Exp 68: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Constrained Draft Depth (n_max=4, depth=32) + Direct NUMA Map Pinning (--numa numactl) + Confidence MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 68: Repacked Qwen with suffix draft limit 4",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -746,12 +746,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Bounding speculative draft depth to n_max=4 with depth=32 to cap the union of active experts verified per forward pass, preventing memory bus saturation on Broadwell's 76.8 GB/s DRAM bus."
+    "change": "Uses suffix drafting with n_max=4, match length 5, and depth 32, plus MTP with p_min=0.15, MUGE, and --numa numactl."
   },
   {
     "number": 69,
     "id": "exp69_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_numactl_q4kv",
-    "name": "Exp 69: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Pure MTP Speculation (No Suffix) + Direct NUMA Map Pinning (--numa numactl) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 69: Repacked Qwen with MTP and numactl policy",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "-muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -762,12 +762,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Isolating pure native MTP speculation without suffix tree maintenance overhead under the new direct NUMA map pinning environment (--numa numactl)."
+    "change": "Selects one-token MTP with p_min=0.15 and MUGE under --numa numactl. No suffix strategy is selected."
   },
   {
     "number": 70,
     "id": "exp70_phys_pinning_28threads_repacked_iq4xs_muge_suffix_autotune_numactl_q4kv",
-    "name": "Exp 70: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Suffix Speculation (n_max=6, match=4) + Spec Autotune + Direct NUMA Map Pinning (--numa numactl) + Confidence MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 70: Repacked Qwen with suffix limit 6 and autotuning",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=6,suffix_min_match_len=4,suffix_max_depth=40 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -778,12 +778,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Dynamic acceptance-rate tracking via speculative autotuning combined with low match threshold (match=4, depth=40) and direct NUMA pinning (--numa numactl)."
+    "change": "Uses suffix drafting with n_max=6, match length 4, and depth 40, plus MTP with p_min=0.15, autotuning, and MUGE."
   },
   {
     "number": 71,
     "id": "exp71_phys_pinning_28threads_repacked_iq4xs_muge_expanded_ceiling_4096_constrained_draft_q4kv",
-    "name": "Exp 71: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Expanded Token Ceiling (max_tokens=4096) + Constrained Draft Depth (n_max=4, depth=32) + Direct NUMA Pinning (--numa numactl) + Confidence MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 71: Qwen 4K-output-ceiling attempt with suffix and MTP",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -794,12 +794,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Expanding generation ceiling from 1,536 to 4,096 tokens under champion constrained draft depth (n_max=4, depth=32) + direct NUMA pinning (--numa numactl) to permit complete unconstrained Chain-of-Thought reasoning without clipping."
+    "change": "Recorded as a 4096-token output-ceiling experiment with suffix n_max=4, MTP p_min=0.15, and MUGE. The caller supplies the output ceiling; this entry stores server context size, not a request ceiling."
   },
   {
     "number": 72,
     "id": "exp72_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_expanded_ceiling_4096_q4kv",
-    "name": "Exp 72: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Pure Native MTP (No Suffix) + Expanded Token Ceiling (max_tokens=4096) + Direct NUMA Pinning (--numa numactl) + Q4_0 KV + SER 2,0.5",
+    "name": "Experiment 72: Qwen 4K-output-ceiling attempt with MTP",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "-muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -810,15 +810,15 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Benchmarking Pure Native MTP (no suffix) under 4,096-token ceiling to test whether zero draft-expansion penalty preserves high reasoning accuracy on completed deep thoughts."
+    "change": "Recorded as a 4096-token output-ceiling experiment with MTP p_min=0.15 and MUGE. The caller controls the actual output ceiling; no suffix strategy is selected."
   },
   {
     "number": 73,
     "id": "exp73_phys_pinning_28threads_repacked_iq4xs_muge_corpus_suffix_expanded_ceiling_4096_q4kv",
-    "name": "Exp 73: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Corpus-Backed Suffix Speculation (suffix_corpus, n_max=4) + Confidence MTP (p_min=0.15) + Direct NUMA Pinning + Expanded Ceiling (max_tokens=4096)",
+    "name": "Experiment 73: Qwen suffix corpus with draft limit 4",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
-    "server_flags": "--spec-type \"suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32,suffix_corpus='/home/james/Homelab-inference/benchmarks/code_corpus.json'\" -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
+    "server_flags": "--spec-type \"suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32,suffix_corpus='{root}/benchmarks/code_corpus.json'\" -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
     "prompt": "stored",
     "prep": {
       "kind": "repack",
@@ -826,12 +826,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Preloading offline code/reasoning corpus into suffix tree with constrained draft depth (n_max=4, depth=32) under expanded 4,096-token ceiling to accelerate deep scientific reasoning."
+    "change": "Supplies code_corpus.json to suffix drafting with n_max=4, match length 5, and depth 32, plus MTP p_min=0.15 and MUGE. The recorded 4096-token output ceiling is caller-controlled."
   },
   {
     "number": 74,
     "id": "exp74_phys_pinning_28threads_repacked_iq4xs_muge_suffix_autotune_expanded_ceiling_4096_q4kv",
-    "name": "Exp 74: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Speculative Autotuning (--spec-autotune) + Constrained Suffix (n_max=4) + Confidence MTP (p_min=0.15) + Direct NUMA Pinning + Expanded Ceiling (max_tokens=4096)",
+    "name": "Experiment 74: Qwen suffix limit 4 with autotuning",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -842,12 +842,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Dynamic acceptance-rate autotuning combined with constrained draft depth (n_max=4, depth=32) under 4,096-token ceiling to maintain optimal speculation depth during long CoT generation."
+    "change": "Enables speculation autotuning with suffix n_max=4, match length 5, depth 32, MTP p_min=0.15, and MUGE."
   },
   {
     "number": 75,
     "id": "exp75_phys_pinning_28threads_repacked_iq4xs_muge_persistent_slot_cache_expanded_ceiling_4096_q4kv",
-    "name": "Exp 75: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Persistent Slot Cache (--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.20) + Constrained Draft (n_max=4) + Direct NUMA Pinning + MTP (p_min=0.15) + Q4_0 KV + SER 2,0.5 + Expanded Ceiling (max_tokens=4096)",
+    "name": "Experiment 75: Qwen slot-save path with similarity 0.20",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.20 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
@@ -858,12 +858,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Enabling persistent KV and recurrent state saving (--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.20) under 4,096-token ceiling to evaluate session reuse and prefix caching stability."
+    "change": "Sets a slot-save path and slot prompt similarity 0.20 with suffix n_max=4, MTP p_min=0.15, and MUGE. These options alone do not establish a persistent-cache reuse result."
   },
   {
     "number": 76,
     "id": "exp76_phys_pinning_28threads_repacked_iq4xs_muge_concise_steering_autotune_expanded_ceiling_4096_q4kv",
-    "name": "Exp 76: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Concise Reasoning Steering (600 Words) + Spec Autotune + Constrained Suffix (n_max=4) + MTP (p=0.15) + 4K Ceiling",
+    "name": "Experiment 76: Qwen concise-prompt attempt with autotuning",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -874,12 +874,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Testing concise reasoning steering prompt ('Provide concise, rigorous reasoning within 600 words, then state your final answer choice clearly.') to prevent unclosed CoT truncations and reduce wall time."
+    "change": "Recorded as a 600-word reasoning-prompt attempt. The catalog only marks the prompt as stored; the caller supplies its actual text. Server flags select suffix n_max=4, MTP p_min=0.15, autotuning, and MUGE."
   },
   {
     "number": 77,
     "id": "exp77_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_pmin005_expanded_ceiling_4096_q4kv",
-    "name": "Exp 77: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Pure Native MTP (p_min=0.05, No Suffix) + Expanded Ceiling (max_tokens=4096) + Direct NUMA Pinning",
+    "name": "Experiment 77: Qwen MTP with probability floor 0.05",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "-muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.05 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -890,12 +890,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Calibrated MTP confidence floor p_min=0.05 (reduced from 0.15) to increase draft acceptance throughput on high-accuracy pure MTP execution."
+    "change": "Uses one-token MTP with p_min=0.05 and MUGE under --numa numactl. The recorded 4096-token output ceiling is supplied by the caller."
   },
   {
     "number": 78,
     "id": "exp78_phys_pinning_26threads_repacked_iq4xs_muge_os_jitter_isolation_expanded_ceiling_4096_q4kv",
-    "name": "Exp 78: Pre-Repacked Offline GGUF + Merged Experts (-muge) + OS Jitter Isolation (26 Physical Compute Threads, 2 Cores Reserved for IO/OS) + Spec Autotune + MTP + 4K Ceiling",
+    "name": "Experiment 78: Qwen with 26 decode and batch threads",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=2,4,6,8,10,12,14,16,18,20,22,24,26,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 26 -tb 26 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -906,12 +906,12 @@
     },
     "threads": 26,
     "threads_batch": 26,
-    "change": "Reserving 1 physical core per socket (CPU 0 on Node 0, CPU 1 on Node 1) for OS interrupts and memory streaming, binding 26 compute threads (-t 26 -tb 26) to eliminate OpenMP barrier synchronization jitter."
+    "change": "Sets both thread counts to 26 and excludes logical CPUs 0 and 1 from the recorded affinity list, with suffix drafting, MTP, autotuning, and MUGE. It does not reserve those CPUs from other processes or interrupt handling."
   },
   {
     "number": 79,
     "id": "exp79_phys_pinning_28threads_repacked_iq4xs_muge_slot_similarity_050_expanded_ceiling_4096_q4kv",
-    "name": "Exp 79: Pre-Repacked Offline GGUF + Merged Experts (-muge) + High-Threshold Persistent Slot Cache (--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50) + Constrained Draft + MTP + 4K Ceiling",
+    "name": "Experiment 79: Qwen slot-save path with similarity 0.50",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
@@ -922,12 +922,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Increasing slot prompt similarity threshold to 0.50 with persistent slot disk persistence to evaluate KV reuse stability on high-structure overlaps without thrashing recurrent states."
+    "change": "Sets a slot-save path and slot prompt similarity 0.50, retaining suffix n_max=4, MTP p_min=0.15, and MUGE."
   },
   {
     "number": 80,
     "id": "exp80_phys_pinning_28threads_repacked_iq4xs_muge_expanded_horizon_autotune_ceiling_4096_q4kv",
-    "name": "Exp 80: Pre-Repacked Offline GGUF + Merged Experts (-muge) + Horizon-Expanded Autotuned Speculation (n_max=5, match=4, depth=36) + Calibrated MTP (p=0.10) + 4K Ceiling",
+    "name": "Experiment 80: Qwen suffix limit 5 and MTP floor 0.10",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--spec-type suffix:n_max=5,suffix_min_match_len=4,suffix_max_depth=36 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.10 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -938,12 +938,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Expanding draft horizon to n_max=5 with match_len=4 and calibrated MTP floor p_min=0.10 under autotuning to capture longer syntactic bursts while bounding expert activation union."
+    "change": "Uses suffix n_max=5, match length 4, depth 36, MTP p_min=0.10, autotuning, and MUGE."
   },
   {
     "number": 81,
     "id": "exp81_phys_pinning_28threads_repacked_iq4xs_muge_unified_champion_steering_slot050_ceiling4096_q4kv",
-    "name": "Exp 81: Slot Cache + Concise Steering + Suffix + MTP (Persistent Slot Cache similarity=0.50 + Concise Reasoning Steering 600 Words + Autotune + Constrained Suffix n_max=4 + MTP + 4K Ceiling)",
+    "name": "Experiment 81: Qwen concise-prompt and slot-cache attempt",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
@@ -954,12 +954,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Unifying speed champion (Run 79 persistent slot cache similarity=0.50 at 22.76 t/s) with reasoning accuracy champion (Run 76 concise steering prompt at 22.0% score) to evaluate co-optimization."
+    "change": "Combines slot similarity 0.50, suffix n_max=4, MTP p_min=0.15, autotuning, and MUGE. The original concise-prompt label is not a stored request override; actual prompts are recorded by the caller."
   },
   {
     "number": 82,
     "id": "exp82_phys_pinning_28decode_26batch_threads_repacked_iq4xs_muge_heterogeneous_threads_ceiling4096_q4kv",
-    "name": "Exp 82: Dynamic Thread Heterogeneity (28 Decode Threads -t 28, 26 Batch Prefill Threads -tb 26 + Persistent Slot 0.50 + Autotune + MTP + 4K Ceiling)",
+    "name": "Experiment 82: Qwen with 28 decode and 26 batch threads",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 26 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
@@ -970,12 +970,12 @@
     },
     "threads": 28,
     "threads_batch": 26,
-    "change": "Allocating 28 physical threads for memory-bound token decoding (-t 28) and 26 threads for compute-bound prefill batching (-tb 26) to combine 22.76 t/s decode with 41.66 t/s extreme context prefill."
+    "change": "Sets -t 28 and -tb 26 with slot similarity 0.50, suffix n_max=4, MTP p_min=0.15, autotuning, and MUGE."
   },
   {
     "number": 83,
     "id": "exp83_phys_pinning_28threads_repacked_iq4xs_muge_calibrated_temperature_slot050_ceiling4096_q4kv",
-    "name": "Exp 83: Calibrated Sampling Dynamics (T=0.3, top_p=0.95 + Persistent Slot Cache similarity=0.50 + Autotune + Suffix n_max=4 + MTP + 4K Ceiling)",
+    "name": "Experiment 83: Qwen sampling attempt with slot cache",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
@@ -986,12 +986,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Introducing calibrated temperature sampling (T=0.3, top_p=0.95) to prevent greedy monologue loops in deep scientific CoT while maintaining speculative verification fidelity."
+    "change": "Originally labeled a temperature=0.3, top_p=0.95 experiment, but this entry stores no sampling request override. Server flags select slot similarity 0.50, suffix n_max=4, MTP p_min=0.15, autotuning, and MUGE; inspect the run manifest for actual request settings."
   },
   {
     "number": 84,
     "id": "exp84_phys_pinning_28threads_repacked_iq4xs_muge_conservative_horizon_nmax3_ceiling4096_q4kv",
-    "name": "Exp 84: Conservative Draft Horizon (n_max=3, match=5, depth=24 + Spec Autotune + Persistent Slot 0.50 + MTP + 4K Ceiling)",
+    "name": "Experiment 84: Qwen suffix drafting, limit 3 and depth 24",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type suffix:n_max=3,suffix_min_match_len=5,suffix_max_depth=24 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
@@ -1002,15 +1002,15 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Testing conservative draft horizon (n_max=3) to bound expert memory union strictly to <=12 experts per layer, minimizing Broadwell DRAM bandwidth contention."
+    "change": "Uses suffix n_max=3, match length 5, and depth 24 with slot similarity 0.50, MTP p_min=0.15, autotuning, and MUGE."
   },
   {
     "number": 85,
     "id": "exp85_phys_pinning_28threads_repacked_iq4xs_muge_corpus_suffix_slot050_ceiling4096_q4kv",
-    "name": "Exp 85: Corpus-Backed Constrained Suffix with High-Threshold Slot Cache (suffix_corpus + slot_similarity=0.50 + Autotune + MTP + 4K Ceiling)",
+    "name": "Experiment 85: Qwen suffix corpus with slot similarity 0.50",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
-    "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type \"suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32,suffix_corpus='/home/james/Homelab-inference/benchmarks/code_corpus.json'\" --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
+    "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type \"suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32,suffix_corpus='{root}/benchmarks/code_corpus.json'\" --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
     "prompt": "stored",
     "prep": {
       "kind": "repack",
@@ -1018,12 +1018,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Combining offline reasoning corpus preloading into suffix tree with high-threshold persistent slot cache (similarity=0.50) under 4K ceiling."
+    "change": "Supplies code_corpus.json to suffix drafting at n_max=4 and combines it with slot similarity 0.50, MTP p_min=0.15, autotuning, and MUGE."
   },
   {
     "number": 86,
     "id": "exp86_phys_pinning_28decode_26batch_repacked_iq4xs_muge_triple_champion_ceiling4096_q4kv",
-    "name": "Exp 86: Slot Cache + Decoupled Prefill + Suffix + MTP (Persistent Slot similarity=0.50 + Concise Steering 600W + Decoupled Prefill -t 28 -tb 26 + Spec Autotune + MTP + 4K Ceiling)",
+    "name": "Experiment 86: Qwen slot cache with separate batch thread count",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 26 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
@@ -1034,12 +1034,12 @@
     },
     "threads": 28,
     "threads_batch": 26,
-    "change": "Synthesizing the speed champion (slot cache 0.50 at 22.76 t/s), accuracy champion (concise steering at 22.0%), and prefill champion (decoupled batch prefill -tb 26 at 41.77 t/s) into a unified configuration."
+    "change": "Uses 28 decode and 26 batch threads with slot similarity 0.50, suffix n_max=4, MTP p_min=0.15, autotuning, and MUGE. The earlier concise-prompt label requires the actual request record for verification."
   },
   {
     "number": 87,
     "id": "exp87_phys_pinning_28threads_repacked_iq4xs_muge_suffix_match4_autotune_ceiling4096_q4kv",
-    "name": "Exp 87: High-Frequency Suffix Speculation (match_len=4, n_max=4, depth=32 + Spec Autotune + Persistent Slot 0.50 + MTP + 4K Ceiling)",
+    "name": "Experiment 87: Qwen suffix drafting with match length 4",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.50 --spec-type suffix:n_max=4,suffix_min_match_len=4,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
@@ -1050,12 +1050,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Lowering suffix minimum match length from 5 to 4 to increase draft trigger frequency on short repeated scientific idioms while capping draft depth at n_max=4."
+    "change": "Sets suffix_min_match_len=4 with n_max=4 and depth 32, plus slot similarity 0.50, MTP p_min=0.15, autotuning, and MUGE."
   },
   {
     "number": 88,
     "id": "exp88_phys_pinning_28threads_repacked_iq4xs_muge_pure_mtp_pmin000_ceiling4096_q4kv",
-    "name": "Exp 88: Unconstrained Pure Native MTP (p_min=0.0, Zero Threshold, No Suffix) + Direct NUMA Pinning + 4K Ceiling",
+    "name": "Experiment 88: Qwen MTP with probability floor 0",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "-muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0",
@@ -1066,12 +1066,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Testing zero-threshold pure Native MTP (p_min=0.0) where 100% of MTP candidate tokens are verified, testing maximum MTP throughput limit under unconstrained 4K ceiling."
+    "change": "Uses one-token MTP with p_min=0.0 and MUGE under --numa numactl. Target verification still determines which candidate tokens are accepted."
   },
   {
     "number": 89,
     "id": "exp89_phys_pinning_28threads_repacked_iq4xs_muge_slot_similarity_070_ceiling4096_q4kv",
-    "name": "Exp 89: Ultra-Selective Persistent Slot Cache (similarity=0.70, /tmp/slots/) + Constrained Draft + Autotune + MTP + 4K Ceiling",
+    "name": "Experiment 89: Qwen slot-save path with similarity 0.70",
     "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--slot-save-path /tmp/slots/ --slot-prompt-similarity 0.70 --spec-type suffix:n_max=4,suffix_min_match_len=5,suffix_max_depth=32 --spec-autotune -muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.15 --port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa numactl -fa 1 -ser 2,0.5",
@@ -1082,12 +1082,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Raising slot prompt similarity threshold to 0.70 to strictly restrict slot reuse to near-identical prefix contexts, reducing any residual KV perturbation."
+    "change": "Sets a slot-save path and slot prompt similarity 0.70 with suffix n_max=4, MTP p_min=0.15, autotuning, and MUGE."
   },
   {
     "number": 90,
     "id": "exp90_flint_baseline_40b_a2_5b_q4_0_numa_phys_pinning",
-    "name": "Exp 90: Recursive Flint 40B MoE (A2.5B Active) Q4_0 Baseline (Pure Dual-Socket NUMA Interleave, 28 Physical Cores, Flash Attention, 4K Ceiling)",
+    "name": "Experiment 90: Flint Q4_0 baseline",
     "model": "RecursiveSI_flint-Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--port {port} -c 8192 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --numa numactl -fa auto",
@@ -1097,12 +1097,12 @@
     },
     "threads": 28,
     "threads_batch": 28,
-    "change": "Standardized baseline evaluation of Recursive Flint (40B MoE, 2.5B active parameters per token, 256 routed experts selecting 6 + 1 shared expert) in pure unspeculated Q4_0 with full dual-socket NUMA interleave."
+    "change": "Uses the unrepacked Flint Q4_0 file with 28 decode and batch threads, Q4_0 KV, and --numa numactl. No draft strategy is selected."
   },
   {
     "number": 91,
     "id": "exp91_flint_composite_champion_ngram_mod_slot050_decoupled26_ceiling4096_q4kv",
-    "name": "Exp 91: Recursive Flint 40B MoE N-Gram Mod Spec + Slot Cache + Decoupled Prefill (N-Gram Mod Speculation n_max=4, match=4 + Persistent Slot Cache 0.50 + Decoupled Prefill -tb 26 + 4K Ceiling)",
+    "name": "Experiment 91: Flint MOD n-grams, draft limit 4",
     "model": "RecursiveSI_flint-Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--port {port} -c 8192 -t 28 -tb 26 --spec-type ngram-mod --spec-ngram-mod-n-max 4 --spec-ngram-mod-n-match 4 --slot-save-path /tmp/slots/ -sps 0.50 -ctk q4_0 -ctv q4_0 --numa numactl -fa auto",
@@ -1112,12 +1112,12 @@
     },
     "threads": 28,
     "threads_batch": 26,
-    "change": "Applying composite optimization suite to Recursive Flint 40B MoE: low-overhead modulo-hash n-gram speculation (n_max=4, match=4) to amortize 49-layer CPU barrier overhead across Flint's lightweight 1.50 GB/token stream, persistent slot cache (similarity=0.50, /tmp/slots/) to eliminate prompt prefill latency, and decoupled prefill threading (-t 28 -tb 26) to prevent NUMA interconnect saturation."
+    "change": "Requests Flint MOD n-gram drafting with the legacy n-max=4 and n-match=4 flags, a slot-save path, similarity 0.50, and 28 decode/26 batch threads. These settings do not establish a per-token DRAM volume or eliminate prefill."
   },
   {
     "number": 92,
     "id": "exp92_flint_expanded_horizon_ngram_nmax8_match5_slot050_decoupled26_ceiling4096_q4kv",
-    "name": "Exp 92: Recursive Flint 40B MoE Expanded Horizon (N-Gram Mod Speculation n_max=8, match=5 + Persistent Slot Cache 0.50 + Decoupled Prefill -tb 26 + 4K Ceiling)",
+    "name": "Experiment 92: Flint MOD n-grams, draft limit 8",
     "model": "RecursiveSI_flint-Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--port {port} -c 8192 -t 28 -tb 26 --spec-type ngram-mod --spec-ngram-mod-n-max 8 --spec-ngram-mod-n-match 5 --slot-save-path /tmp/slots/ -sps 0.50 -ctk q4_0 -ctv q4_0 --numa numactl -fa auto",
@@ -1127,27 +1127,27 @@
     },
     "threads": 28,
     "threads_batch": 26,
-    "change": "Expanding speculative drafting horizon on Recursive Flint 40B MoE from n_max=4, match=4 to n_max=8, match=5 to capture longer boilerplate and mathematical derivation bursts across Flint's low 1.50 GB/token stream, paired with persistent slot cache (0.50) and decoupled prefill (-tb 26)."
+    "change": "Requests Flint MOD n-gram drafting with the legacy n-max=8 and n-match=5 flags, slot similarity 0.50, and 28 decode/26 batch threads."
   },
   {
     "number": 93,
     "id": "exp93_flint_dense_drafter_qwen08b_slot050_decoupled26_ceiling4096_q4kv",
-    "name": "Exp 93: Recursive Flint 40B MoE + Dense Auxiliary Drafter (Qwen 3.5 0.8B Drafter + Persistent Slot Cache 0.50 + Decoupled Prefill -tb 26 + 4K Ceiling)",
+    "name": "Experiment 93: Flint with a Qwen 0.8B draft-model attempt",
     "model": "RecursiveSI_flint-Q4_0.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
-    "server_flags": "--port {port} -c 8192 -t 28 -tb 26 --model-draft /home/james/ik_llama.cpp/build/models/Qwen3.5-0.8B-Q4_K_M.gguf --spec-draft-n-max 4 --slot-save-path /tmp/slots/ -sps 0.50 -ctk q4_0 -ctv q4_0 --numa numactl -fa auto",
+    "server_flags": "--port {port} -c 8192 -t 28 -tb 26 --model-draft {models}/Qwen3.5-0.8B-Q4_K_M.gguf --spec-draft-n-max 4 --slot-save-path /tmp/slots/ -sps 0.50 -ctk q4_0 -ctv q4_0 --numa numactl -fa auto",
     "prompt": "stored",
     "prep": {
       "kind": "none"
     },
     "threads": 28,
     "threads_batch": 26,
-    "change": "Pairing Recursive Flint 40B MoE with dedicated dense auxiliary neural drafter (Qwen 3.5 0.8B Q4_K_M) generating dense speculative token proposals (spec-draft-n-max=4), paired with persistent slot cache (0.50) and decoupled prefill threading (-tb 26)."
+    "change": "Supplies a Qwen3.5-0.8B Q4_K_M draft model and requests a four-token draft limit with slot similarity 0.50 and 28 decode/26 batch threads. Tokenizer compatibility and usefulness require a successful saved run."
   },
   {
     "number": 94,
     "id": "exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv",
-    "name": "Exp 94: Recursive Flint 40B MoE on ik_llama.cpp (Merged Up/Gate -muge 1 + AVX2 64-Byte Repacking Q4_0_R8 + N-Gram Mod Speculation n_max=4, match=4 + Slot Cache 0.50 + Decoupled Prefill -tb 26)",
+    "name": "Experiment 94: Repacked Flint with MUGE and MOD n-grams",
     "model": "RecursiveSI_flint-Q4_0_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--port {port} -c 8192 -t 28 -tb 26 --spec-type ngram-mod:n_max=4,ngram_size_n=4,ngram_min_hits=4 --slot-save-path /tmp/slots/ -sps 0.50 -ctk q4_0 -ctv q4_0 --numa numactl -muge",
@@ -1157,12 +1157,12 @@
     },
     "threads": 28,
     "threads_batch": 26,
-    "change": "Porting Recursive Flint 40B MoE into ik_llama.cpp to unlock Merged Up/Gate Experts (-muge 1) and AVX2 64-byte row repacking (Q4_0_R8) for low-overhead matrix-vector math."
+    "change": "Uses the native Flint port with the repacked Q4_0 file, MUGE, MOD n-gram drafting at n_max=4 and ngram_size_n=4, slot similarity 0.50, and 28 decode/26 batch threads. The recorded ngram_min_hits=4 is not a MOD hit-count gate."
   },
   {
     "number": 95,
     "id": "exp95_flint_unsloth_ud_q3kxl_repacked_muge_ngram_mod_slot050_decoupled26_ceiling4096_q4kv",
-    "name": "Exp 95: Recursive Flint 40B MoE Unsloth Dynamic Q3_K_XL Repacked (Merged Up/Gate -muge 1 + Repacked Q3_K_R4/Q8_0_R8 + N-Gram Mod Speculation n_max=4, match=4 + Slot Cache 0.50 + Decoupled Prefill -tb 26)",
+    "name": "Experiment 95: Repacked Flint Q3_K_XL with MUGE and MOD n-grams",
     "model": "flint-UD-Q3_K_XL_Repacked.gguf",
     "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
     "server_flags": "--port {port} -c 8192 -t 28 -tb 26 --spec-type ngram-mod:n_max=4,ngram_size_n=4,ngram_min_hits=4 --slot-save-path /tmp/slots/ -sps 0.50 -ctk q4_0 -ctv q4_0 --numa numactl -muge",
@@ -1172,6 +1172,6 @@
     },
     "threads": 28,
     "threads_batch": 26,
-    "change": "Evaluating Unsloth Dynamic Flint 40B Q3_K_XL repacked to AVX2 row-aligned formats (Q3_K_R4, 17.22 GB) with Merged Up/Gate (-muge) + N-Gram Mod Speculation (n_max=4, match=4)."
+    "change": "Uses the repacked Flint UD-Q3_K_XL file with MUGE, MOD drafting at n_max=4 and ngram_size_n=4, slot similarity 0.50, and 28 decode/26 batch threads. This changes quantization relative to the Q4_0 configuration."
   }
 ]

@@ -1,23 +1,12 @@
 #!/usr/bin/env python3
-"""Run one GPQA Diamond eval from benchmarks/experiments.json under Protocol C-gpqa-v2.
-
-Implements Phase 1 (Harness Repair) and Phase 3 (Protocol C-gpqa-v2) of improvement-plan.md:
-- Supports /v1/chat/completions and raw endpoint
-- Configurable --max-tokens (default: 8192, allowing thoughts to unfold to full context)
-- Strict regex extraction outside reasoning blocks via benchmarks/grading.py
-- Manifest collection and resume guard via benchmarks/manifest.py
-- Structured output under logs/runs/<id>/
-"""
+"""Generate and grade GPQA responses from the experiment catalog."""
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
-import os
 import re
 import shlex
-import signal
 import subprocess
 import sys
 import time
@@ -25,19 +14,17 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from paths import ROOT, bin_dir, expand, models_dir
+from paths import ROOT, bin_dir, expand, ik_home, models_dir
 from grading import grade_response, RowStatus
 from catalog import load_catalog, get_experiment
 from manifest import create_manifest, verify_resume
+from runtime import decode_rate, require_free_port, stopping_metadata, stop_process_group, wait_for_server
+from summarize_runs import summarize_gpqa
 
-CATALOG_PATH = Path(__file__).resolve().parent / "experiments.json"
-GPQA_FILE = ROOT / "logs" / "raw_checkpoints" / "gpqa_subset_50.json"
+GPQA_FILE = ROOT / "benchmarks" / "data" / "gpqa_subset_50.json"
+SYSTEM_PROMPT = "You are an expert scientific researcher. Reason step by step, then conclude with Final answer: X."
 RUNS_DIR = ROOT / "logs" / "runs"
-REPORT_DIR = ROOT / "logs" / "gpqa_reports"
-CHECKPOINT_DIR = ROOT / "logs" / "raw_checkpoints"
 
-sys.stdout.reconfigure(line_buffering=True)
-sys.stderr.reconfigure(line_buffering=True)
 
 
 def build_user_text(item: dict) -> str:
@@ -56,53 +43,10 @@ def build_user_text(item: dict) -> str:
     )
 
 
-def wait_for_server(url: str, timeout: int = 120) -> bool:
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        try:
-            with urllib.request.urlopen(url, timeout=2) as resp:
-                if resp.status == 200:
-                    return True
-        except Exception:
-            pass
-        time.sleep(1)
-    return False
-
-
-def free_port(port: int) -> None:
-    try:
-        out = subprocess.check_output(["lsof", "-ti", f":{port}"], text=True)
-        pids = [int(p) for p in out.strip().split() if p.strip()]
-        for pid in pids:
-            try:
-                os.kill(pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-        for _ in range(20):
-            time.sleep(0.5)
-            check = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)
-            if not check.stdout.strip():
-                return
-        check = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)
-        for pid in [int(p) for p in check.stdout.strip().split() if p.strip()]:
-            try:
-                os.kill(pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        time.sleep(1)
-    except Exception:
-        pass
-
-
-def stop_process_group(proc: subprocess.Popen) -> None:
-    try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-        proc.wait(timeout=5)
-    except Exception:
-        try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-        except Exception:
-            pass
+def build_raw_prompt(user_text, flint=False):
+    if flint:
+        return f"<|system|>\n{SYSTEM_PROMPT}<|end_of_text|>\n<|user|>\n{user_text}<|end_of_text|>\n<|assistant|>\n"
+    return f"<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n<|im_start|>user\n{user_text}<|im_end|>\n<|im_start|>assistant\n"
 
 
 def query_chat_completion(
@@ -125,6 +69,7 @@ def query_chat_completion(
         "temperature": temperature,
         "top_p": top_p,
         "stream": False,
+        "seed": 0,
     }
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
@@ -142,14 +87,13 @@ def query_chat_completion(
                 usage = res.get("usage", {})
                 timings = res.get("timings", {})
 
-                # If server doesn't provide timings in chat format, approximate from usage
                 completion_tokens = usage.get("completion_tokens", 0)
                 prompt_tokens = usage.get("prompt_tokens", 0)
 
                 return {
-                    "content": msg.get("content", ""),
+                    "content": msg.get("content") or "",
                     "reasoning_content": msg.get("reasoning_content", ""),
-                    "finish_reason": choice.get("finish_reason", "unknown"),
+                    **stopping_metadata(res, completion_tokens, max_tokens, choice.get("finish_reason")),
                     "tokens_predicted": completion_tokens,
                     "tokens_evaluated": prompt_tokens,
                     "timings": timings,
@@ -173,13 +117,14 @@ def query_raw_completion(
     top_p: float = 1.0,
     stop: Optional[List[str]] = None
 ) -> Optional[Dict[str, Any]]:
-    """Fallback to /completion endpoint."""
+    """Query the explicitly selected raw-completion endpoint."""
     payload = {
         "prompt": prompt_text,
         "n_predict": max_tokens,
         "temperature": temperature,
         "top_p": top_p,
         "stop": stop or ["<|im_end|>", "<|end_of_text|>"],
+        "seed": 0,
     }
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
@@ -194,9 +139,9 @@ def query_raw_completion(
                 res = json.loads(resp.read().decode("utf-8"))
                 timings = res.get("timings", {})
                 return {
-                    "content": res.get("content", ""),
+                    "content": res.get("content") or "",
                     "reasoning_content": "",
-                    "finish_reason": "stop" if not res.get("truncated") else "length",
+                    **stopping_metadata(res, timings.get("predicted_n", 0), max_tokens),
                     "tokens_predicted": timings.get("predicted_n", 0),
                     "tokens_evaluated": timings.get("prompt_n", 0),
                     "timings": timings,
@@ -222,12 +167,20 @@ def run_eval(
     force_new_run: bool = False,
     run_suffix: str = ""
 ) -> int:
+    if endpoint not in ("chat", "raw") or max_tokens <= 0:
+        raise ValueError("Invalid endpoint or token ceiling")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]*", run_suffix):
+        raise ValueError("Invalid run suffix")
+    if force_new_run:
+        run_suffix += f"_{time.time_ns()}"
     catalog = load_catalog()
     exp = get_experiment(catalog, exp_key)
 
     if gpqa_path is None:
         gpqa_path = GPQA_FILE
     questions = json.loads(gpqa_path.read_text())
+    if not questions or len({q["id"] for q in questions}) != len(questions):
+        raise ValueError("GPQA dataset is empty or has duplicate question IDs")
 
     # Build server command line
     model_raw = exp["model"]
@@ -240,14 +193,14 @@ def run_eval(
     if not model_path.exists():
         raise SystemExit(f"Model path does not exist: {model_path}")
 
-    engine_home = Path(os.environ.get("IK_LLAMA_HOME", "/home/james/ik_llama.cpp")).resolve()
-    server_bin = engine_home / "build" / "bin" / "llama-server"
+    engine_home = ik_home().resolve()
+    server_bin = bin_dir() / "llama-server"
     if not server_bin.exists():
-        server_bin = engine_home / "build" / "bin" / "Release" / "llama-server"
+        server_bin = bin_dir() / "Release/llama-server"
     if not server_bin.exists():
         raise SystemExit(f"llama-server not found in {engine_home}")
 
-    server_flags = exp["server_flags"].format(port=port)
+    server_flags = expand(exp["server_flags"], port=port)
     # Ensure server context -c has sufficient headroom for max_tokens generation + prompt
     needed_ctx = max(32768, max_tokens + 4096) if max_tokens >= 8192 else max(16384, max_tokens + 4096)
     if "-c " in server_flags:
@@ -260,8 +213,8 @@ def run_eval(
         server_flags += f" -c {needed_ctx}"
 
     numactl_cmd = exp.get("numactl", "")
-    full_cmd = f"{numactl_cmd} {server_bin} -m {model_path} {server_flags}".strip()
-    argv = shlex.split(full_cmd)
+    argv = shlex.split(numactl_cmd) + [str(server_bin), "-m", str(model_path)] + shlex.split(server_flags)
+    full_cmd = shlex.join(argv)
 
     # Manifest and Run Directory Setup
     run_id = f"run_{exp['id']}{run_suffix}"
@@ -271,14 +224,16 @@ def run_eval(
     rows_file = run_dir / "rows.jsonl"
     server_log_file = run_dir / "server.log"
     summary_file = run_dir / "summary.json"
-    report_file = run_dir / "report.md"
 
     current_manifest = create_manifest(
         exp_entry=exp,
         engine_dir=engine_home,
         model_path=model_path,
-        prompt_file=None,
-        request_params={"max_tokens": max_tokens, "endpoint": endpoint}
+        prompt_file=gpqa_path,
+        request_params={"max_tokens": max_tokens, "endpoint": endpoint, "temperature": 0.0, "top_p": 1.0, "stream": False, "seed": 0,
+                        "system_prompt": SYSTEM_PROMPT, "prompts": {str(q["id"]): build_user_text(q) for q in questions},
+                        "raw_template": "flint" if "flint" in exp["model"].lower() else "qwen", "stops": ["<|im_end|>", "<|end_of_text|>"]},
+        dataset=questions, server_argv=argv, server_binary=server_bin
     )
 
     if dry_run:
@@ -286,22 +241,21 @@ def run_eval(
         print(f"Command:\n  {full_cmd}\n")
         print("Manifest:")
         print(json.dumps(current_manifest, indent=2))
-        print("===========================================")
         return 0
 
     # Resume guard: verify manifest if previous run exists
-    if manifest_file.exists() and not force_new_run:
+    if manifest_file.exists():
         prior_manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
         ok, reason = verify_resume(prior_manifest, current_manifest)
         if not ok:
             print("ERROR: Resume guard rejected continuation due to manifest mismatch:")
             print(f"  - {reason}")
-            print("Use --force-new-run to start fresh.")
+            print("Use --run-suffix or --force-new-run to retain these records and start separately.")
             return 1
     else:
+        if rows_file.exists():
+            raise ValueError("Existing rows lack a manifest; choose a new run suffix")
         manifest_file.write_text(json.dumps(current_manifest, indent=2), encoding="utf-8")
-        if force_new_run and rows_file.exists():
-            rows_file.unlink()
 
     # Load existing rows to resume
     existing_rows: Dict[str, Dict[str, Any]] = {}
@@ -309,16 +263,17 @@ def run_eval(
         for line in rows_file.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 r = json.loads(line)
+                if r["id"] in existing_rows or r["id"] not in {q["id"] for q in questions}:
+                    raise ValueError("Duplicate or unknown question in saved rows")
                 existing_rows[r["id"]] = r
         print(f"Resuming run: loaded {len(existing_rows)} completed questions.")
 
-    if len(existing_rows) >= len(questions) and summary_file.exists():
+    if len(existing_rows) == len(questions) and summary_file.exists():
         print(f"All {len(questions)} questions already completed for {exp_key}. Skipping generation.")
         return 0
 
     # Launch server
-    free_port(port)
-    time.sleep(1)
+    require_free_port(port)
     log_handle = server_log_file.open("a", encoding="utf-8")
     proc = subprocess.Popen(
         argv,
@@ -332,7 +287,7 @@ def run_eval(
 
     try:
         print(f"Launching server on port {port} (log: {server_log_file})...")
-        if not wait_for_server(url_health, timeout=120):
+        if not wait_for_server(url_health, proc, timeout=120):
             print("Server failed to respond to /health. Check server.log.")
             return 1
         print("Server is ready. Beginning evaluation...")
@@ -348,7 +303,7 @@ def run_eval(
             gold = item.get("correct_letter") or item.get("gold")
             user_text = build_user_text(item)
 
-            t0 = time.time()
+            t0 = time.monotonic()
             if endpoint == "chat":
                 res = query_chat_completion(
                     url=url_base,
@@ -356,31 +311,12 @@ def run_eval(
                     max_tokens=max_tokens,
                     temperature=0.0,
                     top_p=1.0,
-                    system_prompt="You are an expert scientific researcher. Reason step by step, then conclude with Final answer: X."
+                    system_prompt=SYSTEM_PROMPT
                 )
-                if res is None:
-                    print("Notice: Chat endpoint failed, falling back to /completion...")
-                    if "flint" in exp["model"].lower():
-                        prompt_text = f"<|system|>\nYou are an expert scientific researcher. Reason step by step, then conclude with Final answer: X.<|end_of_text|>\n<|user|>\n{user_text}<|end_of_text|>\n<|assistant|>\n"
-                    else:
-                        prompt_text = f"<|im_start|>system\nYou are an expert scientific researcher. Reason step by step, then conclude with Final answer: X.<|im_end|>\n<|im_start|>user\n{user_text}<|im_end|>\n<|im_start|>assistant\n"
-                    res = query_raw_completion(
-                        url=url_base,
-                        prompt_text=prompt_text,
-                        max_tokens=max_tokens,
-                        temperature=0.0,
-                        top_p=1.0
-                    )
             else:
-                prompt_text = f"<|user|>\n{user_text}\n<|assistant|>\n"
-                res = query_raw_completion(
-                    url=url_base,
-                    prompt_text=prompt_text,
-                    max_tokens=max_tokens,
-                    temperature=0.0,
-                    top_p=1.0
-                )
-            wall_sec = time.time() - t0
+                prompt_text = build_raw_prompt(user_text, "flint" in exp["model"].lower())
+                res = query_raw_completion(url=url_base, prompt_text=prompt_text, max_tokens=max_tokens, temperature=0.0, top_p=1.0)
+            wall_sec = time.monotonic() - t0
 
             if res is None:
                 print(f"Error querying question {qid}. Halting pipeline for resume.")
@@ -391,7 +327,7 @@ def run_eval(
             tokens_pred = res.get("tokens_predicted", 0)
 
             # Grade response strictly using grading.py
-            is_length_truncated = (finish_reason == "length")
+            is_length_truncated = res.get("max_tokens_hit", False)
             status, strict_ans, lenient_ans = grade_response(
                 content=content,
                 gold=gold,
@@ -404,11 +340,11 @@ def run_eval(
 
             status_str = "CORRECT" if is_strict_correct else f"WRONG (pred={strict_ans})"
             if status == RowStatus.NO_ANSWER_TRUNCATED:
-                status_str = "TRUNCATED (hit token ceiling mid-thought)"
+                status_str = "NO FINAL ANSWER (length stop or unclosed thinking tag)"
 
             timings = res.get("timings", {})
             pred_ms = timings.get("predicted_ms", 0.0)
-            speed_tps = (tokens_pred / (pred_ms / 1000.0)) if pred_ms > 0 else (tokens_pred / wall_sec if wall_sec > 0 else 0.0)
+            speed_tps = decode_rate(tokens_pred, pred_ms)
 
             row_entry = {
                 "idx": completed_count + 1,
@@ -420,9 +356,13 @@ def run_eval(
                 "regraded_lenient_correct": is_lenient_correct,
                 "status": status.value,
                 "tokens": tokens_pred,
-                "speed_tps": round(speed_tps, 2),
+                "speed_tps": round(speed_tps, 2) if speed_tps is not None else None,
                 "wall_time": round(wall_sec, 2),
                 "finish_reason": finish_reason,
+                "max_tokens_hit": is_length_truncated,
+                "raw_stopping": res.get("raw_stopping", {}),
+                "timings": timings,
+                "reasoning_content": res.get("reasoning_content", ""),
                 "content": content,
             }
 
@@ -438,64 +378,17 @@ def run_eval(
             print(
                 f"[{completed_count:02d}/{len(questions)}] ID: {qid} | "
                 f"Gold: {gold} | Strict: {status_str} | "
-                f"{speed_tps:5.2f} t/s | {tokens_pred} tok | {wall_sec:5.1f}s"
+                f"decode {speed_tps} t/s | {tokens_pred} tok | {wall_sec:5.1f}s"
             )
 
-        # Build summary and report
-        all_rows = list(existing_rows.values())
-        strict_corr = sum(1 for r in all_rows if r.get("regraded_strict_correct"))
-        lenient_corr = sum(1 for r in all_rows if r.get("regraded_lenient_correct"))
-        trunc_count = sum(1 for r in all_rows if r.get("status") == RowStatus.NO_ANSWER_TRUNCATED.value)
-        avg_speed = sum(r.get("speed_tps", 0.0) for r in all_rows) / len(all_rows) if all_rows else 0.0
-
-        summary_data = {
-            "run_id": run_id,
-            "experiment_id": exp["id"],
-            "model": exp["model"],
-            "total_questions": len(all_rows),
-            "max_tokens_ceiling": max_tokens,
-            "strict_score": f"{strict_corr}/{len(all_rows)}",
-            "strict_pct": round((strict_corr / len(all_rows)) * 100.0, 2) if all_rows else 0.0,
-            "lenient_score": f"{lenient_corr}/{len(all_rows)}",
-            "lenient_pct": round((lenient_corr / len(all_rows)) * 100.0, 2) if all_rows else 0.0,
-            "truncated_count": trunc_count,
-            "average_decode_tps": round(avg_speed, 2),
-        }
-        summary_file.write_text(json.dumps(summary_data, indent=2), encoding="utf-8")
-
-        # Generate markdown report
-        report_md = f"""# Benchmark Report: {exp['name']}
-- **Run ID:** `{run_id}`
-- **Protocol:** Protocol C-gpqa-v2
-- **Model:** `{exp['model']}`
-- **Token Ceiling (max_tokens):** {max_tokens} tokens
-- **Strict Score:** **{strict_corr}/{len(all_rows)}** ({summary_data['strict_pct']}%)
-- **Lenient Score:** {lenient_corr}/{len(all_rows)} ({summary_data['lenient_pct']}%)
-- **Mid-Thought Truncations:** {trunc_count} ({round(trunc_count/len(all_rows)*100, 1)}%)
-- **Average Decode Speed:** {summary_data['average_decode_tps']} tokens/sec
-
-## Detailed Question Rows
-| ID | Gold | Pred | Strict Status | Tokens | Decode Speed | Wall Time |
-| :--- | :---: | :---: | :--- | :---: | :---: | :---: |
-"""
-        for r in all_rows:
-            report_md += f"| `{r['id']}` | {r['gold']} | {r['pred'] or '-'} | `{r['status']}` | {r['tokens']} | {r.get('speed_tps', 0.0)} t/s | {r.get('wall_time', 0.0)}s |\n"
-
-        report_file.write_text(report_md, encoding="utf-8")
-        print(f"\n=======================================================")
-        print(f"EVALUATION COMPLETE: {exp['id']}")
-        print(f"Strict Score: {strict_corr}/{len(all_rows)} ({summary_data['strict_pct']}%)")
-        print(f"Lenient Score: {lenient_corr}/{len(all_rows)} ({summary_data['lenient_pct']}%)")
-        print(f"Truncated Mid-Thought: {trunc_count}/{len(all_rows)}")
-        print(f"Average Decode Speed: {summary_data['average_decode_tps']} t/s")
-        print(f"Saved run artifacts to {run_dir}/")
-        print(f"=======================================================\n")
+        summary_file.write_text(json.dumps({"run_id": run_id, "experiment_id": exp["id"], "model": exp["model"], "max_tokens_ceiling": max_tokens}, indent=2))
+        summary = summarize_gpqa(run_dir, write=True)
+        print(f"Strict score: {summary['strict_score']}; token-limit responses: {summary['token_limit_count']}. Saved {run_dir}")
         return 0
 
     finally:
         stop_process_group(proc)
         log_handle.close()
-        free_port(port)
 
 
 def main() -> None:
@@ -506,7 +399,9 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8087)
     parser.add_argument("--max-tokens", type=int, default=8192, help="Token ceiling for thinking (default: 8192)")
     parser.add_argument("--endpoint", choices=["chat", "raw"], default="chat", help="API endpoint")
-    parser.add_argument("--force-new-run", action="store_true", help="Overwrite existing manifest and start fresh")
+    parser.add_argument("--force-new-run", action="store_true", help="Create a separate timestamped run directory")
+    parser.add_argument("--run-suffix", default="")
+    parser.add_argument("--dataset", type=Path, help="Local GPQA subset JSON")
     args = parser.parse_args()
 
     if args.list:
@@ -525,7 +420,7 @@ def main() -> None:
         max_tokens=args.max_tokens,
         dry_run=args.dry_run,
         endpoint=args.endpoint,
-        force_new_run=args.force_new_run
+        force_new_run=args.force_new_run, run_suffix=args.run_suffix, gpqa_path=args.dataset
     ))
 
 

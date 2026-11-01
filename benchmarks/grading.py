@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Grading and Answer Extraction Module
-Implements strict and lenient answer extractors per improvement-plan.md (Phase 1.3).
-"""
+"""Extract GPQA answers outside thinking blocks and classify each response."""
 
 from enum import Enum
 import re
@@ -18,23 +15,36 @@ class RowStatus(str, Enum):
 
 
 def extract_clean_answer_text(completion_text: str) -> Tuple[Optional[str], bool]:
-    """
-    Strips internal reasoning from model output.
-    Returns: (text_outside_think, is_closed)
-    If <think> is present but unclosed, returns (None, False).
-    If </think> is present, returns the text following the final </think> tag.
-    """
-    if "</think>" in completion_text:
-        parts = completion_text.split("</think>")
-        return parts[-1], True
-    if "<think>" in completion_text:
+    """Remove balanced thinking blocks; reject any unfinished or malformed block."""
+    depth = 0
+    cursor = 0
+    outside = []
+    first_tag = True
+    for tag in re.finditer(r"</?think>", completion_text):
+        if tag.group() == "<think>":
+            if depth == 0:
+                outside.append(completion_text[cursor:tag.start()])
+            depth += 1
+        elif depth > 0:
+            depth -= 1
+            if depth == 0:
+                cursor = tag.end()
+        elif first_tag:
+            # A template can supply the opening tag before generated text begins.
+            outside = []
+            cursor = tag.end()
+        else:
+            return None, False
+        first_tag = False
+    if depth:
         return None, False
-    return completion_text, True
+    outside.append(completion_text[cursor:])
+    return "".join(outside), True
 
 
 def extract_answer_strict(completion_text: str) -> Optional[str]:
     """
-    Strict extractor per improvement-plan.md Section 5 (Phase 1.3):
+    Accepted final-answer forms:
     1. Rejects unclosed reasoning blocks (<think> without </think>).
     2. Takes only text outside the reasoning block.
     3. Requires the last match of:
@@ -72,9 +82,9 @@ def extract_answer_lenient(completion_text: str) -> Optional[str]:
     if strict:
         return strict
 
-    clean_text = completion_text
-    if "</think>" in clean_text:
-        clean_text = clean_text.split("</think>")[-1]
+    clean_text, is_closed = extract_clean_answer_text(completion_text)
+    if not is_closed or clean_text is None:
+        return None
 
     matches = re.findall(
         r"(?:final answer is|the correct answer is|correct answer is|the answer is|answer is|choice|option)[:\*\s]*\s*(?:\(?([A-D])\)?)(?:[\s\.\*\)\:\n]|$)",

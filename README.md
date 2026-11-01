@@ -1,114 +1,139 @@
-# Serving 35B–40B MoE Models on a 2016 Dual-Xeon Server
+# A coding assistant on two 2016 Xeons
 
-Serving 35B-to-40B parameter Mixture-of-Experts (MoE) coding models on a 2016 dual-socket Dell PowerEdge T630 (Broadwell AVX2-only, no AMX, no AVX-512): kernel patches, quantization recipes, NUMA topology optimization, and speculative decoding with an empirical memory roofline model.
+I wanted a local coding assistant on Talos, my Dell PowerEdge T630. It has two Xeon E5-2680 v4 CPUs, 28 physical cores, and 256 GB of DDR4. Plenty of room to load a model. Getting answers back quickly took more work.
 
-*Subtitle: Yes, we have a self-hosted long-context coding assistant at home on dual 2016 Xeons.*
+I spent months tuning Qwen3.6-35B-A3B: thread counts, memory placement, quantization, speculative decoding, and changes to the C++ engine. Then I added support for a newer model, Flint, and got better coding answers at almost the same token rate.
 
----
+This repo contains the patches, experiment scripts, and saved runs. The engine is [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp). Its kernels, repacked formats, and speculation implementations are upstream work; I built the experiment tooling, tested configurations on Talos, modified engine and server code, and ported Flint's architecture.
 
-## The Optimization Waterfall
+## Which socket owns the memory?
 
-![Ablation Waterfall](docs/figures/waterfall.svg)
+Talos has AVX2, but no AVX-512, VNNI, or AMX. Each socket has its own 35 MiB L3 and local RAM. A core can read RAM attached to either CPU; a read from the other socket crosses QPI, the link between them. Using both sockets gives the model more cores and memory channels, but the threads and pages still need sensible placement.
 
----
+![Cache hits, local DRAM reads, and remote reads over QPI, labeled with reference latencies and theoretical bandwidth ceilings](docs/media/numa-traffic.gif)
 
-## Three Headline Findings
+Cache figures are Intel architectural references; RAM and QPI figures are theoretical ceilings. Packet timing is illustrative. [Sources and calculations](docs/memory-speeds.md) · [MP4](docs/media/numa-traffic.mp4).
 
-1. **Lossless Engine Speedup (Protocol A-tput-v1 Live Measurement):**
-   - **×2.73 speedup** from unoptimized baseline to production decode (**7.14 t/s $\to$ 19.49 t/s** non-speculative; IQR 0.05 t/s).
-   - With speculative decoding (MTP suffix drafting), useful non-degenerate throughput reaches **23.49 t/s weighted (23.38 t/s median)** on Qwen 35B and **21.15 t/s weighted** on Recursive Flint 40B.
-2. **Physical Memory Saturation (Empirical Roofline):**
-   - Autoregressive decode is strictly memory bandwidth-bound. Broadwell DDR4-2400 STREAM Triad bandwidth measures **35.22 GB/s** across both NUMA nodes.
-   - At 1.692 GB touched per decoded token, Qwen 35B non-speculative decode consumes **32.98 GB/s** (93.6% of physical memory ceiling), while speculative bursts reach **39.75 GB/s effective bandwidth**.
-3. **Head-to-Head Quality & Coding Capabilities (Protocol C-code-v1 & C-gpqa-v2):**
-   - **EvalPlus HumanEval+ (164 Problems, Pass@1 Greedy):** Recursive Flint 40B MoE achieved an industry-grade **97.0% Base / 90.8% Plus Pass@1** (149/164 edge tests passed) vs. **66.5% Base / 65.2% Plus for Qwen 3.6 35B MoE**, while completing tasks **1.78× faster** (109.5s vs. 194.4s).
-   - **Reasoning Runway Scaling (GPQA Diamond 50Q, 16K Runway):** Expanding context from 8K to 16K (`-c 32768`) empirically boosted strict accuracy by **+10.0% to +12.0%** across both architectures:
-     - **Recursive Flint 40B:** **46.0% Strict / 58.0% Lenient** [95% CI: 33.0% – 59.6%] (up from 36.0% at 8K).
-     - **Qwen 3.6 35B:** **38.0% Strict / 46.0% Lenient** [95% CI: 25.9% – 51.9%] (up from 26.0% at 8K).
-     - When either model naturally concluded within its runway, precision reached **74.2% – 76.0%**, confirming that failure on deep scientific benchmarks is driven predominantly by truncation rather than flawed reasoning.
-   - **Engine Port Win:** Porting Flint 40B into `ik_llama.cpp` with Merged Up/Gate Experts (`-muge 1`) and AVX2 64-byte row repacking (`Q4_0_R8`) boosted decode throughput by **+83.5%** (from 9.82 t/s to **18.02 t/s median**, peak 27.11 t/s).
+The current DIMM inventory reports **1866 MT/s across three populated channels per socket**, giving a raw bus ceiling of about **44.8 GB/s per socket**. The CPU's advertised DDR4-2400 maximum assumes four channels. This is a hardware-configuration calculation, rather than measured application read bandwidth.
 
----
+I compared keeping work and memory on one socket with using both. The [dual-socket configuration](https://github.com/James-Begin/Homelab-inference/blob/e72afab125d7bb5bf844e1c2d23ff3a204ba1727/logs/runs/code_exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv/manifest.json) uses one logical CPU per physical core and interleaves memory pages across both nodes. That spreads the pages around; it does not make every read local.
 
-## Hardware Specifications
+## Eight rows at a time
 
-| Component | Specification |
-| :--- | :--- |
-| **System** | Dell PowerEdge T630 Tower Server |
-| **Processors** | 2× Intel Xeon E5-2680 v4 (Broadwell-EP, 14 physical cores / 28 threads each, 28 cores / 56 threads total) |
-| **Microarchitecture** | AVX2, FMA3, 256-bit vector units (No AVX-512, no AMX) |
-| **Memory** | 256 GB (16× 16 GB DDR4-2400 ECC Registered RDIMMs across 8 memory channels) |
-| **NUMA Topology** | 2 Nodes, dual-socket interleave (`--interleave=all`, cross-socket QPI 9.6 GT/s) |
-| **STREAM Triad Bandwidth** | **21.44 GB/s** (single socket local) \| **35.22 GB/s** (dual socket interleaved) |
-| **Operating System** | Ubuntu Linux 24.04 LTS (Kernel 6.8.0-45-generic) |
-| **Inference Engine** | Custom `ik_llama.cpp` build (Pinned upstream commit `87fc8701` + Homelab Patch Series) |
+I also tested the upstream repacked weight formats. Q4_0_R8 prepares eight rows for the vector kernel: eight two-byte scales, followed by four groups of 32 packed bytes. Each group takes four bytes from each source row.
 
-See [`docs/hardware.md`](docs/hardware.md) for full DIMM population records, BIOS topology, and power governance.
+The tile holds **256 quantized weights in 144 bytes**, before and after repacking. The upstream [repack function](https://github.com/ikawrakow/ik_llama.cpp/blob/87fc8701ff4da81a7d2a91ec0695f95eb3066a47/ggml/src/iqk/iqk_quantize.cpp) changes their order without quantizing them again. The [AVX2 unpacker](https://github.com/ikawrakow/ik_llama.cpp/blob/87fc8701ff4da81a7d2a91ec0695f95eb3066a47/ggml/src/iqk/iqk_gemm_legacy_quants.cpp) reads the packed values in four 32-byte loads.
 
----
+<details>
+<summary>See the upstream eight-row layout</summary>
 
-## The Core Engineering
+[![Eight Q4_0 rows gather into a 16-byte scale prefix and four 32-byte groups](docs/media/repack-eight-rows.png)](docs/media/repack-eight-rows.gif)
 
-### 1. MoE Small-Nx K-Split Kernel Partitioning
-In standard `ik_llama.cpp` and `llama.cpp`, MoE matrix-vector multiplication assigns entire expert rows to individual threads. When selecting top-4 or top-6 experts across 28 physical CPU threads, 22 to 24 cores sat idle waiting at OpenMP barriers.
+Repacking preserves the 144-byte total. Row colors track the source rows. Select the image to watch the GIF, or open the [MP4](docs/media/repack-eight-rows.mp4).
 
-Our K-split patch partitions the inner dimension $K$ across groups of threads whenever $N_x < \text{threads}$, enabling all 28 physical cores to cooperatively compute and reduce partial sums.
-- **Artifact:** [`patches/0001-moe-k-split-thread-partitioning.patch`](patches/0001-moe-k-split-thread-partitioning.patch)
-- **Unit Test:** Verified numerically via [`benchmarks/tests/test_moe_kernel.py`](benchmarks/tests/test_moe_kernel.py) across all $(N_x, \text{threads}, K)$ permutations.
+</details>
 
-### 2. AVX2 64-Byte Row Repacking & Merged Up/Gate Experts
-- **AVX2 Cache Line Straddling:** AVX2 loads 32 bytes while CPU cache lines are 64 bytes. Unaligned weight strides caused loads to straddle two cache lines, penalizing memory bandwidth. We repacked quantized weights into 64-byte aligned blocks (`Q4_0_R8`), yielding +1.01 t/s without increasing memory footprint.
-- **Merged Up/Gate (`-muge 1`):** Computes Up and Gate expert projections in a single fused pass, eliminating 50% of thread barriers (reducing MoE barriers from 94 to 47 per token on Flint 40B).
-- **Artifacts:** [`patches/0002-avx2-64byte-alignment-and-repacking.patch`](patches/0002-avx2-64byte-alignment-and-repacking.patch) and [`patches/0003-flint-40b-moe-architecture-port.patch`](patches/0003-flint-40b-moe-architecture-port.patch).
+## Prefetching the next eight rows
 
-### 3. Asymmetric Quantization Recipe
-Attention projections and output heads are latency-critical and dense, while MoE feed-forward blocks dominate total parameter count. We quantized the dense attention matrices to `IQ4_XS` and the routed MoE weights to `Q4_0`, verified against unquantized FP16:
-- **Mean KL-Divergence:** 0.0142 (Protocol Q-kld-v1)
-- **Top-1 Token Agreement:** 94.8%
-- **Speedup:** +2.52 t/s over uniform Q6_K.
+My [local AVX2 patch](https://github.com/James-Begin/Homelab-inference/blob/e72afab125d7bb5bf844e1c2d23ff3a204ba1727/patches/0002-avx2-64byte-alignment-and-repacking.patch) changes how the kernel requests upcoming weights. In `mul_mat_q4_0_r8_q8_2_avx2`, I added a prefetch for the next eight-row group:
 
-### 4. Lossless Speculative Decoding Verification
-Under Protocol B-equiv-v1, speculative decoding ($N_{\text{max}} \le 4$) was validated to ensure zero drift against greedy no-speculation references. Tokens matched identically across 512-token generations, breaking through the physical memory roofline to reach up to **26.85 t/s** on code editing workloads.
+![The current eight-row group is computed while a prefetch hint requests the next group's starting cache line; the final group skips the hint](docs/media/avx2-prefetch.gif)
 
----
+The added hint is real code. The 24-row example, cache arrival, and timing are illustrative. [MP4](docs/media/avx2-prefetch.mp4).
 
-## What Didn't Work (Negative Results)
-
-1. **Transparent Huge Pages (THP):** Caused erratic allocator pauses and severe memory fragmentation during 128K context initialization; setting THP to `madvise` stabilized TTFT.
-2. **SMT / Hyperthreading for Decode:** Hyperthreading improved prefill (+5.2%) but degraded decode (-3.6%, 8.26 vs. 7.96 t/s). Decode is memory-bound; two sibling hyperthreads share the same L1/L2 cache and DDR4 channel, causing cache thrashing. We enforce asymmetric threading: `-t 28 -tb 28` mapped strictly to 28 physical cores.
-3. **External 0.8B Drafter (Exp 93 Postmortem):** Running Qwen 2.5 0.8B as an external speculative drafter caused memory contention over the shared DRAM bus. More critically, Flint uses a custom 150,144 BPE tokenizer while Qwen uses 248,320 ChatML; disjoint token IDs caused 0% draft acceptance.
-4. **Deep Suffix Drafts ($N_{\text{max}} \ge 12$):** Draft depths above 12 produced high ungrounded throughput spikes (e.g. historical run 42) that were diagnosed as infinite punctuation and repetition loops. Under Protocol A degenerate filtering, deep drafts degraded useful throughput.
-
----
-
-## Reproducing the Build and Benchmarks
-
-### 1. Build the Patched Engine
-```bash
-# Clone upstream ik_llama.cpp and apply the Homelab patch series
-bash scripts/build_engine.sh
+```diff
+         for (int ix = 0; ix < nrc_x; ix += 8) {
++            if (ix + 8 < nrc_x) {
++                _mm_prefetch((const char *)vx + (ix + 8)*bx, _MM_HINT_T0);
++            }
+             const block_iq4_nl_r8 * iq4 = (const block_iq4_nl_r8 *)((const char *)vx + ix*bx);
+             auto acc1 = _mm256_setzero_ps();
+             auto acc2 = _mm256_setzero_ps();
 ```
 
-### 2. Run the Controlled Protocol A Throughput Suite
-```bash
-# Measures 12 standardized prompts across code_edit, code_gen, and prose (fixed 512 tokens, 5 reps)
-python3 benchmarks/bench_throughput.py --url http://127.0.0.1:8087 --reps 5 --out summary_final.json
+The loop advances eight rows at a time. While it processes one group, the added hint requests the cache line containing the next group's starting address. The bounds check skips the request at the last group. It does not fetch the whole group or guarantee that the data will be in L1 when needed. The vector arithmetic and repacked format are upstream; the added lines show my change.
+
+The same patch separates shared barrier counters onto cache-line boundaries:
+
+```cpp
+__attribute__((aligned(CACHE_LINE_SIZE))) atomic_int n_barrier;
+__attribute__((aligned(CACHE_LINE_SIZE))) atomic_int n_barrier_passed;
 ```
 
-### 3. Verify MoE Kernel Correctness
-```bash
-python3 -m unittest benchmarks/tests/test_moe_kernel.py
+When cores update different variables on the same cache line, their writes can invalidate each other's cached copies. This is false sharing. Giving these counters separate 64-byte boundaries keeps them from sharing a line, although threads still have to coordinate on each counter. The saved configuration results combine several changes, so they do not establish an isolated speedup for either edit.
+
+## Guess a few tokens, then check them
+
+I tried speculative decoding to get more tokens out of each expensive verification step. A cheaper mechanism proposes a continuation; the main model checks it and keeps an accepted prefix. Bad guesses add work, so draft acceptance matters.
+
+The Qwen experiments included MTP, which uses an auxiliary prediction head. The saved Flint exp94 run uses the engine's history-based `ngram-mod` lookup instead. These are the relevant settings from its [manifest](https://github.com/James-Begin/Homelab-inference/blob/e72afab125d7bb5bf844e1c2d23ff3a204ba1727/logs/runs/code_exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv/manifest.json):
+
+```text
+--spec-type ngram-mod:n_max=4,ngram_size_n=4
 ```
 
----
+It looks up a four-token context and proposes up to four continuation tokens for verification. One [local change](https://github.com/James-Begin/Homelab-inference/blob/e72afab125d7bb5bf844e1c2d23ff3a204ba1727/patches/0004-speculative-decoding-enhancements.patch) updates the history table as new n-grams become available, replacing the old chunk guard:
 
-## Documentation Index
+![The old history guard rejects an eight-token example; the new guard adds four available contexts, then lookup proposes tokens for Flint to verify](docs/media/draft-and-verify.gif)
 
-- [`docs/roofline.md`](docs/roofline.md): Measured STREAM bandwidth, active bytes per token, and the empirical roofline model.
-- [`docs/ablation.md`](docs/ablation.md): Complete forward-add waterfall and leave-one-out sensitivity tables.
-- [`docs/model-comparison.md`](docs/model-comparison.md): Recursive Flint 40B vs. Qwen 3.6 35B architectural analysis and Protocol C accuracy vs. budget curves.
-- [`docs/hardware.md`](docs/hardware.md): System hardware record, topology, and NUMA memory layout.
-- [`docs/eval-protocol.md`](docs/eval-protocol.md): Definitions of Protocols A, B, Q, and C.
-- [`RESULTS.md`](RESULTS.md): Programmatically tabulated results for all audited Protocol-v2 evaluations.
-- [`archive/README.md`](archive/README.md): Quarantined exploratory data (Runs 0–65) and regraded historical summary.
-- [`patches/README.md`](patches/README.md): Detailed manifest of exported patch series.
+The guard change and settings are from the repo; token positions and the acceptance outcome are examples. [MP4](docs/media/draft-and-verify.mp4).
+
+```diff
+- if (i_last + 32 < cur_len) {
++ if (i_last < cur_len - n) {
+```
+
+Speculation also produced some misleadingly good numbers. [Experiment 42](https://github.com/James-Begin/Homelab-inference/blob/e72afab125d7bb5bf844e1c2d23ff3a204ba1727/logs/raw_checkpoints/exp42_phys_pinning_28threads_suffix_pmin015_burst16_q4kv_checkpoint.json) includes a roughly 66-token/s result whose output falls into repeated punctuation and supplies no parsed answer. I had made punctuation very fast.
+
+There were less entertaining failures in the serving path. Malformed UTF-8 could make JSON serialization throw after generation. [Patch 0006](https://github.com/James-Begin/Homelab-inference/blob/e72afab125d7bb5bf844e1c2d23ff3a204ba1727/patches/0006-fix-server-safe-json-to-str-utf8-truncation.patch) switches from `data.dump()` to `safe_json_to_str(data)`, which substitutes replacement characters for malformed bytes. I also patched a [parser exception path](https://github.com/James-Begin/Homelab-inference/blob/e72afab125d7bb5bf844e1c2d23ff3a204ba1727/patches/0005-catch-server-peg-parser-exception.patch).
+
+## Flint needed an engine port
+
+Trying Flint meant implementing its architecture in this engine build: metadata and tensor loading, vocabulary handling, and the computation graph. Qwen uses gated linear attention in 30 of its 40 layers and full attention in the other 10. Flint uses a 513-position sliding window in 35 of its 49 layers, with full attention in the other 14.
+
+Flint's sliding layers apply rotary position embeddings (RoPE); its full-attention layers skip them. The graph has to select both the attention mask and the RoPE setting for each layer:
+
+![Qwen and Flint's exact attention-layer patterns, followed by Flint switching between a 513-position sliding window with RoPE and full causal attention without RoPE](docs/media/flint-vs-qwen.gif)
+
+The window includes the current position and the previous 512. Layer patterns and settings are exact; context positions and motion are illustrative. [Architecture sources](docs/flint-attention.md) · [MP4](docs/media/flint-vs-qwen.mp4).
+
+These lines from the [port](https://github.com/James-Begin/Homelab-inference/blob/e72afab125d7bb5bf844e1c2d23ff3a204ba1727/patches/0003-flint-40b-moe-architecture-port.patch) make those choices:
+
+```cpp
+const bool is_swa = hparams.swa_layers[il];
+const bool do_rope = hparams.has_rope(il);
+auto KQ_mask_l = is_swa ? KQ_mask_swa : KQ_mask;
+```
+
+The port let me run Flint with the upstream repacked kernels and merged up/gate path. I could then evaluate it with the same experiment tooling used for Qwen.
+
+## About 21 tokens a second, either way
+
+These are the saved [Qwen exp50](https://github.com/James-Begin/Homelab-inference/tree/e72afab125d7bb5bf844e1c2d23ff3a204ba1727/logs/runs/code_exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv) and [Flint exp94](https://github.com/James-Begin/Homelab-inference/tree/e72afab125d7bb5bf844e1c2d23ff3a204ba1727/logs/runs/code_exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv) coding runs, each covering 164 tasks:
+
+| Metric | Qwen3.6-35B-A3B | Flint 40B |
+| --- | ---: | ---: |
+| Mean decode rate | 21.31 tokens/s | 20.77 tokens/s |
+| Mean elapsed time per task | 194.41 s | 109.48 s |
+| Tasks passing both HumanEval base and extra tests | 106/164 | 148/164 |
+
+These compare two locally tuned pipelines, with different quantization, prompting, extraction, and serving settings. Elapsed time includes failed tasks. The Qwen rate excludes one single-token response with an unusable saved timing; all 164 tasks remain in pass counts and elapsed times. Flint uses 164 timing rows. Pass counts above require both test sets to pass, counted from the saved per-task outcomes.
+
+On one selected task, `HumanEval/11`, the model has to XOR two binary strings while preserving their width. Qwen's saved answer converts through integers:
+
+```python
+return bin(int(a, 2) ^ int(b, 2))[2:]
+```
+
+For inputs `"01"` and `"01"`, that returns `"0"`; the expected answer is `"00"`. Flint's saved answer pads the strings and compares their characters, preserving the leading zero.
+
+After all that Qwen tuning, Flint emitted tokens slightly more slowly and still finished tasks sooner, with more answers passing the tests. Getting Flint running took the architecture port; the Xeons stayed put.
+
+## Code and records
+
+- [Setup and regression checks](docs/reproduction.md), including the [build script](scripts/build_engine.sh)
+- [Engine and server patches](patches/README.md), including [native corrections added after these runs](patches/0007-fix-buffer-capacity-and-moe-partitioning.patch)
+- [Benchmark scripts](benchmarks/) and [saved experiment records](logs/runs/)
+- [Results and measurement limits](RESULTS.md)
+- [Historical experiments](archive/README.md)
+- [Animation source and render instructions](animations/README.md)

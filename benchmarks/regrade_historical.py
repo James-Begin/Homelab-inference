@@ -1,37 +1,28 @@
 #!/usr/bin/env python3
-"""
-Offline Regrading of Historical Runs (Runs 66–95)
-Implements Phase 2.1 of improvement-plan.md:
-Deduplicates by ID, evaluates strict vs lenient extraction, and writes archive/regraded/<run>.json.
-"""
+"""Regrade historical saved responses and write derived archive reports."""
 
 import json
 from pathlib import Path
 import re
 import sys
 
-# Ensure benchmarks module can be imported
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from grading import (
     RowStatus,
-    extract_answer_lenient,
-    extract_answer_strict,
     grade_response,
 )
 
 
 def regrade_all_historical_runs():
     repo_root = Path(__file__).resolve().parent.parent
-    checkpoints_dir = repo_root / "logs" / "raw_checkpoints"
+    checkpoints_dir = repo_root / "archive" / "notebook-v1" / "raw_checkpoints"
     out_dir = repo_root / "archive" / "regraded"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     checkpoint_files = sorted(checkpoints_dir.glob("exp*.json"))
 
-    print("==========================================================================================================")
     print(f"{'Run ID':<45} | {'Rows':<5} | {'Uniq':<5} | {'Dup':<4} | {'Orig Score':<12} | {'Lenient':<10} | {'Strict':<10} | {'Strict %':<8}")
-    print("==========================================================================================================")
 
     summary_records = []
 
@@ -137,7 +128,6 @@ def regrade_all_historical_runs():
             "strict_pct": strict_pct
         })
 
-    print("==========================================================================================================")
     print(f"Successfully regraded and archived {len(summary_records)} historical runs into {out_dir}")
 
     # Write summary table into archive/README.md

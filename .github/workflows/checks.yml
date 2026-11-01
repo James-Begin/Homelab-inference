@@ -1,0 +1,43 @@
+name: Checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  artifacts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.12'
+      - run: python3 -m unittest discover -s benchmarks/tests -v
+      - run: python3 benchmarks/reproduce_audit.py .
+      - run: python3 benchmarks/summarize_runs.py
+      - run: python3 scripts/check_repo.py
+      - run: bash -n scripts/build_engine.sh benchmarks/kld.sh
+      - run: |
+          python3 benchmarks/build_results.py
+          git diff --exit-code -- RESULTS.md
+
+  native:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.12'
+      - run: |
+          bash scripts/build_engine.sh --prepare-only "$RUNNER_TEMP/ik_llama.cpp"
+          bash scripts/build_engine.sh --prepare-only "$RUNNER_TEMP/ik_llama.cpp"
+          bash scripts/build_engine.sh --check "$RUNNER_TEMP/ik_llama.cpp"
+      - run: |
+          python3 benchmarks/native/run_native_tests.py \
+            --engine "$RUNNER_TEMP/ik_llama.cpp" \
+            --build-dir "$RUNNER_TEMP/native-build" \
+            --configure --sanitizers --jobs 2

@@ -1,498 +1,224 @@
 #!/usr/bin/env python3
-"""Run EvalPlus HumanEval+ coding evaluation from benchmarks/experiments.json under Protocol C-code-v1.
-
-Implements Protocol C-code-v1 of improvement-plan.md:
-- Full EvalPlus HumanEval+ (164 coding tasks, pass@1 greedy)
-- Physical core pinning and NUMA interleaving per catalog entry
-- Full thinking runway with sanitize-based extraction
-- Structured output under logs/runs/code_<id>/
-"""
+"""Generate HumanEval+ completions and optionally evaluate a saved sample file."""
 
 from __future__ import annotations
 
 import argparse
+import ast
+import importlib.metadata
 import json
-import os
+from pathlib import Path
 import re
 import shlex
-import signal
 import subprocess
 import sys
 import time
 import urllib.request
-from pathlib import Path
-from typing import Any, Dict, List, Optional
 
-from evalplus.data import get_human_eval_plus
-from evalplus.evaluate import evaluate as run_evalplus_evaluation
-from evalplus.sanitize import sanitize
+from catalog import get_experiment, load_catalog
+from manifest import create_manifest, get_file_sha256, verify_resume
+from paths import ROOT, bin_dir, expand, ik_home, models_dir
+from runtime import decode_rate, require_free_port, stopping_metadata, stop_process_group, wait_for_server
+from summarize_runs import summarize_coding
 
-from paths import ROOT, bin_dir, expand, models_dir
-from catalog import load_catalog, get_experiment
-from manifest import create_manifest, verify_resume
-
-CATALOG_PATH = Path(__file__).resolve().parent / "experiments.json"
-RUNS_DIR = ROOT / "logs" / "runs"
-
-sys.stdout.reconfigure(line_buffering=True)
-sys.stderr.reconfigure(line_buffering=True)
+RUNS_DIR = ROOT / "logs/runs"
+SYSTEM_PROMPT = "You are an expert Python software engineer. Complete the given Python function according to the docstring specifications. Provide clean, correct, executable Python code."
 
 
-def build_user_prompt(problem: Dict[str, Any]) -> str:
-    """Builds the standardized coding prompt requesting function completion."""
-    prompt_text = problem["prompt"]
-    return (
-        "Please complete the following Python function according to its docstring.\n\n"
-        f"```python\n{prompt_text}\n```\n\n"
-        "Provide your reasoning, followed by the complete, executable implementation enclosed in a single ```python code block."
-    )
+def build_user_prompt(problem):
+    return ("Please complete the following Python function according to its docstring.\n\n"
+            f"```python\n{problem['prompt']}\n```\n\n"
+            "Provide your reasoning, followed by the complete, executable implementation enclosed in a single ```python code block.")
 
 
-def wait_for_server(url: str, timeout: int = 120) -> bool:
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        try:
-            with urllib.request.urlopen(url, timeout=2) as resp:
-                if resp.status == 200:
-                    return True
-        except Exception:
-            pass
-        time.sleep(1)
-    return False
-
-
-def free_port(port: int) -> None:
-    try:
-        out = subprocess.check_output(["lsof", "-ti", f":{port}"], text=True)
-        pids = [int(p) for p in out.strip().split() if p.strip()]
-        for pid in pids:
-            try:
-                os.kill(pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-        for _ in range(20):
-            time.sleep(0.5)
-            check = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)
-            if not check.stdout.strip():
-                return
-        check = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True)
-        for pid in [int(p) for p in check.stdout.strip().split() if p.strip()]:
-            try:
-                os.kill(pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        time.sleep(1)
-    except Exception:
-        pass
-
-
-def stop_process_group(proc: subprocess.Popen) -> None:
-    try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-        proc.wait(timeout=5)
-    except Exception:
-        try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-        except Exception:
-            pass
-
-
-def query_chat_completion(
-    url: str,
-    user_text: str,
-    max_tokens: int = 4096,
-    temperature: float = 0.0,
-    top_p: float = 1.0,
-    system_prompt: Optional[str] = None
-) -> Optional[Dict[str, Any]]:
-    messages = []
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
+def query_chat_completion(url, user_text, max_tokens=4096, temperature=0.0, top_p=1.0, system_prompt=None):
+    messages = ([{"role": "system", "content": system_prompt}] if system_prompt else [])
     messages.append({"role": "user", "content": user_text})
-
-    payload = {
-        "messages": messages,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-        "top_p": top_p,
-        "stream": False,
-    }
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        f"{url}/v1/chat/completions",
-        data=data,
-        headers={"Content-Type": "application/json"}
-    )
-    req_timeout = max(1800, int(max_tokens / 10.0) + 300)
+    payload = {"messages": messages, "max_tokens": max_tokens, "temperature": temperature, "top_p": top_p, "stream": False, "seed": 0}
+    request = urllib.request.Request(f"{url}/v1/chat/completions", data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
     for attempt in range(3):
         try:
-            with urllib.request.urlopen(req, timeout=req_timeout) as resp:
-                res = json.loads(resp.read().decode("utf-8"))
-                choice = res.get("choices", [{}])[0]
-                msg = choice.get("message", {})
-                usage = res.get("usage", {})
-                timings = res.get("timings", {})
-
-                completion_tokens = usage.get("completion_tokens", 0)
-                prompt_tokens = usage.get("prompt_tokens", 0)
-
-                return {
-                    "content": msg.get("content", ""),
-                    "reasoning_content": msg.get("reasoning_content", ""),
-                    "finish_reason": choice.get("finish_reason", "unknown"),
-                    "tokens_predicted": completion_tokens,
-                    "tokens_evaluated": prompt_tokens,
-                    "timings": timings,
-                    "raw_response": res
-                }
-        except urllib.error.HTTPError as exc:
-            err_body = exc.read().decode("utf-8", errors="replace")
-            print(f"Chat completion HTTP error {exc.code} (attempt {attempt + 1}/3): {err_body}")
-            time.sleep(2)
-        except Exception as exc:
-            print(f"Chat completion query error (attempt {attempt + 1}/3): {exc}")
+            with urllib.request.urlopen(request, timeout=max(1800, int(max_tokens/10) + 300)) as response:
+                raw = json.loads(response.read())
+            choice = raw["choices"][0]
+            message = choice["message"]
+            usage = raw.get("usage", {})
+            tokens = usage.get("completion_tokens", 0)
+            return {"content": message.get("content") or "", "reasoning_content": message.get("reasoning_content") or "",
+                    "tokens_predicted": tokens, "tokens_evaluated": usage.get("prompt_tokens", 0),
+                    "timings": raw.get("timings", {}), "raw_response": raw,
+                    **stopping_metadata(raw, tokens, max_tokens, choice.get("finish_reason"))}
+        except (OSError, ValueError, KeyError, IndexError) as exc:
+            print(f"Chat request failed ({attempt + 1}/3): {exc}", file=sys.stderr)
             time.sleep(2)
     return None
 
 
-def extract_python_solution(raw_text: str, entry_point: str) -> str:
-    """Robustly extracts the Python code solution for entry_point from model output.
-
-    Handles reasoning monologues, <think> tags, and markdown fences, avoiding the
-    O(N^3) line-slice AST parsing explosion in evalplus.sanitize.code_extract on large outputs.
-    """
+def extract_python_solution(raw_text, entry_point):
     if not raw_text:
         return ""
-
-    # 1. Search for markdown code blocks (```python ... ``` or ``` ... ```)
-    blocks = re.findall(r"```(?:python)?\s*\n(.*?)\n```", raw_text, re.DOTALL)
-    if blocks:
-        # Search backwards from the last block for the entry_point definition
-        for block in reversed(blocks):
-            if f"def {entry_point}" in block:
-                try:
-                    san = sanitize(block, entrypoint=entry_point)
-                    if san.strip():
-                        return san
-                except Exception:
-                    pass
-                return block.strip()
-        # Fallback to the last code block
-        last_block = blocks[-1].strip()
+    if "</think>" in raw_text:
+        raw_text = raw_text.rsplit("</think>", 1)[1]
+    if "<think>" in raw_text:
+        return ""
+    blocks = re.findall(r"```(?:python|py)?[ \t]*\n(.*?)\n```", raw_text, re.DOTALL | re.IGNORECASE)
+    candidates = list(reversed(blocks)) if blocks else [raw_text.strip()]
+    for candidate in candidates:
         try:
-            san = sanitize(last_block, entrypoint=entry_point)
-            if san.strip():
-                return san
-        except Exception:
-            pass
-        return last_block
-
-    # 2. If no markdown fence, strip <think>...</think> if present
-    no_think = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
-    candidate = no_think if no_think else raw_text
-
-    # 3. If entry_point exists in candidate, find def {entry_point}
-    if f"def {entry_point}" in candidate:
-        start_idx = candidate.rfind(f"def {entry_point}")
-        tail = candidate[start_idx:]
-        try:
-            san = sanitize(tail, entrypoint=entry_point)
-            if san.strip():
-                return san
-        except Exception:
-            pass
-        return tail
-
-    # 4. Fallback: sanitize candidate directly
-    try:
-        san = sanitize(candidate, entrypoint=entry_point)
-        if san.strip():
-            return san
-    except Exception:
-        pass
-
-    return candidate
+            tree = ast.parse(candidate.strip())
+        except SyntaxError:
+            continue
+        if any(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == entry_point for node in tree.body):
+            return candidate.strip()
+    return ""
 
 
-def run_code_eval(
-    exp_key: str,
-    port: int = 8087,
-    max_tokens: int = 4096,
-    dry_run: bool = False,
-    force_new_run: bool = False
-) -> int:
-    catalog = load_catalog()
-    exp = get_experiment(catalog, exp_key)
+def evaluate_saved_run(run_dir, allow_host_execution=False):
+    if not allow_host_execution:
+        raise ValueError("Evaluation runs model-generated Python on this host. Use a disposable environment and explicitly pass --allow-host-execution.")
+    from evalplus.evaluate import evaluate
 
+    run_dir = Path(run_dir)
+    samples = run_dir / "samples.jsonl"
+    results = run_dir / "samples_eval_results.json"
+    if results.exists():
+        history = run_dir / "evaluation-history"
+        history.mkdir(exist_ok=True)
+        results.rename(history / f"{time.time_ns()}_samples_eval_results.json")
+    identity = {"samples_sha256": get_file_sha256(samples), "evalplus_version": importlib.metadata.version("evalplus"),
+                "execution": "host; no isolation provided by this harness"}
+    evaluate(dataset="humaneval", samples=str(samples), parallel=14)
+    if not results.exists():
+        raise RuntimeError("EvalPlus did not write a result file")
+    (run_dir / "evaluation_identity.json").write_text(json.dumps(identity, indent=2) + "\n")
+    return summarize_coding(run_dir, write=True)
+
+
+def run_code_eval(exp_key, port=8087, max_tokens=4096, dry_run=False, force_new_run=False, run_suffix="", allow_host_execution=False):
+    from evalplus.data import get_human_eval_plus
+
+    if max_tokens <= 0:
+        raise ValueError("Token ceiling must be positive")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]*", run_suffix):
+        raise ValueError("Run suffix may contain letters, digits, underscores, dots and hyphens")
+    exp = get_experiment(load_catalog(), exp_key)
     dataset = get_human_eval_plus()
     problems = list(dataset.values())
-
-    model_raw = exp["model"]
-    model_expanded = expand(model_raw)
-    model_path = Path(model_expanded)
-    if not model_path.is_absolute() or not model_path.exists():
-        cand = models_dir() / model_raw
-        if cand.exists():
-            model_path = cand
+    model_path = Path(expand(exp["model"]))
     if not model_path.exists():
-        raise SystemExit(f"Model path does not exist: {model_path}")
-
-    engine_home = Path(os.environ.get("IK_LLAMA_HOME", "/home/james/ik_llama.cpp")).resolve()
-    server_bin = engine_home / "build" / "bin" / "llama-server"
+        model_path = models_dir() / exp["model"]
+    if not model_path.exists():
+        raise FileNotFoundError(model_path)
+    engine_home = ik_home().resolve()
+    server_bin = bin_dir() / "llama-server"
     if not server_bin.exists():
-        server_bin = engine_home / "build" / "bin" / "Release" / "llama-server"
+        server_bin = bin_dir() / "Release/llama-server"
     if not server_bin.exists():
-        raise SystemExit(f"llama-server not found in {engine_home}")
-
-    server_flags = exp["server_flags"].format(port=port)
-    needed_ctx = max(32768, max_tokens + 4096) if max_tokens >= 8192 else max(16384, max_tokens + 4096)
-    if "-c " in server_flags:
-        server_flags = re.sub(
-            r"-c\s+(\d+)",
-            lambda m: f"-c {max(needed_ctx, int(m.group(1)))}" if int(m.group(1)) < needed_ctx else m.group(0),
-            server_flags
-        )
-    else:
-        server_flags += f" -c {needed_ctx}"
-
-    numactl_cmd = exp.get("numactl", "")
-    full_cmd = f"{numactl_cmd} {server_bin} -m {model_path} {server_flags}".strip()
-    argv = shlex.split(full_cmd)
-
-    run_id = f"code_{exp['id']}"
+        raise FileNotFoundError(server_bin)
+    flags = expand(exp["server_flags"], port=port)
+    needed = max(32768 if max_tokens >= 8192 else 16384, max_tokens + 4096)
+    flags = re.sub(r"-c\s+(\d+)", lambda match: f"-c {max(needed, int(match.group(1)))}", flags) if re.search(r"-c\s+\d+", flags) else flags + f" -c {needed}"
+    argv = shlex.split(exp.get("numactl", "")) + [str(server_bin), "-m", str(model_path)] + shlex.split(flags)
+    if force_new_run:
+        run_suffix += f"_{time.time_ns()}"
+    run_id = f"code_{exp['id']}{run_suffix}"
     run_dir = RUNS_DIR / run_id
-    run_dir.mkdir(parents=True, exist_ok=True)
-    manifest_file = run_dir / "manifest.json"
     rows_file = run_dir / "rows.jsonl"
     samples_file = run_dir / "samples.jsonl"
-    server_log_file = run_dir / "server.log"
-    summary_file = run_dir / "summary.json"
-    report_file = run_dir / "report.md"
-
-    system_prompt = (
-        "You are an expert Python software engineer. Complete the given Python function according to the docstring specifications. "
-        "Provide clean, correct, executable Python code."
-    )
-
-    current_manifest = create_manifest(
-        exp_entry=exp,
-        engine_dir=engine_home,
-        model_path=model_path,
-        prompt_file=None,
-        request_params={"max_tokens": max_tokens, "endpoint": "chat", "benchmark": "HumanEvalPlus-164", "system_prompt": system_prompt}
-    )
-
+    manifest_file = run_dir / "manifest.json"
+    request_params = {"benchmark": "HumanEvalPlus-164", "endpoint": "chat", "max_tokens": max_tokens, "temperature": 0.0, "top_p": 1.0,
+                      "stream": False, "seed": 0, "system_prompt": SYSTEM_PROMPT, "prompts": {p["task_id"]: build_user_prompt(p) for p in problems},
+                      "extractor": "final-content-python-ast-v2", "evalplus_version": importlib.metadata.version("evalplus")}
+    manifest = create_manifest(exp, engine_home, model_path, request_params=request_params, server_argv=argv, dataset=dataset, server_binary=server_bin)
     if dry_run:
-        print("=== DRY RUN MANIFEST & RESOLVED COMMAND ===")
-        print(f"Command:\n  {full_cmd}\n")
-        print("Manifest:")
-        print(json.dumps(current_manifest, indent=2))
-        print("===========================================")
+        print(shlex.join(argv))
+        print(json.dumps(manifest, indent=2))
         return 0
-
-    if manifest_file.exists() and not force_new_run:
-        prior_manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
-        ok, reason = verify_resume(prior_manifest, current_manifest)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    if manifest_file.exists():
+        ok, reason = verify_resume(json.loads(manifest_file.read_text()), manifest)
         if not ok:
-            print("ERROR: Resume guard rejected continuation due to manifest mismatch:")
-            print(f"  - {reason}")
-            print("Use --force-new-run to start fresh.")
-            return 1
+            raise ValueError(reason)
+    elif rows_file.exists() or samples_file.exists():
+        raise ValueError("Existing samples lack a manifest; choose a new run suffix")
     else:
-        manifest_file.write_text(json.dumps(current_manifest, indent=2), encoding="utf-8")
-        if force_new_run:
-            if rows_file.exists():
-                rows_file.unlink()
-            if samples_file.exists():
-                samples_file.unlink()
-
-    existing_rows: Dict[str, Dict[str, Any]] = {}
+        manifest_file.write_text(json.dumps(manifest, indent=2) + "\n")
+    existing = {}
     if rows_file.exists():
-        for line in rows_file.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                r = json.loads(line)
-                existing_rows[r["task_id"]] = r
-        print(f"Resuming run: loaded {len(existing_rows)} completed coding problems.")
-
-    if len(existing_rows) >= len(problems) and summary_file.exists():
-        print(f"All {len(problems)} coding problems already completed and evaluated for {exp_key}. Skipping generation.")
-        return 0
-
-    free_port(port)
-    time.sleep(1)
-    log_handle = server_log_file.open("a", encoding="utf-8")
-    proc = subprocess.Popen(
-        argv,
-        stdout=log_handle,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-    )
-
-    url_base = f"http://127.0.0.1:{port}"
-    url_health = f"{url_base}/health"
-
-    system_prompt = (
-        "You are an expert Python software engineer. Complete the given Python function according to the docstring specifications. "
-        "Provide clean, correct, executable Python code."
-    )
-
+        for line in rows_file.read_text().splitlines():
+            row = json.loads(line)
+            if row["task_id"] in existing or row["task_id"] not in dataset:
+                raise ValueError("Duplicate or unknown task in saved rows")
+            existing[row["task_id"]] = row
+    if samples_file.exists():
+        samples = [json.loads(line) for line in samples_file.read_text().splitlines() if line.strip()]
+        if len(samples) != len(existing) or {r["task_id"]: r["solution"] for r in samples} != {key: row["solution"] for key, row in existing.items()}:
+            raise ValueError("Saved samples differ from rows; repair the interrupted append before resuming")
+    elif existing:
+        raise ValueError("Saved rows lack samples; repair the interrupted append before resuming")
+    proc = log_handle = None
     try:
-        print(f"Launching server on port {port} (log: {server_log_file})...")
-        if not wait_for_server(url_health, timeout=120):
-            print("Server failed to respond to /health. Check server.log.")
-            return 1
-        print("Server is ready. Beginning code generation...")
-
-        completed_count = len(existing_rows)
-
-        for idx, prob in enumerate(problems):
-            task_id = prob["task_id"]
-            if task_id in existing_rows:
-                continue
-
-            entry_point = prob["entry_point"]
-            user_text = build_user_prompt(prob)
-
-            t0 = time.time()
-            res = query_chat_completion(
-                url=url_base,
-                user_text=user_text,
-                max_tokens=max_tokens,
-                temperature=0.0,
-                top_p=1.0,
-                system_prompt=system_prompt
-            )
-            wall_sec = time.time() - t0
-
-            if res is None:
-                print(f"Error querying task {task_id}. Halting pipeline for resume.")
-                return 1
-
-            content = res.get("content", "")
-            reasoning = res.get("reasoning_content", "")
-            full_text = f"{reasoning}\n\n{content}" if reasoning and content else (content or reasoning or "")
-            finish_reason = res.get("finish_reason", "unknown")
-            tokens_pred = res.get("tokens_predicted", 0)
-
-            # Sanitize and extract the Python function cleanly using pre-extraction
-            sanitized_solution = extract_python_solution(full_text, entry_point=entry_point)
-
-            timings = res.get("timings", {})
-            pred_ms = timings.get("predicted_ms", 0.0)
-            speed_tps = (tokens_pred / (pred_ms / 1000.0)) if pred_ms > 0 else (tokens_pred / wall_sec if wall_sec > 0 else 0.0)
-
-            row_entry = {
-                "idx": completed_count + 1,
-                "task_id": task_id,
-                "entry_point": entry_point,
-                "tokens": tokens_pred,
-                "speed_tps": round(speed_tps, 2),
-                "wall_time": round(wall_sec, 2),
-                "finish_reason": finish_reason,
-                "solution": sanitized_solution,
-            }
-
-            with open(rows_file, "a", encoding="utf-8") as rf:
-                rf.write(json.dumps(row_entry) + "\n")
-
-            with open(samples_file, "a", encoding="utf-8") as sf:
-                sf.write(json.dumps({"task_id": task_id, "solution": sanitized_solution}) + "\n")
-
-            existing_rows[task_id] = row_entry
-            completed_count += 1
-
-            print(
-                f"[{completed_count:03d}/{len(problems)}] Task: {task_id:<14} | "
-                f"{speed_tps:5.2f} t/s | {tokens_pred:4d} tok | {wall_sec:5.1f}s"
-            )
-
-        print("\nAll 164 problems generated. Initiating EvalPlus unit-test sandbox evaluation...")
-        eval_result = run_evalplus_evaluation(
-            dataset="humaneval",
-            samples=str(samples_file),
-            parallel=14
-        )
-
-        # Extract base and plus scores from EvalPlus evaluation result file
-        eval_result_path = samples_file.parent / f"{samples_file.stem}_eval_results.json"
-        base_pass = 0.0
-        plus_pass = 0.0
-        if eval_result_path.exists():
-            try:
-                eval_data = json.loads(eval_result_path.read_text(encoding="utf-8"))
-                eval_dict = eval_data.get("eval", {})
-                if eval_dict:
-                    n_eval = len(eval_dict)
-                    b_pass = sum(1 for v in eval_dict.values() if v and v[0].get("base_status") == "pass")
-                    p_pass = sum(1 for v in eval_dict.values() if v and v[0].get("plus_status") == "pass")
-                    base_pass = b_pass / n_eval
-                    plus_pass = p_pass / n_eval
-            except Exception as e:
-                print(f"Warning: could not parse eval results file: {e}")
-
-        all_rows = list(existing_rows.values())
-        avg_speed = sum(r.get("speed_tps", 0.0) for r in all_rows) / len(all_rows) if all_rows else 0.0
-        total_wall = sum(r.get("wall_time", 0.0) for r in all_rows)
-        avg_wall = total_wall / len(all_rows) if all_rows else 0.0
-
-        summary_data = {
-            "run_id": run_id,
-            "experiment_id": exp["id"],
-            "model": exp["model"],
-            "total_problems": len(all_rows),
-            "max_tokens_ceiling": max_tokens,
-            "base_pass_pct": round(base_pass * 100.0, 2),
-            "plus_pass_pct": round(plus_pass * 100.0, 2),
-            "average_decode_tps": round(avg_speed, 2),
-            "total_wall_time_sec": round(total_wall, 1),
-            "avg_wall_time_per_task_sec": round(avg_wall, 2),
-        }
-        summary_file.write_text(json.dumps(summary_data, indent=2), encoding="utf-8")
-
-        report_md = f"""# Coding Benchmark Report: {exp['name']}
-- **Run ID:** `{run_id}`
-- **Protocol:** Protocol C-code-v1 (EvalPlus HumanEval+)
-- **Model:** `{exp['model']}`
-- **Total Problems:** {len(all_rows)}
-- **Base Pass@1:** **{summary_data['base_pass_pct']}%**
-- **Plus Pass@1:** **{summary_data['plus_pass_pct']}%**
-- **Average Decode Speed:** {summary_data['average_decode_tps']} tokens/sec
-- **Total Wall Time:** {summary_data['total_wall_time_sec']}s ({summary_data['total_wall_time_sec']/60:.1f} min)
-- **Average Time Per Task:** {summary_data['avg_wall_time_per_task_sec']}s
-"""
-        report_file.write_text(report_md, encoding="utf-8")
-        print(f"\n=======================================================")
-        print(f"EVALPLUS EVALUATION COMPLETE: {exp['id']}")
-        print(f"Base Pass@1: {summary_data['base_pass_pct']}%")
-        print(f"Plus Pass@1: {summary_data['plus_pass_pct']}%")
-        print(f"Average Decode Speed: {summary_data['average_decode_tps']} t/s")
-        print(f"Average Wall Time per Task: {summary_data['avg_wall_time_per_task_sec']}s")
-        print(f"Saved run artifacts to {run_dir}/")
-        print(f"=======================================================\n")
-        return 0
-
+        if len(existing) < len(problems):
+            require_free_port(port)
+            log_handle = (run_dir / "server.log").open("a")
+            proc = subprocess.Popen(argv, stdout=log_handle, stderr=subprocess.STDOUT, start_new_session=True)
+            url = f"http://127.0.0.1:{port}"
+            if not wait_for_server(f"{url}/health", proc):
+                raise RuntimeError("Server failed to become healthy; see server.log")
+            for problem in problems:
+                task_id = problem["task_id"]
+                if task_id in existing:
+                    continue
+                start = time.monotonic()
+                response = query_chat_completion(url, build_user_prompt(problem), max_tokens, system_prompt=SYSTEM_PROMPT)
+                elapsed = time.monotonic() - start
+                if response is None:
+                    return 1
+                solution = extract_python_solution(response["content"], problem["entry_point"])
+                speed = decode_rate(response["tokens_predicted"], response["timings"].get("predicted_ms"))
+                row = {"idx": len(existing) + 1, "task_id": task_id, "entry_point": problem["entry_point"], "tokens": response["tokens_predicted"],
+                       "speed_tps": round(speed, 2) if speed is not None else None, "wall_time": round(elapsed, 2), "solution": solution,
+                       "content": response["content"], "reasoning_content": response["reasoning_content"], "timings": response["timings"],
+                       "finish_reason": response["finish_reason"], "max_tokens_hit": response["max_tokens_hit"], "raw_stopping": response["raw_stopping"]}
+                with rows_file.open("a") as handle:
+                    handle.write(json.dumps(row) + "\n")
+                with samples_file.open("a") as handle:
+                    handle.write(json.dumps({"task_id": task_id, "solution": solution}) + "\n")
+                existing[task_id] = row
+                print(f"{len(existing)}/{len(problems)} {task_id}: {row['tokens']} tokens, {elapsed:.1f} s, decode {row['speed_tps']}")
     finally:
-        stop_process_group(proc)
-        log_handle.close()
-        free_port(port)
+        if proc is not None:
+            stop_process_group(proc)
+        if log_handle is not None:
+            log_handle.close()
+    summary = {"run_id": run_id, "experiment_id": exp["id"], "model": exp["model"], "total_problems": len(existing), "max_tokens_ceiling": max_tokens,
+               "evaluation_status": "not executed", "extraction": "final-content-python-ast-v2"}
+    if not (run_dir / "samples_eval_results.json").exists():
+        (run_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+    if allow_host_execution:
+        evaluate_saved_run(run_dir, allow_host_execution=True)
+    else:
+        print(f"Saved completions to {run_dir}. Evaluation was not run; use a disposable environment and --evaluate-run PATH --allow-host-execution.")
+    return 0
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Run EvalPlus HumanEval+ under Protocol C-code-v1.")
-    parser.add_argument("--exp", required=True, help="Experiment number or id (e.g. 50, 94)")
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--exp")
     parser.add_argument("--port", type=int, default=8087)
-    parser.add_argument("--max-tokens", type=int, default=4096, help="Token ceiling (default: 4096)")
-    parser.add_argument("--dry-run", action="store_true", help="Print resolved command and manifest, then exit")
-    parser.add_argument("--force-new-run", action="store_true", help="Overwrite existing manifest and start fresh")
+    parser.add_argument("--max-tokens", type=int, default=4096)
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--force-new-run", action="store_true", help="Create a timestamped run directory; retain existing artifacts")
+    parser.add_argument("--run-suffix", default="")
+    parser.add_argument("--evaluate-run", type=Path, help="Evaluate existing samples without starting inference")
+    parser.add_argument("--allow-host-execution", action="store_true", help="Explicitly permit model-generated Python to run on this host; use a disposable environment")
     args = parser.parse_args()
-
-    sys.exit(run_code_eval(
-        exp_key=args.exp,
-        port=args.port,
-        max_tokens=args.max_tokens,
-        dry_run=args.dry_run,
-        force_new_run=args.force_new_run
-    ))
+    if args.evaluate_run:
+        evaluate_saved_run(args.evaluate_run, args.allow_host_execution)
+    elif args.exp:
+        sys.exit(run_code_eval(args.exp, args.port, args.max_tokens, args.dry_run, args.force_new_run, args.run_suffix, args.allow_host_execution))
+    else:
+        parser.error("Provide --exp or --evaluate-run")
 
 
 if __name__ == "__main__":

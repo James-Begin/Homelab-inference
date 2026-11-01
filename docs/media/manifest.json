@@ -1,0 +1,71 @@
+{
+  "format": "README animation exports",
+  "repo": "e72afab125d7bb5bf844e1c2d23ff3a204ba1727",
+  "clips": [
+    {
+      "id": "numa-traffic",
+      "title": "Cache, local RAM, and remote memory",
+      "primary": true,
+      "durationSeconds": 18,
+      "width": 1920,
+      "height": 1080,
+      "gifFps": 25,
+      "mp4Fps": 60,
+      "frames": 450,
+      "gifBytes": 2438851,
+      "gifSha256": "c1c7b345d5d8d408bc0730a77d3b154d19af08f8e327c392929061c4b4d73f7e"
+    },
+    {
+      "id": "avx2-prefetch",
+      "title": "Prefetch in the AVX2 kernel",
+      "primary": true,
+      "durationSeconds": 16,
+      "width": 1920,
+      "height": 1080,
+      "gifFps": 25,
+      "mp4Fps": 60,
+      "frames": 400,
+      "gifBytes": 3396713,
+      "gifSha256": "1615395705a59dd7c6eb1f20ee9a50712355e06b35344ce7cb106bf8d81904db"
+    },
+    {
+      "id": "draft-and-verify",
+      "title": "N-gram history update and verification",
+      "primary": true,
+      "durationSeconds": 16,
+      "width": 1920,
+      "height": 1080,
+      "gifFps": 25,
+      "mp4Fps": 60,
+      "frames": 400,
+      "gifBytes": 5178585,
+      "gifSha256": "bd9fb1d909094239edc3b19dda39a3000fff2418a5dcbd22d39dbd62e3af4b00"
+    },
+    {
+      "id": "flint-vs-qwen",
+      "title": "From Qwen to Flint",
+      "primary": true,
+      "durationSeconds": 22,
+      "width": 1920,
+      "height": 1080,
+      "gifFps": 25,
+      "mp4Fps": 60,
+      "frames": 550,
+      "gifBytes": 8986868,
+      "gifSha256": "930252a04c382eaa1e489d8f3282ec867df308a4680ae9238954d10121888181"
+    },
+    {
+      "id": "repack-eight-rows",
+      "title": "Upstream eight-row repack",
+      "primary": false,
+      "durationSeconds": 14,
+      "width": 1920,
+      "height": 1080,
+      "gifFps": 25,
+      "mp4Fps": 60,
+      "frames": 350,
+      "gifBytes": 4911268,
+      "gifSha256": "047efb2086c5c3da6026a9ad00f62d16a1b8d74b871d4371551feaeefadf36eb"
+    }
+  ]
+}

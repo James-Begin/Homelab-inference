@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
-"""
-Protocol B: Speculation Equivalence Verifier (B-equiv-v1)
-Implements Phase 3 (Protocol B) of improvement-plan.md.
-Tests whether speculative decoding or kernel fusions produce bit-for-bit lossless output under greedy decoding.
-"""
+"""Compare greedy token IDs on a fixed prompt suite."""
 
 import argparse
 import json
 from pathlib import Path
 import sys
-import time
 import urllib.request
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 
 TEST_PROMPTS = [
@@ -31,25 +26,29 @@ TEST_PROMPTS = [
 def query_greedy(url: str, prompt: str, n_predict: int = 128) -> Optional[List[int]]:
     """Requests greedy token generation with token ID output."""
     payload = {
-        "prompt": f"<|user|>\n{prompt}\n<|assistant|>\n",
-        "n_predict": n_predict,
+        "prompt": prompt,
+        "max_tokens": n_predict,
         "temperature": 0.0,
         "top_p": 1.0,
-        "return_tokens": True,
+        "logprobs": 1,
+        "stream": False,
+        "seed": 0,
     }
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
-        f"{url}/completion",
+        f"{url}/v1/completions",
         data=data,
         headers={"Content-Type": "application/json"}
     )
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
             res = json.loads(resp.read().decode("utf-8"))
-            tokens = res.get("tokens")
-            if tokens is None and "content" in res:
-                # Fallback to string tokenization or tokens field if server returns token strings
-                return res.get("content")
+            probabilities = res.get("choices", [{}])[0].get("logprobs", {}).get("content")
+            if not isinstance(probabilities, list) or not probabilities:
+                raise ValueError("Response lacks token logprobs with IDs")
+            tokens = [entry.get("id") if isinstance(entry, dict) else None for entry in probabilities]
+            if any(type(token) is not int or token < 0 for token in tokens):
+                raise ValueError("Response lacks nonempty integer token IDs; text equality is insufficient")
             return tokens
     except Exception as e:
         print(f"Error querying {url}: {e}", file=sys.stderr)
@@ -62,6 +61,8 @@ def verify_equivalence(
     n_predict: int = 128,
     out_file: Optional[Path] = None
 ) -> Dict[str, Any]:
+    if n_predict <= 0:
+        raise ValueError("n_predict must be positive")
     print(f"Comparing Reference Server ({ref_url}) vs Candidate Server ({cand_url}) across {len(TEST_PROMPTS)} prompts...")
     results = []
     all_identical = True
@@ -94,7 +95,7 @@ def verify_equivalence(
             if first_divergence == -1:
                 first_divergence = min_len
 
-        status_str = "MATCH (Identical)" if is_match else f"DIVERGED at token {first_divergence}"
+        status_str = "MATCH" if is_match else f"DIVERGED at token {first_divergence}"
         print(f"[{idx+1}/{len(TEST_PROMPTS)}] Prompt {idx+1}: {status_str}")
 
         results.append({
@@ -119,10 +120,8 @@ def verify_equivalence(
             json.dump(summary, f, indent=2)
         print(f"\nWrote equivalence report to {out_file}")
 
-    print("\n=======================================================")
-    print(f"PROTOCOL B RESULT: {'PASS (Bit-for-Bit Identical)' if all_identical else 'FAIL (Divergence Detected)'}")
+    print(f"Token comparison: {'PASS (tested token sequences match)' if all_identical else 'FAIL (missing or differing token IDs)'}")
     print(f"Matching Prompts: {summary['prompts_matching']}/{summary['prompts_tested']}")
-    print("=======================================================")
 
     return summary
 
@@ -135,4 +134,5 @@ if __name__ == "__main__":
     parser.add_argument("--out", type=str, default="equiv_report.json")
     args = parser.parse_args()
 
-    verify_equivalence(args.ref_url, args.cand_url, args.n_predict, Path(args.out))
+    result = verify_equivalence(args.ref_url, args.cand_url, args.n_predict, Path(args.out))
+    sys.exit(0 if result["all_identical"] else 1)

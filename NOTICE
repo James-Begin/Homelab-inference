@@ -1,0 +1,3 @@
+Engine source context in patches/ comes from ik_llama.cpp and its ggml and llama.cpp dependencies. Their MIT license notice is retained in third_party/ik_llama.cpp.LICENSE.
+
+Model weights and benchmark datasets are not covered by that engine license. Model source revisions are recorded in the saved manifests and architecture notes. EvalPlus is an external dependency; its license and HumanEval+ dataset terms remain with that project.
