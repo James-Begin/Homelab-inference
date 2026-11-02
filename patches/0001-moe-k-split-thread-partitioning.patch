@@ -1,0 +1,328 @@
+diff --git a/ggml/src/iqk/iqk_mul_mat.cpp b/ggml/src/iqk/iqk_mul_mat.cpp
+index ff1149ff..4a8cca14 100644
+--- a/ggml/src/iqk/iqk_mul_mat.cpp
++++ b/ggml/src/iqk/iqk_mul_mat.cpp
+@@ -399,8 +399,24 @@ struct MulMat {
+     }
+ };
+ 
+-static std::vector<char> & thread_local_work_buffer() {
+-    thread_local std::vector<char> f;
++struct AlignedBuffer {
++    std::vector<char> buf;
++    void resize(size_t sz) {
++        if (buf.size() < sz + 64) {
++            buf.resize(sz + 64);
++        }
++    }
++    size_t size() const {
++        return buf.size();
++    }
++    char* data() {
++        uintptr_t p = (uintptr_t)buf.data();
++        return (char*)((p + 63) & ~63);
++    }
++};
++
++static AlignedBuffer & thread_local_work_buffer() {
++    thread_local AlignedBuffer f;
+     return f;
+ }
+ 
+@@ -540,11 +556,14 @@ extern "C" IQK_API bool iqk_mul_mat(long Nx, long Ny, long ne00,
+ 
+         auto num_rows = MulMat::num_rows(ggml_type(dequant_type));
+         GGML_ASSERT(Nx%num_rows == 0);
+-        auto nrc_x = (Nx/num_rows + nth - 1)/nth;
++        auto num_blocks = Nx / num_rows;
++        auto nrc_x = (num_blocks + nth - 1)/nth;
+         auto first_x = ith*nrc_x;
+-        if (first_x + nrc_x > Nx/num_rows) nrc_x = Nx/num_rows - first_x;
++        if (first_x >= num_blocks) return true;
++        if (first_x + nrc_x > num_blocks) nrc_x = num_blocks - first_x;
+         first_x *= num_rows;
+         nrc_x   *= num_rows;
++        if (nrc_x <= 0) return true;
+ 
+         size_t row_size_qx = ggml_row_size(dequant_type, ne00);
+         size_t row_size_qy = strideB;
+@@ -582,25 +601,33 @@ extern "C" IQK_API bool iqk_mul_mat(long Nx, long Ny, long ne00,
+ 
+     if (npt <= 16 && nth%2 == 0 && Ny >= 16 && Ny%2 == 0) {
+         int nth_new = nth/2;
+-        auto nrc_x = num_rows*((Nx/num_rows + nth_new - 1)/nth_new);
++        auto num_blocks = Nx / num_rows;
++        auto nrc_x = num_rows*((num_blocks + nth_new - 1)/nth_new);
+         if (ith < nth_new) {
+             auto first_x = ith*nrc_x;
+-            nrc_x = std::min(nrc_x, Nx - first_x);
+-            DataInfo info{C + first_x, (const char *)B, (size_t)stride_C, row_size_qy, 0, 1, nullptr, 0};
+-            mm.mul_mat_NxM(ne00, (const char *)A + row_size_qx*first_x, row_size_qx, info, nrc_x, Ny/2);
++            if (first_x < Nx) {
++                nrc_x = std::min(nrc_x, Nx - first_x);
++                DataInfo info{C + first_x, (const char *)B, (size_t)stride_C, row_size_qy, 0, 1, nullptr, 0};
++                mm.mul_mat_NxM(ne00, (const char *)A + row_size_qx*first_x, row_size_qx, info, nrc_x, Ny/2);
++            }
+         } else {
+             ith -= nth_new;
+             auto first_x = ith*nrc_x;
+-            nrc_x = std::min(nrc_x, Nx - first_x);
+-            DataInfo info{C + first_x + (Ny/2)*stride_C, (const char *)B + (Ny/2)*row_size_qy, (size_t)stride_C, row_size_qy, 0, 1, nullptr, 0};
+-            mm.mul_mat_NxM(ne00, (const char *)A + row_size_qx*first_x, row_size_qx, info, nrc_x, Ny/2);
++            if (first_x < Nx) {
++                nrc_x = std::min(nrc_x, Nx - first_x);
++                DataInfo info{C + first_x + (Ny/2)*stride_C, (const char *)B + (Ny/2)*row_size_qy, (size_t)stride_C, row_size_qy, 0, 1, nullptr, 0};
++                mm.mul_mat_NxM(ne00, (const char *)A + row_size_qx*first_x, row_size_qx, info, nrc_x, Ny/2);
++            }
+         }
+         return true;
+     }
+ 
+-    auto nrc_x = (Nx/num_rows + nth - 1)/nth;
++    auto num_blocks = Nx / num_rows;
++    auto nrc_x = (num_blocks + nth - 1)/nth;
+     auto first_x = ith*nrc_x;
+-    if (first_x + nrc_x > Nx/num_rows) nrc_x = Nx/num_rows - first_x;
++    if (first_x >= num_blocks) return true;
++    if (first_x + nrc_x > num_blocks) nrc_x = num_blocks - first_x;
++    if (nrc_x <= 0) return true;
+ 
+     DataInfo info{C + first_x*num_rows, (const char *)B, (size_t)stride_C, row_size_qy, 0, 1, nullptr, 0};
+ 
+@@ -732,28 +759,75 @@ extern "C" IQK_API bool iqk_mul_mat_moe(long Nx, long Ny, long ne00, int ne11,
+ 
+         auto num_rows = MulMat::num_rows(ggml_type(dequant_type));
+         GGML_ASSERT(Nx%num_rows == 0);
+-        auto nrc_x = (Nx/num_rows + nth - 1)/nth;
+-        auto first_x = ith*nrc_x;
+-        if (first_x + nrc_x > Nx/num_rows) nrc_x = Nx/num_rows - first_x;
+-        first_x *= num_rows;
+-        nrc_x   *= num_rows;
+ 
+-        size_t row_size_qx = ggml_row_size(dequant_type, ne00);
+-        size_t row_size_qy = strideB;
++        long first_x = 0;
++        long nrc_x = Nx;
++        long first_y = 0;
++        long nrc_y = Ny;
++
++        // Check if we should use Column-Parallel thread partitioning (Decode mode)
++        if (Nx < nth) {
++            int threads_per_row = nth / Nx;
++            if (threads_per_row > 1) {
++                int row_idx = ith / threads_per_row;
++                int group_tid = ith % threads_per_row;
++
++                if (row_idx < Nx) {
++                    first_x = row_idx;
++                    nrc_x = 1;
++                    long cols_per_thread = (Ny + threads_per_row - 1) / threads_per_row;
++                    cols_per_thread = (cols_per_thread + 15) & ~15;
++
++                    first_y = group_tid * cols_per_thread;
++                    nrc_y = std::min(cols_per_thread, Ny - first_y);
++                } else {
++                    return true;
++                }
++            } else {
++                auto num_blocks = Nx / num_rows;
++                auto nrc_x_std = (num_blocks + nth - 1)/nth;
++                first_x = ith*nrc_x_std;
++                if (first_x < num_blocks) {
++                    if (first_x + nrc_x_std > num_blocks) nrc_x_std = num_blocks - first_x;
++                    first_x *= num_rows;
++                    nrc_x = nrc_x_std * num_rows;
++                } else {
++                    nrc_x = 0;
++                }
++            }
++        } else {
++            auto num_blocks = Nx / num_rows;
++            auto nrc_x_std = (num_blocks + nth - 1)/nth;
++            first_x = ith*nrc_x_std;
++            if (first_x < num_blocks) {
++                if (first_x + nrc_x_std > num_blocks) nrc_x_std = num_blocks - first_x;
++                first_x *= num_rows;
++                nrc_x = nrc_x_std * num_rows;
++            } else {
++                nrc_x = 0;
++            }
++        }
+ 
+-        DataInfo info{C + first_x, (const char *)B, nb1/sizeof(float), row_size_qy, 0, ne11, row_mapping, nb2/sizeof(float)};
++        if (nrc_x > 0 && nrc_y > 0) {
++            size_t row_size_qx = ggml_row_size(dequant_type, ne00);
++            size_t row_size_qy = strideB;
+ 
+-        auto& f = thread_local_work_buffer();
++            DataInfo info{C + first_x + first_y * (nb1/sizeof(float)), (const char *)B, nb1/sizeof(float), row_size_qy, (int)first_y, ne11, row_mapping, nb2/sizeof(float)};
+ 
+-        for (int ix = 0; ix < nrc_x; ix += k_x_step) {
+-            auto this_info = info;
+-            this_info.s += ix;
+-            int this_nrc_x = ix + k_x_step <= nrc_x ? k_x_step : nrc_x - ix;
+-            if (f.size() < row_size_qx*this_nrc_x) f.resize(row_size_qx*this_nrc_x);
+-            if (!iqk_convert_repack(typeA, ne00, (const char *)A + (first_x + ix)*strideA, strideA, f.data(), ne00, this_nrc_x)) {
+-                GGML_ABORT("Fatal error");
++            auto& f = thread_local_work_buffer();
++
++            for (int ix = 0; ix < nrc_x; ix += k_x_step) {
++                auto this_info = info;
++                this_info.s += ix;
++                int this_nrc_x = ix + k_x_step <= nrc_x ? k_x_step : nrc_x - ix;
++                // 64-byte alignment padding for buffer
++                size_t aligned_row_size = (row_size_qx*this_nrc_x + 63) & ~63;
++                if (f.size() < aligned_row_size) f.resize(aligned_row_size);
++                if (!iqk_convert_repack(typeA, ne00, (const char *)A + (first_x + ix)*strideA, strideA, f.data(), ne00, this_nrc_x)) {
++                    GGML_ABORT("Fatal error");
++                }
++                mm.mul_mat_NxM(ne00, f.data(), row_size_qx, this_info, this_nrc_x, nrc_y);
+             }
+-            mm.mul_mat_NxM(ne00, f.data(), row_size_qx, this_info, this_nrc_x, Ny);
+         }
+ 
+         return true;
+@@ -767,11 +841,14 @@ extern "C" IQK_API bool iqk_mul_mat_moe(long Nx, long Ny, long ne00, int ne11,
+     size_t row_size_qy = strideB;
+     auto num_rows = MulMat::num_rows(ggml_type(typeA));
+     GGML_ASSERT(Nx%num_rows == 0);
+-    auto nrc_x = (Nx/num_rows + nth - 1)/nth;
++    auto num_blocks = Nx / num_rows;
++    auto nrc_x = (num_blocks + nth - 1)/nth;
+     auto first_x = ith*nrc_x;
+-    if (first_x + nrc_x > Nx/num_rows) nrc_x = Nx/num_rows - first_x;
++    if (first_x >= num_blocks) return true;
++    if (first_x + nrc_x > num_blocks) nrc_x = num_blocks - first_x;
+     first_x *= num_rows;
+     nrc_x *= num_rows;
++    if (nrc_x <= 0) return true;
+     DataInfo info{C + first_x, (const char *)B, nb1/sizeof(float),
+         row_size_qy, 0, ne11, row_mapping, nb2/sizeof(float)};
+     mm.mul_mat_NxM(ne00, (const char *)A + row_size_qx*first_x, row_size_qx, info, nrc_x, Ny);
+@@ -799,35 +876,85 @@ extern "C" IQK_API bool iqk_moe_fused_up_gate(long Nx, long Ny, long ne00, int n
+ 
+             auto num_rows = MulMat::num_rows(ggml_type(dequant_type));
+             GGML_ASSERT(Nx%num_rows == 0);
+-            auto nrc_x = (Nx/num_rows + nth - 1)/nth;
+-            auto first_x = ith*nrc_x;
+-            if (first_x + nrc_x > Nx/num_rows) nrc_x = Nx/num_rows - first_x;
+-            first_x *= num_rows;
+-            nrc_x   *= num_rows;
+ 
+-            size_t row_size_qx = ggml_row_size(dequant_type, ne00);
+-            size_t row_size_qy = strideB;
++            long first_x = 0;
++            long nrc_x = Nx;
++            long first_y = 0;
++            long nrc_y = Ny;
++
++            // Check if we should use Column-Parallel thread partitioning (Decode mode)
++            if (Nx < nth) {
++                int threads_per_row = nth / Nx;
++                if (threads_per_row > 1) {
++                    int row_idx = ith / threads_per_row;
++                    int group_tid = ith % threads_per_row;
++
++                    if (row_idx < Nx) {
++                        first_x = row_idx;
++                        nrc_x = 1;
++                        long cols_per_thread = (Ny + threads_per_row - 1) / threads_per_row;
++                        // Align column slices to multiples of 16 for SIMD kernel block sizes
++                        cols_per_thread = (cols_per_thread + 15) & ~15;
++
++                        first_y = group_tid * cols_per_thread;
++                        nrc_y = std::min(cols_per_thread, Ny - first_y);
++                    } else {
++                        // Excess thread - idle
++                        return true;
++                    }
++                } else {
++                    auto num_blocks = Nx / num_rows;
++                    auto nrc_x_std = (num_blocks + nth - 1)/nth;
++                    first_x = ith*nrc_x_std;
++                    if (first_x < num_blocks) {
++                        if (first_x + nrc_x_std > num_blocks) nrc_x_std = num_blocks - first_x;
++                        first_x *= num_rows;
++                        nrc_x = nrc_x_std * num_rows;
++                    } else {
++                        nrc_x = 0;
++                    }
++                }
++            } else {
++                auto num_blocks = Nx / num_rows;
++                auto nrc_x_std = (num_blocks + nth - 1)/nth;
++                first_x = ith*nrc_x_std;
++                if (first_x < num_blocks) {
++                    if (first_x + nrc_x_std > num_blocks) nrc_x_std = num_blocks - first_x;
++                    first_x *= num_rows;
++                    nrc_x = nrc_x_std * num_rows;
++                } else {
++                    nrc_x = 0;
++                }
++            }
+ 
+-            DataInfo info{C + first_x, (const char *)B, nb1/sizeof(float), row_size_qy, 0, ne11, row_mapping, nb2/sizeof(float)};
++            if (nrc_x > 0 && nrc_y > 0) {
++                size_t row_size_qx = ggml_row_size(dequant_type, ne00);
++                size_t row_size_qy = strideB;
+ 
+-            auto& f = thread_local_work_buffer();
++                // Adjust DataInfo offset: s starts at C + first_y (column offset)
++                // and cur_y is initialized to first_y
++                DataInfo info{C + first_x + first_y * (nb1/sizeof(float)), (const char *)B, nb1/sizeof(float), row_size_qy, (int)first_y, ne11, row_mapping, nb2/sizeof(float)};
+ 
+-            for (int ix = 0; ix < nrc_x; ix += k_x_step) {
+-                auto this_info = info;
+-                this_info.s += ix;
+-                int this_nrc_x = ix + k_x_step <= nrc_x ? k_x_step : nrc_x - ix;
+-                if (f.size() < 2*row_size_qx*this_nrc_x) f.resize(2*row_size_qx*this_nrc_x);
+-                auto Xu = f.data();
+-                auto Xg = f.data() + row_size_qx*this_nrc_x;
+-                if (!iqk_convert_repack(typeA, ne00, (const char *)Aup   + (first_x + ix)*strideA, strideA, Xu, ne00, this_nrc_x)) {
+-                    GGML_ABORT("Fatal error");
+-                }
+-                if (!iqk_convert_repack(typeA, ne00, (const char *)Agate + (first_x + ix)*strideA, strideA, Xg, ne00, this_nrc_x)) {
+-                    GGML_ABORT("Fatal error");
++                auto& f = thread_local_work_buffer();
++
++                for (int ix = 0; ix < nrc_x; ix += k_x_step) {
++                    auto this_info = info;
++                    this_info.s += ix; // Shift by row index in DataInfo.s (which represents the C array)
++                    int this_nrc_x = ix + k_x_step <= nrc_x ? k_x_step : nrc_x - ix;
++                    size_t aligned_row_size = (row_size_qx*this_nrc_x + 63) & ~63;
++                    if (f.size() < 2*aligned_row_size) f.resize(2*aligned_row_size);
++                    auto Xu = f.data();
++                    auto Xg = f.data() + aligned_row_size;
++                    if (!iqk_convert_repack(typeA, ne00, (const char *)Aup   + (first_x + ix)*strideA, strideA, Xu, ne00, this_nrc_x)) {
++                        GGML_ABORT("Fatal error");
++                    }
++                    if (!iqk_convert_repack(typeA, ne00, (const char *)Agate + (first_x + ix)*strideA, strideA, Xg, ne00, this_nrc_x)) {
++                        GGML_ABORT("Fatal error");
++                    }
++                    auto up_b   = up_b_c   ? (const float *)up_b_c + first_x + ix : nullptr;
++                    auto gate_b = gate_b_c ? (const float *)gate_b_c + first_x + ix : nullptr;
++                    mm.mul_mat_up_gate_NxM(ne00, Xu, Xg, row_size_qx, up_b, gate_b, this_info, this_nrc_x, nrc_y, unary_op, limit);
+                 }
+-                auto up_b   = up_b_c   ? (const float *)up_b_c + first_x + ix : nullptr;
+-                auto gate_b = gate_b_c ? (const float *)gate_b_c + first_x + ix : nullptr;
+-                mm.mul_mat_up_gate_NxM(ne00, Xu, Xg, row_size_qx, up_b, gate_b, this_info, this_nrc_x, Ny, unary_op, limit);
+             }
+ 
+             return true;
+@@ -840,11 +967,14 @@ extern "C" IQK_API bool iqk_moe_fused_up_gate(long Nx, long Ny, long ne00, int n
+     }
+     auto num_rows = MulMat::num_rows(ggml_type(typeA));
+     GGML_ASSERT(Nx%num_rows == 0);
+-    auto nrc_x = (Nx/num_rows + nth - 1)/nth;
++    auto num_blocks = Nx / num_rows;
++    auto nrc_x = (num_blocks + nth - 1)/nth;
+     auto first_x = ith*nrc_x;
+-    if (first_x + nrc_x > Nx/num_rows) nrc_x = Nx/num_rows - first_x;
++    if (first_x >= num_blocks) return true;
++    if (first_x + nrc_x > num_blocks) nrc_x = num_blocks - first_x;
+     first_x *= num_rows;
+     nrc_x *= num_rows;
++    if (nrc_x <= 0) return true;
+     DataInfo info{C + first_x, (const char *)B, nb1/sizeof(float),
+         row_size_qy, 0, ne11, row_mapping, nb2/sizeof(float)};
+     auto up_b   = up_b_c   ? (const float *)up_b_c + first_x : nullptr;

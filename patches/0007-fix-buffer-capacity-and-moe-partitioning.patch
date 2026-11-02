@@ -1,0 +1,343 @@
+--- a/ggml/src/iqk/iqk_mul_mat.cpp
++++ b/ggml/src/iqk/iqk_mul_mat.cpp
+@@ -402,16 +402,21 @@
+ struct AlignedBuffer {
+     std::vector<char> buf;
+     void resize(size_t sz) {
+-        if (buf.size() < sz + 64) {
+-            buf.resize(sz + 64);
++        if (size() < sz) {
++            GGML_ASSERT(sz <= buf.max_size() - 63);
++            buf.resize(sz + 63);
+         }
+     }
+     size_t size() const {
+-        return buf.size();
++        if (buf.empty()) return 0;
++        uintptr_t p = (uintptr_t)buf.data();
++        size_t offset = ((p + 63) & ~uintptr_t(63)) - p;
++        return buf.size() - offset;
+     }
+     char* data() {
++        if (buf.empty()) return nullptr;
+         uintptr_t p = (uintptr_t)buf.data();
+-        return (char*)((p + 63) & ~63);
++        return (char*)((p + 63) & ~uintptr_t(63));
+     }
+ };
+ 
+@@ -760,74 +765,30 @@
+         auto num_rows = MulMat::num_rows(ggml_type(dequant_type));
+         GGML_ASSERT(Nx%num_rows == 0);
+ 
+-        long first_x = 0;
+-        long nrc_x = Nx;
+-        long first_y = 0;
+-        long nrc_y = Ny;
+-
+-        // Check if we should use Column-Parallel thread partitioning (Decode mode)
+-        if (Nx < nth) {
+-            int threads_per_row = nth / Nx;
+-            if (threads_per_row > 1) {
+-                int row_idx = ith / threads_per_row;
+-                int group_tid = ith % threads_per_row;
+-
+-                if (row_idx < Nx) {
+-                    first_x = row_idx;
+-                    nrc_x = 1;
+-                    long cols_per_thread = (Ny + threads_per_row - 1) / threads_per_row;
+-                    cols_per_thread = (cols_per_thread + 15) & ~15;
+-
+-                    first_y = group_tid * cols_per_thread;
+-                    nrc_y = std::min(cols_per_thread, Ny - first_y);
+-                } else {
+-                    return true;
+-                }
+-            } else {
+-                auto num_blocks = Nx / num_rows;
+-                auto nrc_x_std = (num_blocks + nth - 1)/nth;
+-                first_x = ith*nrc_x_std;
+-                if (first_x < num_blocks) {
+-                    if (first_x + nrc_x_std > num_blocks) nrc_x_std = num_blocks - first_x;
+-                    first_x *= num_rows;
+-                    nrc_x = nrc_x_std * num_rows;
+-                } else {
+-                    nrc_x = 0;
+-                }
+-            }
+-        } else {
+-            auto num_blocks = Nx / num_rows;
+-            auto nrc_x_std = (num_blocks + nth - 1)/nth;
+-            first_x = ith*nrc_x_std;
+-            if (first_x < num_blocks) {
+-                if (first_x + nrc_x_std > num_blocks) nrc_x_std = num_blocks - first_x;
+-                first_x *= num_rows;
+-                nrc_x = nrc_x_std * num_rows;
+-            } else {
+-                nrc_x = 0;
+-            }
+-        }
+-
+-        if (nrc_x > 0 && nrc_y > 0) {
+-            size_t row_size_qx = ggml_row_size(dequant_type, ne00);
+-            size_t row_size_qy = strideB;
+-
+-            DataInfo info{C + first_x + first_y * (nb1/sizeof(float)), (const char *)B, nb1/sizeof(float), row_size_qy, (int)first_y, ne11, row_mapping, nb2/sizeof(float)};
+-
+-            auto& f = thread_local_work_buffer();
+-
+-            for (int ix = 0; ix < nrc_x; ix += k_x_step) {
+-                auto this_info = info;
+-                this_info.s += ix;
+-                int this_nrc_x = ix + k_x_step <= nrc_x ? k_x_step : nrc_x - ix;
+-                // 64-byte alignment padding for buffer
+-                size_t aligned_row_size = (row_size_qx*this_nrc_x + 63) & ~63;
+-                if (f.size() < aligned_row_size) f.resize(aligned_row_size);
+-                if (!iqk_convert_repack(typeA, ne00, (const char *)A + (first_x + ix)*strideA, strideA, f.data(), ne00, this_nrc_x)) {
+-                    GGML_ABORT("Fatal error");
+-                }
+-                mm.mul_mat_NxM(ne00, f.data(), row_size_qx, this_info, this_nrc_x, nrc_y);
+-            }
++        auto num_blocks = Nx / num_rows;
++        auto nrc_x = (num_blocks + nth - 1)/nth;
++        auto first_x = ith*nrc_x;
++        if (first_x >= num_blocks) return true;
++        if (first_x + nrc_x > num_blocks) nrc_x = num_blocks - first_x;
++        first_x *= num_rows;
++        nrc_x *= num_rows;
++        size_t row_size_qx = ggml_row_size(dequant_type, ne00);
++        size_t row_size_qy = strideB;
++
++        DataInfo info{C + first_x, (const char *)B, nb1/sizeof(float), row_size_qy, 0, ne11, row_mapping, nb2/sizeof(float)};
++
++        auto& f = thread_local_work_buffer();
++
++        for (int ix = 0; ix < nrc_x; ix += k_x_step) {
++            auto this_info = info;
++            this_info.s += ix;
++            int this_nrc_x = ix + k_x_step <= nrc_x ? k_x_step : nrc_x - ix;
++            size_t aligned_row_size = (row_size_qx*this_nrc_x + 63) & ~63;
++            if (f.size() < aligned_row_size) f.resize(aligned_row_size);
++            if (!iqk_convert_repack(typeA, ne00, (const char *)A + (first_x + ix)*strideA, strideA, f.data(), ne00, this_nrc_x)) {
++                GGML_ABORT("Fatal error");
++            }
++            mm.mul_mat_NxM(ne00, f.data(), row_size_qx, this_info, this_nrc_x, Ny);
+         }
+ 
+         return true;
+@@ -877,84 +838,37 @@
+             auto num_rows = MulMat::num_rows(ggml_type(dequant_type));
+             GGML_ASSERT(Nx%num_rows == 0);
+ 
+-            long first_x = 0;
+-            long nrc_x = Nx;
+-            long first_y = 0;
+-            long nrc_y = Ny;
+-
+-            // Check if we should use Column-Parallel thread partitioning (Decode mode)
+-            if (Nx < nth) {
+-                int threads_per_row = nth / Nx;
+-                if (threads_per_row > 1) {
+-                    int row_idx = ith / threads_per_row;
+-                    int group_tid = ith % threads_per_row;
+-
+-                    if (row_idx < Nx) {
+-                        first_x = row_idx;
+-                        nrc_x = 1;
+-                        long cols_per_thread = (Ny + threads_per_row - 1) / threads_per_row;
+-                        // Align column slices to multiples of 16 for SIMD kernel block sizes
+-                        cols_per_thread = (cols_per_thread + 15) & ~15;
+-
+-                        first_y = group_tid * cols_per_thread;
+-                        nrc_y = std::min(cols_per_thread, Ny - first_y);
+-                    } else {
+-                        // Excess thread - idle
+-                        return true;
+-                    }
+-                } else {
+-                    auto num_blocks = Nx / num_rows;
+-                    auto nrc_x_std = (num_blocks + nth - 1)/nth;
+-                    first_x = ith*nrc_x_std;
+-                    if (first_x < num_blocks) {
+-                        if (first_x + nrc_x_std > num_blocks) nrc_x_std = num_blocks - first_x;
+-                        first_x *= num_rows;
+-                        nrc_x = nrc_x_std * num_rows;
+-                    } else {
+-                        nrc_x = 0;
+-                    }
+-                }
+-            } else {
+-                auto num_blocks = Nx / num_rows;
+-                auto nrc_x_std = (num_blocks + nth - 1)/nth;
+-                first_x = ith*nrc_x_std;
+-                if (first_x < num_blocks) {
+-                    if (first_x + nrc_x_std > num_blocks) nrc_x_std = num_blocks - first_x;
+-                    first_x *= num_rows;
+-                    nrc_x = nrc_x_std * num_rows;
+-                } else {
+-                    nrc_x = 0;
+-                }
+-            }
+-
+-            if (nrc_x > 0 && nrc_y > 0) {
+-                size_t row_size_qx = ggml_row_size(dequant_type, ne00);
+-                size_t row_size_qy = strideB;
+-
+-                // Adjust DataInfo offset: s starts at C + first_y (column offset)
+-                // and cur_y is initialized to first_y
+-                DataInfo info{C + first_x + first_y * (nb1/sizeof(float)), (const char *)B, nb1/sizeof(float), row_size_qy, (int)first_y, ne11, row_mapping, nb2/sizeof(float)};
+-
+-                auto& f = thread_local_work_buffer();
+-
+-                for (int ix = 0; ix < nrc_x; ix += k_x_step) {
+-                    auto this_info = info;
+-                    this_info.s += ix; // Shift by row index in DataInfo.s (which represents the C array)
+-                    int this_nrc_x = ix + k_x_step <= nrc_x ? k_x_step : nrc_x - ix;
+-                    size_t aligned_row_size = (row_size_qx*this_nrc_x + 63) & ~63;
+-                    if (f.size() < 2*aligned_row_size) f.resize(2*aligned_row_size);
+-                    auto Xu = f.data();
+-                    auto Xg = f.data() + aligned_row_size;
+-                    if (!iqk_convert_repack(typeA, ne00, (const char *)Aup   + (first_x + ix)*strideA, strideA, Xu, ne00, this_nrc_x)) {
+-                        GGML_ABORT("Fatal error");
+-                    }
+-                    if (!iqk_convert_repack(typeA, ne00, (const char *)Agate + (first_x + ix)*strideA, strideA, Xg, ne00, this_nrc_x)) {
+-                        GGML_ABORT("Fatal error");
+-                    }
+-                    auto up_b   = up_b_c   ? (const float *)up_b_c + first_x + ix : nullptr;
+-                    auto gate_b = gate_b_c ? (const float *)gate_b_c + first_x + ix : nullptr;
+-                    mm.mul_mat_up_gate_NxM(ne00, Xu, Xg, row_size_qx, up_b, gate_b, this_info, this_nrc_x, nrc_y, unary_op, limit);
+-                }
++            auto num_blocks = Nx / num_rows;
++            auto nrc_x = (num_blocks + nth - 1)/nth;
++            auto first_x = ith*nrc_x;
++            if (first_x >= num_blocks) return true;
++            if (first_x + nrc_x > num_blocks) nrc_x = num_blocks - first_x;
++            first_x *= num_rows;
++            nrc_x *= num_rows;
++            size_t row_size_qx = ggml_row_size(dequant_type, ne00);
++            size_t row_size_qy = strideB;
++
++            DataInfo info{C + first_x, (const char *)B, nb1/sizeof(float), row_size_qy, 0, ne11, row_mapping, nb2/sizeof(float)};
++
++            auto& f = thread_local_work_buffer();
++
++            for (int ix = 0; ix < nrc_x; ix += k_x_step) {
++                auto this_info = info;
++                this_info.s += ix;
++                int this_nrc_x = ix + k_x_step <= nrc_x ? k_x_step : nrc_x - ix;
++                size_t aligned_row_size = (row_size_qx*this_nrc_x + 63) & ~63;
++                if (f.size() < 2*aligned_row_size) f.resize(2*aligned_row_size);
++                auto Xu = f.data();
++                auto Xg = f.data() + aligned_row_size;
++                if (!iqk_convert_repack(typeA, ne00, (const char *)Aup   + (first_x + ix)*strideA, strideA, Xu, ne00, this_nrc_x)) {
++                    GGML_ABORT("Fatal error");
++                }
++                if (!iqk_convert_repack(typeA, ne00, (const char *)Agate + (first_x + ix)*strideA, strideA, Xg, ne00, this_nrc_x)) {
++                    GGML_ABORT("Fatal error");
++                }
++                auto up_b   = up_b_c   ? (const float *)up_b_c + first_x + ix : nullptr;
++                auto gate_b = gate_b_c ? (const float *)gate_b_c + first_x + ix : nullptr;
++                mm.mul_mat_up_gate_NxM(ne00, Xu, Xg, row_size_qx, up_b, gate_b, this_info, this_nrc_x, Ny, unary_op, limit);
+             }
+ 
+             return true;
+--- a/ggml/src/ggml.c
++++ b/ggml/src/ggml.c
+@@ -17,9 +17,6 @@
+ #include "iqk/iqk_mul_mat.h"
+ #include "iqk/iqk_config.h"
+ 
+-int64_t global_op_times[GGML_OP_COUNT] = {0};
+-int64_t global_op_counts[GGML_OP_COUNT] = {0};
+-int64_t global_op_print_counter = 0;
+ #endif
+ 
+ #if defined(_MSC_VER) || defined(__MINGW32__)
+@@ -21835,26 +21832,21 @@
+             dst_data[j] = j;
+         }
+ 
+-        // Fast register-based Top-K selection sort (only top entries needed by ggml_top_k_thresh)
+-        const int64_t sort_limit = (ne0 < 16) ? ne0 : 16;
+-        for (int64_t j = 0; j < sort_limit; j++) {
+-            int64_t max_idx = j;
+-            float max_val = src_data[dst_data[j]];
++        // C doesn't have a functional sort, so we do a bubble sort instead
++        for (int64_t j = 0; j < ne0; j++) {
+             for (int64_t k = j + 1; k < ne0; k++) {
+-                if (src_data[dst_data[k]] > max_val) {
+-                    max_val = src_data[dst_data[k]];
+-                    max_idx = k;
++                if (src_data[dst_data[j]] < src_data[dst_data[k]]) {
++                    int32_t tmp = dst_data[j];
++                    dst_data[j] = dst_data[k];
++                    dst_data[k] = tmp;
+                 }
+             }
+-            if (max_idx != j) {
+-                int32_t tmp = dst_data[j];
+-                dst_data[j] = dst_data[max_idx];
+-                dst_data[max_idx] = tmp;
+-            }
+         }
+         float max_value = src_data[dst_data[0]];
+-        for (int j = min_entries; j < sort_limit; ++j) {
++        //printf("Row %ld: max_value is %g, next is %g\n", i, (double)max_value, (double)src_data[dst_data[1]]);
++        for (int j = min_entries; j < ne0; ++j) {
+             if (src_data[dst_data[j]] < max_value*thresh) {
++                //printf("    row %ld: turning off expert %d(%d) with value %g\n", i, j, dst_data[j], (double)src_data[dst_data[j]]);
+                 dst_data[j] = -1;
+             }
+         }
+@@ -26954,23 +26946,14 @@
+ 
+         if (ggml_is_noop(node)) continue;
+ 
+-        int64_t tim1 = 0;
+-        if (state->ith == 0) {
+-            tim1 = ggml_time_us();
+-        }
+-
++#if IK_PRINT_TIMING
++        int64_t tim1 = ggml_time_us();
++#endif
+         node_n = ggml_compute_forward(&params, node, cgraph, node_n);
+-
+-        if (state->ith == 0) {
+-            int64_t tim2 = ggml_time_us();
+-            extern int64_t global_op_times[GGML_OP_COUNT];
+-            extern int64_t global_op_counts[GGML_OP_COUNT];
+-            if (state->ith == 0) {
+-                global_op_times[node->op] += (tim2 - tim1);
+-                global_op_counts[node->op]++;
+-            }
+-        }
+-
++#if IK_PRINT_TIMING
++        int64_t tim2 = ggml_time_us();
++        t_eval += tim2 - tim1;
++#endif
+ 
+         if (state->ith == 0 && cplan->abort_callback && cplan->abort_callback(cplan->abort_callback_data)) {
+             state->shared->ec = GGML_STATUS_ABORTED;
+@@ -27073,20 +27056,6 @@
+         }
+     }
+ #endif
+-
+-    extern int64_t global_op_print_counter;
+-    extern int64_t global_op_times[GGML_OP_COUNT];
+-    extern int64_t global_op_counts[GGML_OP_COUNT];
+-    global_op_print_counter++;
+-    if (global_op_print_counter % 20 == 0) {
+-        printf("\n--- GGML OP PROFILING ---\n");
+-        for (int i = 0; i < GGML_OP_COUNT; i++) {
+-            if (global_op_counts[i] > 0) {
+-                printf("OP %s: %8ld us (%6ld calls)\n", ggml_op_name((enum ggml_op)i), global_op_times[i], global_op_counts[i]);
+-            }
+-        }
+-        printf("-------------------------\n");
+-    }
+ 
+     // don't leave affinity set on the main thread
+     clear_numa_thread_affinity();

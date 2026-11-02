@@ -1,0 +1,502 @@
+[
+  {
+    "idx": 1,
+    "id": "gpqa_110",
+    "gold": "A",
+    "pred": "A",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 20.841871297726847,
+    "wall_time": 76.45477223396301
+  },
+  {
+    "idx": 2,
+    "id": "gpqa_42",
+    "gold": "A",
+    "pred": "A",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 21.596706974614335,
+    "wall_time": 73.18560528755188
+  },
+  {
+    "idx": 3,
+    "id": "gpqa_2",
+    "gold": "B",
+    "pred": "B",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 22.6893332909287,
+    "wall_time": 69.28731083869934
+  },
+  {
+    "idx": 4,
+    "id": "gpqa_156",
+    "gold": "A",
+    "pred": "A",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 19.485588086085194,
+    "wall_time": 80.62729358673096
+  },
+  {
+    "idx": 5,
+    "id": "gpqa_128",
+    "gold": "A",
+    "pred": "A",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 22.011360584821215,
+    "wall_time": 71.92678427696228
+  },
+  {
+    "idx": 6,
+    "id": "gpqa_12",
+    "gold": "D",
+    "pred": null,
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 37.84210239880742,
+    "wall_time": 43.12121653556824
+  },
+  {
+    "idx": 7,
+    "id": "gpqa_79",
+    "gold": "D",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 20.830828932459077,
+    "wall_time": 75.11614561080933
+  },
+  {
+    "idx": 8,
+    "id": "gpqa_13",
+    "gold": "B",
+    "pred": "B",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 18.927297858368853,
+    "wall_time": 82.50478935241699
+  },
+  {
+    "idx": 9,
+    "id": "gpqa_127",
+    "gold": "D",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 21.059294871465294,
+    "wall_time": 90.24046349525452
+  },
+  {
+    "idx": 10,
+    "id": "gpqa_69",
+    "gold": "C",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 20.53730867528142,
+    "wall_time": 76.60398721694946
+  },
+  {
+    "idx": 11,
+    "id": "gpqa_3",
+    "gold": "C",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 24.21777760833742,
+    "wall_time": 64.85262036323547
+  },
+  {
+    "idx": 12,
+    "id": "gpqa_185",
+    "gold": "A",
+    "pred": "A",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 21.490895926208992,
+    "wall_time": 73.33186721801758
+  },
+  {
+    "idx": 13,
+    "id": "gpqa_30",
+    "gold": "B",
+    "pred": null,
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 20.814600249571935,
+    "wall_time": 75.0938024520874
+  },
+  {
+    "idx": 14,
+    "id": "gpqa_165",
+    "gold": "C",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 21.96491022650899,
+    "wall_time": 75.34465837478638
+  },
+  {
+    "idx": 15,
+    "id": "gpqa_169",
+    "gold": "C",
+    "pred": null,
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 22.033493492158097,
+    "wall_time": 71.11733675003052
+  },
+  {
+    "idx": 16,
+    "id": "gpqa_15",
+    "gold": "D",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 20.543261467182344,
+    "wall_time": 76.46909165382385
+  },
+  {
+    "idx": 17,
+    "id": "gpqa_159",
+    "gold": "A",
+    "pred": "B",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 19.880359324551847,
+    "wall_time": 79.0937967300415
+  },
+  {
+    "idx": 18,
+    "id": "gpqa_36",
+    "gold": "B",
+    "pred": "C",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 20.288208531506047,
+    "wall_time": 77.19735598564148
+  },
+  {
+    "idx": 19,
+    "id": "gpqa_134",
+    "gold": "D",
+    "pred": "B",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 20.518884380241055,
+    "wall_time": 77.54629373550415
+  },
+  {
+    "idx": 20,
+    "id": "gpqa_44",
+    "gold": "C",
+    "pred": "C",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 20.459726048264255,
+    "wall_time": 76.76502466201782
+  },
+  {
+    "idx": 21,
+    "id": "gpqa_5",
+    "gold": "C",
+    "pred": "C",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 21.671338490857938,
+    "wall_time": 72.75827145576477
+  },
+  {
+    "idx": 22,
+    "id": "gpqa_53",
+    "gold": "B",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 19.91507026395935,
+    "wall_time": 78.74979305267334
+  },
+  {
+    "idx": 23,
+    "id": "gpqa_84",
+    "gold": "B",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 20.941543236311,
+    "wall_time": 75.44994044303894
+  },
+  {
+    "idx": 24,
+    "id": "gpqa_80",
+    "gold": "D",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 21.178596623458837,
+    "wall_time": 74.60806894302368
+  },
+  {
+    "idx": 25,
+    "id": "gpqa_64",
+    "gold": "D",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 20.509831139195335,
+    "wall_time": 77.18247246742249
+  },
+  {
+    "idx": 26,
+    "id": "gpqa_73",
+    "gold": "D",
+    "pred": "D",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 21.450939898907418,
+    "wall_time": 73.24750518798828
+  },
+  {
+    "idx": 27,
+    "id": "gpqa_37",
+    "gold": "A",
+    "pred": "A",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 20.82283859782638,
+    "wall_time": 75.94615411758423
+  },
+  {
+    "idx": 28,
+    "id": "gpqa_126",
+    "gold": "B",
+    "pred": "D",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 19.092400243979995,
+    "wall_time": 81.97737741470337
+  },
+  {
+    "idx": 29,
+    "id": "gpqa_122",
+    "gold": "B",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 21.231901756230755,
+    "wall_time": 74.07934045791626
+  },
+  {
+    "idx": 30,
+    "id": "gpqa_78",
+    "gold": "A",
+    "pred": "A",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 20.326188479584825,
+    "wall_time": 78.29783630371094
+  },
+  {
+    "idx": 31,
+    "id": "gpqa_160",
+    "gold": "A",
+    "pred": "A",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 20.209050257395013,
+    "wall_time": 78.23694825172424
+  },
+  {
+    "idx": 32,
+    "id": "gpqa_66",
+    "gold": "C",
+    "pred": null,
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 21.02918185064413,
+    "wall_time": 75.15662693977356
+  },
+  {
+    "idx": 33,
+    "id": "gpqa_45",
+    "gold": "C",
+    "pred": "C",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 19.66023454019825,
+    "wall_time": 79.28483486175537
+  },
+  {
+    "idx": 34,
+    "id": "gpqa_184",
+    "gold": "C",
+    "pred": "C",
+    "correct": true,
+    "tokens": 1185,
+    "speed_tps": 20.46788231724202,
+    "wall_time": 59.600531578063965
+  },
+  {
+    "idx": 35,
+    "id": "gpqa_32",
+    "gold": "B",
+    "pred": null,
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 21.085025240738208,
+    "wall_time": 74.97132921218872
+  },
+  {
+    "idx": 36,
+    "id": "gpqa_52",
+    "gold": "D",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 19.648254542318917,
+    "wall_time": 80.17006397247314
+  },
+  {
+    "idx": 37,
+    "id": "gpqa_192",
+    "gold": "C",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 19.949824373357636,
+    "wall_time": 78.33025240898132
+  },
+  {
+    "idx": 38,
+    "id": "gpqa_174",
+    "gold": "B",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 19.131842333391237,
+    "wall_time": 82.13889050483704
+  },
+  {
+    "idx": 39,
+    "id": "gpqa_10",
+    "gold": "B",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 21.58300190217066,
+    "wall_time": 73.77624750137329
+  },
+  {
+    "idx": 40,
+    "id": "gpqa_60",
+    "gold": "D",
+    "pred": "B",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 19.812414869336028,
+    "wall_time": 79.33999824523926
+  },
+  {
+    "idx": 41,
+    "id": "gpqa_170",
+    "gold": "C",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 19.46156686443217,
+    "wall_time": 80.70207381248474
+  },
+  {
+    "idx": 42,
+    "id": "gpqa_47",
+    "gold": "A",
+    "pred": "A",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 19.568388613521574,
+    "wall_time": 80.16288995742798
+  },
+  {
+    "idx": 43,
+    "id": "gpqa_131",
+    "gold": "A",
+    "pred": "A",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 19.925803882299,
+    "wall_time": 79.4555172920227
+  },
+  {
+    "idx": 44,
+    "id": "gpqa_103",
+    "gold": "B",
+    "pred": null,
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 20.944074330956134,
+    "wall_time": 75.3100938796997
+  },
+  {
+    "idx": 45,
+    "id": "gpqa_193",
+    "gold": "D",
+    "pred": null,
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 20.96366243917672,
+    "wall_time": 75.32537698745728
+  },
+  {
+    "idx": 46,
+    "id": "gpqa_95",
+    "gold": "D",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 20.915319467956213,
+    "wall_time": 74.89963674545288
+  },
+  {
+    "idx": 47,
+    "id": "gpqa_144",
+    "gold": "C",
+    "pred": "C",
+    "correct": true,
+    "tokens": 1536,
+    "speed_tps": 18.872760719602148,
+    "wall_time": 82.61617612838745
+  },
+  {
+    "idx": 48,
+    "id": "gpqa_100",
+    "gold": "D",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 19.21703518104918,
+    "wall_time": 81.75977301597595
+  },
+  {
+    "idx": 49,
+    "id": "gpqa_142",
+    "gold": "C",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 26.688168248884683,
+    "wall_time": 60.41242003440857
+  },
+  {
+    "idx": 50,
+    "id": "gpqa_61",
+    "gold": "B",
+    "pred": "A",
+    "correct": false,
+    "tokens": 1536,
+    "speed_tps": 21.27231311227319,
+    "wall_time": 74.30381298065186
+  }
+]

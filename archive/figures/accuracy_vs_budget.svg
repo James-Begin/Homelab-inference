@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 500" width="100%" height="100%">
+<defs>
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .title { font-size: 17px; font-weight: bold; fill: #0f172a; }
+  .subtitle { font-size: 12.5px; fill: #475569; }
+  .axis-label { font-size: 12px; fill: #334155; }
+  .grid { stroke: #e2e8f0; stroke-width: 1; stroke-dasharray: 4,4; }
+  .curve-flint { fill: none; stroke: #d97706; stroke-width: 3.5; }
+  .curve-qwen { fill: none; stroke: #2563eb; stroke-width: 3.5; }
+</style>
+</defs>
+<rect width="900" height="500" fill="#ffffff" rx="8"/>
+<text x="80" y="32" class="title">Strict Reasoning Accuracy vs. Wall-Clock Budget</text>
+<text x="80" y="48" class="subtitle">Protocol C Benchmark: Flint 40B vs. Qwen 3.6 35B under Wall-Clock Thinking Limits</text>
+<line x1="80" y1="430.0" x2="850" y2="430.0" class="grid" />
+<text x="70" y="434.0" class="axis-label" text-anchor="end">0%</text>
+<line x1="80" y1="368.3333333333333" x2="850" y2="368.3333333333333" class="grid" />
+<text x="70" y="372.3333333333333" class="axis-label" text-anchor="end">10%</text>
+<line x1="80" y1="306.6666666666667" x2="850" y2="306.6666666666667" class="grid" />
+<text x="70" y="310.6666666666667" class="axis-label" text-anchor="end">20%</text>
+<line x1="80" y1="245.0" x2="850" y2="245.0" class="grid" />
+<text x="70" y="249.0" class="axis-label" text-anchor="end">30%</text>
+<line x1="80" y1="183.33333333333334" x2="850" y2="183.33333333333334" class="grid" />
+<text x="70" y="187.33333333333334" class="axis-label" text-anchor="end">40%</text>
+<line x1="80" y1="121.66666666666663" x2="850" y2="121.66666666666663" class="grid" />
+<text x="70" y="125.66666666666663" class="axis-label" text-anchor="end">50%</text>
+<line x1="80" y1="60.0" x2="850" y2="60.0" class="grid" />
+<text x="70" y="64.0" class="axis-label" text-anchor="end">60%</text>
+<line x1="80.0" y1="60" x2="80.0" y2="430" class="grid" />
+<text x="80.0" y="450" class="axis-label" text-anchor="middle">30s</text>
+<line x1="234.0" y1="60" x2="234.0" y2="430" class="grid" />
+<text x="234.0" y="450" class="axis-label" text-anchor="middle">60s</text>
+<line x1="388.0" y1="60" x2="388.0" y2="430" class="grid" />
+<text x="388.0" y="450" class="axis-label" text-anchor="middle">120s</text>
+<line x1="542.0" y1="60" x2="542.0" y2="430" class="grid" />
+<text x="542.0" y="450" class="axis-label" text-anchor="middle">300s</text>
+<line x1="696.0" y1="60" x2="696.0" y2="430" class="grid" />
+<text x="696.0" y="450" class="axis-label" text-anchor="middle">600s</text>
+<line x1="850.0" y1="60" x2="850.0" y2="430" class="grid" />
+<text x="850.0" y="450" class="axis-label" text-anchor="middle">1200s (20m)</text>
+<text x="465.0" y="475" class="axis-label" text-anchor="middle" font-weight="bold">Thinking Time Budget per Problem (Wall-Clock Seconds)</text>
+<line x1="80" y1="430" x2="850" y2="430" stroke="#94a3b8" stroke-width="1.5" />
+<path d="M 80.0,405.3333333333333 L 234.0,356.0 L 388.0,343.6666666666667 L 542.0,269.66666666666663 L 696.0,195.66666666666669 L 850.0,146.33333333333331" class="curve-flint" />
+<circle cx="80.0" cy="405.3333333333333" r="6" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+<text x="80.0" y="395.3333333333333" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">4.0%</text>
+<circle cx="234.0" cy="356.0" r="6" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+<text x="234.0" y="346.0" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">12.0%</text>
+<circle cx="388.0" cy="343.6666666666667" r="6" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+<text x="388.0" y="333.6666666666667" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">14.0%</text>
+<circle cx="542.0" cy="269.66666666666663" r="6" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+<text x="542.0" y="259.66666666666663" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">26.0%</text>
+<circle cx="696.0" cy="195.66666666666669" r="6" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+<text x="696.0" y="185.66666666666669" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">38.0%</text>
+<circle cx="850.0" cy="146.33333333333331" r="6" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+<text x="850.0" y="136.33333333333331" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">46.0%</text>
+<path d="M 80.0,430.0 L 234.0,405.3333333333333 L 388.0,319.0 L 542.0,306.6666666666667 L 696.0,257.33333333333337 L 850.0,195.66666666666669" class="curve-qwen" />
+<circle cx="80.0" cy="430.0" r="6" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<text x="80.0" y="448.0" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">0.0%</text>
+<circle cx="234.0" cy="405.3333333333333" r="6" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<text x="234.0" y="423.3333333333333" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">4.0%</text>
+<circle cx="388.0" cy="319.0" r="6" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<text x="388.0" y="337.0" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">18.0%</text>
+<circle cx="542.0" cy="306.6666666666667" r="6" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<text x="542.0" y="324.6666666666667" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">20.0%</text>
+<circle cx="696.0" cy="257.33333333333337" r="6" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<text x="696.0" y="275.33333333333337" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">28.0%</text>
+<circle cx="850.0" cy="195.66666666666669" r="6" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<text x="850.0" y="213.66666666666669" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">38.0%</text>
+<rect x="100" y="80" width="240" height="60" fill="#f8fafc" stroke="#cbd5e1" rx="4"/>
+<circle cx="115" cy="98" r="5" fill="#d97706" />
+<text x="130" y="102" font-size="12" font-weight="bold" fill="#0f172a">Flint 40B MoE (A2.5B)</text>
+<circle cx="115" cy="120" r="5" fill="#2563eb" />
+<text x="130" y="124" font-size="12" font-weight="bold" fill="#0f172a">Qwen 3.6 35B MoE (A3B)</text>
+</svg>

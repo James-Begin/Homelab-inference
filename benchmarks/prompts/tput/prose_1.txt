@@ -1,0 +1,1 @@
+Derive the relativistic Dirac equation from first principles starting with the energy-momentum invariant. Show the derivation of the gamma matrices and verify the Clifford algebra relation {gamma^mu, gamma^nu} = 2 g^{mu nu}.

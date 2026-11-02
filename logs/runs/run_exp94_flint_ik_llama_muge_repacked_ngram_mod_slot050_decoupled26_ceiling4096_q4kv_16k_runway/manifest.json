@@ -1,0 +1,37 @@
+{
+  "experiment_id": "exp94_flint_ik_llama_muge_repacked_ngram_mod_slot050_decoupled26_ceiling4096_q4kv",
+  "experiment_number": 94,
+  "protocol": "legacy-v1",
+  "model": {
+    "path": "/home/james/ik_llama.cpp/build/models/RecursiveSI_flint-Q4_0_Repacked.gguf",
+    "size_bytes": 22831553760,
+    "header_sha256": "a3d08155e8e82f9183b794169fbde55ccde44b759142c2b76fee1d8b72fb0091"
+  },
+  "engine": {
+    "path": "/home/james/ik_llama.cpp",
+    "sha": "668c78a1dcc3d7e3d7aaae088b41a0e62644e053",
+    "diff_hash": "clean",
+    "dirty": "false"
+  },
+  "request": {
+    "endpoint": "chat",
+    "max_tokens": 16384,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "seed": 0,
+    "system_prompt": "You are an expert scientific researcher. Provide concise, rigorous reasoning within 600 words, then state your final answer choice clearly.",
+    "user_suffix": "standard_v2",
+    "prompt_type": "stored"
+  },
+  "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+  "server_flags": "--port {port} -c 8192 -t 28 -tb 26 --spec-type ngram-mod:n_max=4,ngram_size_n=4,ngram_min_hits=4 --slot-save-path /tmp/slots/ -sps 0.50 -ctk q4_0 -ctv q4_0 --numa numactl -muge",
+  "system": {
+    "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+    "processor": "x86_64",
+    "thp": "always [madvise] never",
+    "cpu_model": "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz",
+    "cores_per_socket": "14",
+    "sockets": "2",
+    "numa_nodes": "2"
+  }
+}

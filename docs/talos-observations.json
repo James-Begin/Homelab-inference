@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-31",
+  "host": "talos",
+  "method": "Read-only lscpu -C and cpu0/cache sysfs over SSH",
+  "cache": [
+    {
+      "level": 1,
+      "type": "Data",
+      "bytes": 32768,
+      "ways": 8,
+      "sets": 64,
+      "line_bytes": 64,
+      "shared_cpu_list": "0,28"
+    },
+    {
+      "level": 1,
+      "type": "Instruction",
+      "bytes": 32768,
+      "ways": 8,
+      "sets": 64,
+      "line_bytes": 64,
+      "shared_cpu_list": "0,28"
+    },
+    {
+      "level": 2,
+      "type": "Unified",
+      "bytes": 262144,
+      "ways": 8,
+      "sets": 512,
+      "line_bytes": 64,
+      "shared_cpu_list": "0,28"
+    },
+    {
+      "level": 3,
+      "type": "Unified",
+      "bytes": 36700160,
+      "ways": 20,
+      "sets": 28672,
+      "line_bytes": 64,
+      "shared_cpu_list": "0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54"
+    }
+  ],
+  "recorded_gguf": {
+    "filename": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "tensor": "blk.0.ffn_up_exps.weight",
+    "shape": [
+      2048,
+      512,
+      256
+    ],
+    "type_id": 202,
+    "type_name": "Q4_0_R8",
+    "tensor_bytes": 150994944,
+    "bytes_per_expert": 589824,
+    "provenance": "Prior Talos review observation, retained in talos-review-evidence.json; not a fresh model-file scan in this revision."
+  }
+}

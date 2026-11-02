@@ -1,0 +1,9 @@
+Fix the race condition and memory leak in this reference-counted string buffer class. Implement copy-on-write semantics with atomic reference counting:
+
+```cpp
+struct CowBuffer {
+    char* data;
+    size_t len;
+    int ref_count;
+};
+```

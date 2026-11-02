@@ -1,0 +1,74 @@
+[
+  {
+    "step": 0,
+    "id": "step0_baseline_single_socket",
+    "name": "Upstream Baseline (Single-Socket, Q6_K)",
+    "token_weighted_tps": 7.14,
+    "median_decode_tps": 7.141332405404975,
+    "iqr_decode_tps": 0.01,
+    "total_tokens": 9216
+  },
+  {
+    "step": 1,
+    "id": "step1_numa_interleave",
+    "name": "+ Dual-Socket NUMA Interleave",
+    "token_weighted_tps": 10.41,
+    "median_decode_tps": 10.414428031389944,
+    "iqr_decode_tps": 0.05,
+    "total_tokens": 9216
+  },
+  {
+    "step": 2,
+    "id": "step2_phys_pinning",
+    "name": "+ 28 Physical Core Pinning",
+    "token_weighted_tps": 10.28,
+    "median_decode_tps": 10.26921186172639,
+    "iqr_decode_tps": 0.04,
+    "total_tokens": 9216
+  },
+  {
+    "step": 3,
+    "id": "step3_quant_recipe",
+    "name": "+ IQ4_XS Dense + Q4_0 MoE (Unrepacked)",
+    "token_weighted_tps": 11.61,
+    "median_decode_tps": 11.615465126082423,
+    "iqr_decode_tps": 0.11,
+    "total_tokens": 9216
+  },
+  {
+    "step": 4,
+    "id": "step4_avx2_repack",
+    "name": "+ AVX2 64-Byte Row Repacking",
+    "token_weighted_tps": 19.1,
+    "median_decode_tps": 19.098472292277243,
+    "iqr_decode_tps": 0.05,
+    "total_tokens": 9216
+  },
+  {
+    "step": 5,
+    "id": "step5_muge",
+    "name": "+ Merged Up/Gate Experts (-muge 1)",
+    "token_weighted_tps": 19.49,
+    "median_decode_tps": 19.49738244985779,
+    "iqr_decode_tps": 0.05,
+    "total_tokens": 9216
+  },
+  {
+    "step": 6,
+    "id": "step6_speculation",
+    "name": "+ Suffix Speculation (MTP Drafting)",
+    "token_weighted_tps": 23.49,
+    "median_decode_tps": 23.381666394798923,
+    "iqr_decode_tps": 1.38,
+    "total_tokens": 9216
+  },
+  {
+    "step": 7,
+    "id": "step7_flint_production",
+    "name": "Flint 40B MoE Production (ik_llama + MUGE)",
+    "token_weighted_tps": 21.15,
+    "median_decode_tps": 20.97570983245685,
+    "iqr_decode_tps": 1.75,
+    "total_tokens": 9216
+  }
+]

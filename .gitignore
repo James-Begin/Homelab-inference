@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
+
+.venv/
+.build/
+node_modules/
+/preview.html
+!benchmarks/native/validation/*.log

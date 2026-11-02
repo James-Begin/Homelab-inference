@@ -1,0 +1,22 @@
+{
+  "run_id": "run_exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv",
+  "experiment_id": "exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv",
+  "model": "Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+  "total_questions": 50,
+  "max_tokens_ceiling": 8192,
+  "strict_score": "13/50",
+  "strict_pct": 26.0,
+  "lenient_score": "20/50",
+  "lenient_pct": 40.0,
+  "truncated_count": 27,
+  "average_decode_tps": 19.18,
+  "token_limit_count": 37,
+  "at_or_above_ceiling_count": 37,
+  "derived_from": [
+    "rows.jsonl"
+  ],
+  "regeneration": "benchmarks/summarize_runs.py",
+  "valid_timing_rows": 50,
+  "invalid_timing_rows": 0,
+  "timing_filter": "Finite positive saved rate and more than one generated token"
+}

@@ -1,0 +1,1 @@
+Write a complete, high-performance C++20 Robin Hood hash map with backward-shift deletion. Include full type signatures, iterators, and tombstone-free probe sequence handling.

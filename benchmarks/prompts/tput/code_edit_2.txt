@@ -1,0 +1,12 @@
+Optimize the following AVX2 vector reduction kernel. Eliminate unaligned loads by ensuring 32-byte alignment and unroll the loop by a factor of 4:
+
+```c
+float reduce_sum(const float* data, size_t n) {
+    __m256 vsum = _mm256_setzero_ps();
+    for (size_t i = 0; i < n; i += 8) {
+        __m256 v = _mm256_loadu_ps(data + i);
+        vsum = _mm256_add_ps(vsum, v);
+    }
+    // horizontal sum
+}
+```

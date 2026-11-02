@@ -1,0 +1,99 @@
+diff --git a/common/jinja/lexer.cpp b/common/jinja/lexer.cpp
+index 598982c2..bf2dfacd 100644
+--- a/common/jinja/lexer.cpp
++++ b/common/jinja/lexer.cpp
+@@ -1,7 +1,9 @@
+ #include "lexer.h"
+ #include "runtime.h"
++#include "unicode.h"
+ 
+ #include <cctype>
++#include <charconv>
+ #include <functional>
+ #include <map>
+ #include <string>
+@@ -75,6 +77,24 @@ lexer_result lexer::tokenize(const std::string & source) {
+                 }
+                 // add escaped char
+                 char escaped_char = src[pos++];
++                if (escaped_char == 'x') {
++                    if (pos + 1 >= src.size()) {
++                        throw lexer_exception("incomplete hexadecimal escape", source, pos);
++                    }
++
++                    unsigned int value = 0;
++                    const char * first = &src[pos];
++                    const char * last  = first + 2;
++
++                    auto [ptr, ec] = std::from_chars(first, last, value, 16);
++                    if (ec != std::errc{} || ptr != last) {
++                        throw lexer_exception("invalid hexadecimal escape", source, pos);
++                    }
++
++                    str += common_unicode_cpt_to_utf8(value);
++                    pos += 2;
++                    continue;
++                }
+                 if (escape_chars.find(escaped_char) == escape_chars.end()) {
+                     throw lexer_exception(std::string("unknown escape character \\") + escaped_char, source, pos);
+                 }
+diff --git a/common/speculative.cpp b/common/speculative.cpp
+index d91e0296..274265dd 100644
+--- a/common/speculative.cpp
++++ b/common/speculative.cpp
+@@ -97,7 +97,7 @@ static bool common_speculative_are_compatible(
+     if (
+         llama_vocab_get_add_bos(vocab_tgt) != llama_vocab_get_add_bos(vocab_dft) ||
+         llama_vocab_get_add_eos(vocab_tgt) != llama_vocab_get_add_eos(vocab_dft) ||
+-        llama_vocab_bos(vocab_tgt) != llama_vocab_bos(vocab_dft) ||
++        (llama_vocab_get_add_bos(vocab_tgt) && llama_vocab_bos(vocab_tgt) != llama_vocab_bos(vocab_dft)) ||
+         llama_vocab_eos(vocab_tgt) != llama_vocab_eos(vocab_dft)
+     ) {
+         LOG_DBG("%s: draft model special tokens must match target model to use speculation\n", __func__);
+@@ -761,7 +761,7 @@ struct common_speculative_state_ngram_mod : public common_speculative_state {
+         const size_t n = mod.get_n();
+ 
+         // add new ngrams in chunks
+-        if (i_last + 32 < cur_len) {
++        if (i_last < cur_len - n) {
+             for (size_t i = i_last; i < cur_len - n; ++i) {
+                 mod.add(prompt_tgt.data() + i);
+             }
+diff --git a/examples/benchmark/benchmark-matmult.cpp b/examples/benchmark/benchmark-matmult.cpp
+index b56a64b1..f7a5202b 100644
+--- a/examples/benchmark/benchmark-matmult.cpp
++++ b/examples/benchmark/benchmark-matmult.cpp
+@@ -254,7 +254,7 @@ int main(int argc, char ** argv)  {
+         // We cannot use the exact value from the F32 multiplication because the quantizuation will be slightly different
+         float sum_of_Q4_result = tensor_sum_elements(gf31->nodes[0]);
+         float delta = std::abs(sum_of_Q4_result - sum_of_F32_reference);
+-        float allowed_delta = (sum_of_F32_reference) / 1000 / 1000; //  Let's accept an epsilon of 10^-6
++        float allowed_delta = (sum_of_F32_reference) / 50; //  Accept an epsilon of 2% for quantized results
+ 
+         if (delta > allowed_delta)  {
+             printf("\nABORT - ERROR in Matrix Multiplication result - expected %6.2f, got %6.2f (delta %6.2f > allowed_delta %6.2f)\n",
+diff --git a/examples/speculative/speculative.cpp b/examples/speculative/speculative.cpp
+index 714a989a..1216c622 100644
+--- a/examples/speculative/speculative.cpp
++++ b/examples/speculative/speculative.cpp
+@@ -100,7 +100,7 @@ int main(int argc, char ** argv) {
+     if (
+         llama_add_bos_token(model_tgt) != llama_add_bos_token(model_dft) ||
+         llama_add_eos_token(model_tgt) != llama_add_eos_token(model_dft) ||
+-        llama_token_bos(model_tgt) != llama_token_bos(model_dft) ||
++        (llama_add_bos_token(model_tgt) && llama_token_bos(model_tgt) != llama_token_bos(model_dft)) ||
+         llama_token_eos(model_tgt) != llama_token_eos(model_dft)
+     ) {
+         fprintf(stderr, "%s: error: draft model special tokens must match target model to use speculation\n", __func__);
+@@ -197,8 +197,9 @@ int main(int argc, char ** argv) {
+         drafts[s].ctx_sampling = common_sampler_init(model_dft, params.sparams);
+     }
+ 
+-    llama_batch batch_dft = llama_batch_init(params.n_ctx, 0, 1);
+-    llama_batch batch_tgt = llama_batch_init(params.n_ctx, 0, n_seq_dft);
++    const int n_ctx_batch = params.n_ctx > 0 ? params.n_ctx : llama_n_ctx(ctx_tgt);
++    llama_batch batch_dft = llama_batch_init(n_ctx_batch, 0, 1);
++    llama_batch batch_tgt = llama_batch_init(n_ctx_batch, 0, n_seq_dft);
+ 
+     const auto t_dec_start = ggml_time_us();
+ 

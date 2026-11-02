@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 500" width="100%" height="100%">
+<defs>
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .title { font-size: 17px; font-weight: bold; fill: #0f172a; }
+  .subtitle { font-size: 12.5px; fill: #475569; }
+  .axis-label { font-size: 12px; fill: #334155; }
+  .grid { stroke: #e2e8f0; stroke-width: 1; stroke-dasharray: 4,4; }
+  .roofline-dual { stroke: #dc2626; stroke-width: 2.5; stroke-dasharray: 6,4; }
+  .roofline-single { stroke: #9333ea; stroke-width: 2; stroke-dasharray: 4,4; }
+  .roofline-flint { stroke: #f59e0b; stroke-width: 2; stroke-dasharray: 5,3; }
+  .curve-qwen { fill: none; stroke: #2563eb; stroke-width: 3; }
+  .curve-flint { fill: none; stroke: #d97706; stroke-width: 3; }
+  .point-label { font-size: 11px; font-weight: bold; fill: #1e293b; }
+</style>
+</defs>
+<rect width="900" height="500" fill="#ffffff" rx="8"/>
+<text x="80" y="32" class="title">Empirical DRAM Roofline vs. Measured Autoregressive Decode</text>
+<text x="80" y="48" class="subtitle">Dell PowerEdge T630 (STREAM Triad: Dual-Socket 35.22 GB/s, Single-Socket 21.44 GB/s)</text>
+<line x1="80" y1="430.0" x2="850" y2="430.0" class="grid" />
+<text x="70" y="434.0" class="axis-label" text-anchor="end">0 t/s</text>
+<line x1="80" y1="372.1875" x2="850" y2="372.1875" class="grid" />
+<text x="70" y="376.1875" class="axis-label" text-anchor="end">5 t/s</text>
+<line x1="80" y1="314.375" x2="850" y2="314.375" class="grid" />
+<text x="70" y="318.375" class="axis-label" text-anchor="end">10 t/s</text>
+<line x1="80" y1="256.5625" x2="850" y2="256.5625" class="grid" />
+<text x="70" y="260.5625" class="axis-label" text-anchor="end">15 t/s</text>
+<line x1="80" y1="198.75" x2="850" y2="198.75" class="grid" />
+<text x="70" y="202.75" class="axis-label" text-anchor="end">20 t/s</text>
+<line x1="80" y1="140.9375" x2="850" y2="140.9375" class="grid" />
+<text x="70" y="144.9375" class="axis-label" text-anchor="end">25 t/s</text>
+<line x1="80" y1="83.125" x2="850" y2="83.125" class="grid" />
+<text x="70" y="87.125" class="axis-label" text-anchor="end">30 t/s</text>
+<line x1="80.0" y1="60" x2="80.0" y2="430" class="grid" />
+<text x="80.0" y="450" class="axis-label" text-anchor="middle">2,048</text>
+<line x1="336.6666666666667" y1="60" x2="336.6666666666667" y2="430" class="grid" />
+<text x="336.6666666666667" y="450" class="axis-label" text-anchor="middle">8,192</text>
+<line x1="593.3333333333334" y1="60" x2="593.3333333333334" y2="430" class="grid" />
+<text x="593.3333333333334" y="450" class="axis-label" text-anchor="middle">32,768</text>
+<line x1="850.0" y1="60" x2="850.0" y2="430" class="grid" />
+<text x="850.0" y="450" class="axis-label" text-anchor="middle">131,072</text>
+<text x="465.0" y="475" class="axis-label" text-anchor="middle" font-weight="bold">Context Length (Tokens)</text>
+<line x1="80" y1="430" x2="850" y2="430" stroke="#94a3b8" stroke-width="1.5" />
+<line x1="80" y1="189.26874999999998" x2="850" y2="189.26874999999998" class="roofline-dual" />
+<text x="845" y="183.26874999999998" font-size="11" fill="#dc2626" font-weight="bold" text-anchor="end">Qwen Dual-Socket Memory Ceiling (20.82 t/s)</text>
+<line x1="80" y1="239.10312499999998" x2="850" y2="239.10312499999998" class="roofline-flint" />
+<text x="845" y="233.10312499999998" font-size="11" fill="#d97706" font-weight="bold" text-anchor="end">Flint 40B Q4_0 Memory Ceiling (16.51 t/s)</text>
+<line x1="80" y1="283.503125" x2="850" y2="283.503125" class="roofline-single" />
+<text x="845" y="277.503125" font-size="11" fill="#9333ea" font-weight="bold" text-anchor="end">Qwen Single-Socket Memory Ceiling (12.67 t/s)</text>
+<path d="M 80.0,146.371875 L 336.6666666666667,154.8125 L 593.3333333333334,182.56250000000003 L 850.0,219.5625" class="curve-qwen" />
+<circle cx="80.0" cy="146.371875" r="5" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<text x="80.0" y="136.371875" class="point-label" text-anchor="middle">24.5 t/s</text>
+<circle cx="336.6666666666667" cy="154.8125" r="5" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<text x="336.6666666666667" y="144.8125" class="point-label" text-anchor="middle">23.8 t/s</text>
+<circle cx="593.3333333333334" cy="182.56250000000003" r="5" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<text x="593.3333333333334" y="172.56250000000003" class="point-label" text-anchor="middle">21.4 t/s</text>
+<circle cx="850.0" cy="219.5625" r="5" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<text x="850.0" y="209.5625" class="point-label" text-anchor="middle">18.2 t/s</text>
+<path d="M 80.0,217.01874999999998 L 336.6666666666667,221.296875 L 593.3333333333334,231.125 L 850.0,258.875" class="curve-flint" />
+<circle cx="80.0" cy="217.01874999999998" r="5" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+<text x="80.0" y="235.01874999999998" class="point-label" text-anchor="middle" fill="#92400e">18.4 t/s</text>
+<circle cx="336.6666666666667" cy="221.296875" r="5" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+<text x="336.6666666666667" y="239.296875" class="point-label" text-anchor="middle" fill="#92400e">18.1 t/s</text>
+<circle cx="593.3333333333334" cy="231.125" r="5" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+<text x="593.3333333333334" y="249.125" class="point-label" text-anchor="middle" fill="#92400e">17.2 t/s</text>
+<circle cx="850.0" cy="258.875" r="5" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+<text x="850.0" y="276.875" class="point-label" text-anchor="middle" fill="#92400e">14.8 t/s</text>
+</svg>

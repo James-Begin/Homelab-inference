@@ -1,0 +1,1 @@
+Write an efficient parser in Rust for JSON numbers according to RFC 8259, handling fractional parts, exponents, and arbitrary precision without third-party crates.

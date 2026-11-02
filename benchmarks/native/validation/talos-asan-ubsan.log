@@ -1,0 +1,36 @@
++ c++ -std=c++17 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer $TEST_TMP/buffer_contract.cpp -o $TEST_TMP/buffer_contract
++ $TEST_TMP/buffer_contract
+PASS aligned buffer: capacity, alignment, growth, full reported-size writes
++ cmake -S $TEST_ROOT/engine -B $TEST_ROOT/build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_AVX512=OFF -DGGML_OPENMP=OFF -DGGML_METAL=OFF -DGGML_ACCELERATE=OFF -DGGML_CUDA=OFF -DBUILD_SHARED_LIBS=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DGGML_SANITIZE_ADDRESS=ON -DGGML_SANITIZE_UNDEFINED=ON
+-- Using optimized iqk matrix multiplications
+-- Enabling IQK Flash Attention kernels
+-- Including all IQK FA kernels
+-- Warning: ccache not found - consider installing it for faster compilation or disable this warning with GGML_CCACHE=OFF
+-- CMAKE_SYSTEM_PROCESSOR: x86_64
+-- x86 detected
+-- Configuring done (0.2s)
+-- Generating done (0.0s)
+-- Build files have been written to: $TEST_ROOT/build
++ cmake --build $TEST_ROOT/build --target ggml -j 8
+[  5%] Building C object ggml/src/CMakeFiles/ggml.dir/ggml.c.o
+[ 10%] Linking CXX shared library libggml.so
+[100%] Built target ggml
++ c++ -std=c++17 -O1 -g -pthread -mavx2 -mfma -mf16c -I $TEST_ROOT/engine/ggml/include -I $TEST_ROOT/engine/ggml/src -I $TEST_ROOT/engine/ggml/src/iqk $TEST_ROOT/benchmarks/native/test_moe.cpp $TEST_ROOT/build/ggml/src/libggml.so -Wl,-rpath,$TEST_ROOT/build/ggml/src -o $TEST_TMP/test_moe -fsanitize=address,undefined -fno-omit-frame-pointer
++ $TEST_TMP/test_moe
+PASS threshold sort: ranks beyond 16, minimum 4/20, threshold mask
+PASS Nx=8 Ny=31 K=256: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=8 Ny=32 K=256: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=8 Ny=64 K=256: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=8 Ny=65 K=256: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=8 Ny=31 K=512: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=8 Ny=32 K=512: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=8 Ny=64 K=512: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=8 Ny=65 K=512: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=8 Ny=31 K=1024: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=8 Ny=32 K=1024: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=8 Ny=64 K=1024: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=8 Ny=65 K=1024: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=24 Ny=33 K=256: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=40 Ny=65 K=512: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=512 Ny=64 K=256: scalar reference, mapped rows, output guards, 1/7/14/28 workers
+PASS Nx=2048 Ny=33 K=256: scalar reference, mapped rows, output guards, 1/7/14/28 workers

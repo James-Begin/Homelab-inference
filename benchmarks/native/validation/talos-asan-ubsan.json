@@ -1,0 +1,159 @@
+{
+  "date": "2026-10-31",
+  "host_label": "Talos",
+  "platform": "Ubuntu 24.04 x86_64, Intel Xeon E5-2680 v4 (AVX2)",
+  "compiler": "c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+  "upstream_base": "87fc8701ff4da81a7d2a91ec0695f95eb3066a47",
+  "historical_patches_unchanged_from_repo_head": {
+    "0000-all-homelab-optimizations.patch": "99588283cd0c15baefceb2a11bc34f6f369d7ddc6ce62baa0116c6cacacb9240",
+    "0001-moe-k-split-thread-partitioning.patch": "264948798c853c04fb2e4eb1c00400b4060c04e4d2c299b953fa3561e72218bd",
+    "0002-avx2-64byte-alignment-and-repacking.patch": "f9940b1b47890afffe7f48d5e33a75a1e708e1e1d88b6748bd5ab35ad53ad92a",
+    "0003-flint-40b-moe-architecture-port.patch": "4c058731c3b9682c2c40d6cf2b70648182fc82856cb50a212d16dc05a630fb36",
+    "0004-speculative-decoding-enhancements.patch": "ee2428f404374d1fadf8b2b731d399141bac92dba7245d27b0394e49d1719a51",
+    "0005-catch-server-peg-parser-exception.patch": "0135e03012f7f19d294db79988138c46023390f9cb4dbd3291c7c58d9ff72c0a",
+    "0006-fix-server-safe-json-to-str-utf8-truncation.patch": "1ce399caba7300fd9ace859e9574f446e2a5c2ba1d70d426cb32fb2406b781d7"
+  },
+  "applied_patches": [
+    "0000-all-homelab-optimizations.patch",
+    "0007-fix-buffer-capacity-and-moe-partitioning.patch"
+  ],
+  "corrective_patch_sha256": "44937d59ac49c97ab71ce268282c2fe7f5e2bdcccfdc0426a369b7f23fdcd929",
+  "compiled_source_sha256": {
+    "ggml/src/iqk/iqk_mul_mat.cpp": "0358b9a4ae5d28d2023197cb5f7d2ac75daca3c75a5da5632f630d1ea8eb8eaf",
+    "ggml/src/ggml.c": "0f6c5376dcddba5210f4dc43996a85ec670a5dc3b8bb260ee42d7c3d1a7ad8d5"
+  },
+  "test_source_sha256": "c68777dcd81c61fcb5642bd31d8ab9a368113fb37bb65db13605b2af510916b8",
+  "shared_library_sha256": "d5d92623367a9c2e1e48767e6891bc357dc92c3b61817d4c582edc92960b4665",
+  "runner_sha256": "d47a8e4551417fa626f1aa0c5934f9707371bff29a525a918bd0e52ffaaeafd3",
+  "build_target": "ggml",
+  "sanitizers": [
+    "address",
+    "undefined"
+  ],
+  "library_and_test_instrumented": true,
+  "command": "python3 benchmarks/native/run_native_tests.py --engine \"$TEST_ROOT/engine\" --build-dir \"$TEST_ROOT/build\" --configure --sanitizers --jobs 8",
+  "tensor_formats": {
+    "weights": "Q8_0",
+    "activations": "Q8_2_X4"
+  },
+  "shapes": [
+    {
+      "Nx": 8,
+      "Ny": 31,
+      "K": 256
+    },
+    {
+      "Nx": 8,
+      "Ny": 32,
+      "K": 256
+    },
+    {
+      "Nx": 8,
+      "Ny": 64,
+      "K": 256
+    },
+    {
+      "Nx": 8,
+      "Ny": 65,
+      "K": 256
+    },
+    {
+      "Nx": 8,
+      "Ny": 31,
+      "K": 512
+    },
+    {
+      "Nx": 8,
+      "Ny": 32,
+      "K": 512
+    },
+    {
+      "Nx": 8,
+      "Ny": 64,
+      "K": 512
+    },
+    {
+      "Nx": 8,
+      "Ny": 65,
+      "K": 512
+    },
+    {
+      "Nx": 8,
+      "Ny": 31,
+      "K": 1024
+    },
+    {
+      "Nx": 8,
+      "Ny": 32,
+      "K": 1024
+    },
+    {
+      "Nx": 8,
+      "Ny": 64,
+      "K": 1024
+    },
+    {
+      "Nx": 8,
+      "Ny": 65,
+      "K": 1024
+    },
+    {
+      "Nx": 24,
+      "Ny": 33,
+      "K": 256
+    },
+    {
+      "Nx": 40,
+      "Ny": 65,
+      "K": 512
+    },
+    {
+      "Nx": 512,
+      "Ny": 64,
+      "K": 256
+    },
+    {
+      "Nx": 2048,
+      "Ny": 33,
+      "K": 256
+    }
+  ],
+  "worker_counts": [
+    1,
+    7,
+    14,
+    28
+  ],
+  "apis": [
+    "iqk_mul_mat_moe",
+    "iqk_moe_fused_up_gate"
+  ],
+  "execution_modes": [
+    "sequential worker calls",
+    "concurrent worker calls"
+  ],
+  "kernel_combinations": 256,
+  "reference": "Scalar dot products over exactly representable quantized input values; fused path includes biases and ReLU",
+  "absolute_error_tolerance": 0.0001,
+  "output_padding_and_guards": "unchanged NaN sentinels verified",
+  "threshold_sort": {
+    "entries": 64,
+    "minimum_entries": [
+      4,
+      20
+    ],
+    "threshold": 0.75,
+    "graph_workers": 4
+  },
+  "results": {
+    "buffer_contract": "pass",
+    "native_moe": "pass",
+    "threshold_sort": "pass",
+    "sanitizer_diagnostics": []
+  },
+  "regression_checks": {
+    "historical_buffer": "Compiled portable contract rejects historical capacity definition",
+    "threshold_before_restoration": "Threshold sort minimum=4 rank=16 actual=16 expected=44"
+  },
+  "scope": "Temporary checkout and separate shared library. No deployed engine or services changed. Does not establish full-model correctness or performance."
+}

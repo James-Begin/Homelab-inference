@@ -1,0 +1,38 @@
+{
+  "experiment_id": "exp50_phys_pinning_28threads_repacked_iq4xs_muge_suffix_q4kv",
+  "experiment_number": 50,
+  "protocol": "legacy-v1",
+  "model": {
+    "path": "/home/james/ik_llama.cpp/build/models/Qwen3.6-35B-A3B-UD-IQ4_XS_MoE_Q4_0_Repacked.gguf",
+    "size_bytes": 20317671712,
+    "header_sha256": "8afc72ae9df3f9687b43b80c5c2ca5304dec62dd3f2b1097f38078e13955407a"
+  },
+  "engine": {
+    "path": "/home/james/ik_llama.cpp",
+    "sha": "668c78a1dcc3d7e3d7aaae088b41a0e62644e053",
+    "diff_hash": "clean",
+    "dirty": "false"
+  },
+  "request": {
+    "endpoint": "chat",
+    "max_tokens": 16384,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "seed": 0,
+    "system_prompt": "You are an expert Python software engineer. Complete the given Python function according to the docstring specifications. Provide clean, correct, executable Python code.",
+    "user_suffix": "standard_v2",
+    "prompt_type": "stored",
+    "benchmark": "HumanEvalPlus-164"
+  },
+  "numactl": "numactl --interleave=all --physcpubind=0,2,4,6,8,10,12,14,16,18,20,22,24,26,1,3,5,7,9,11,13,15,17,19,21,23,25,27",
+  "server_flags": "-muge --override-kv qwen35moe.nextn_predict_layers=int:1 --spec-type mtp:n_max=1,p_min=0.0 --port {port} -c 16384 -t 28 -tb 28 -ctk q4_0 -ctv q4_0 --defer-experts --numa distribute -fa 1 -ser 2,0.5 --slot-prompt-similarity 0.0 --repeat-penalty 1.05",
+  "system": {
+    "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+    "processor": "x86_64",
+    "thp": "always [madvise] never",
+    "cpu_model": "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz",
+    "cores_per_socket": "14",
+    "sockets": "2",
+    "numa_nodes": "2"
+  }
+}
